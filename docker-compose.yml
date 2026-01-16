@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - dbsocket:/var/run/postgresql
+    command: ["postgres", "-c", "unix_socket_permissions=0777"]
+  app:
+    build: .
+    depends_on:
+      - db
+    volumes:
+      - dbsocket:/var/run/postgresql
+    env_file: .env
+    environment:
+      DB_BASE_URL: "host=/var/run/postgresql"
+    ports: 
+      - 80:80
+volumes:
+  pgdata:
+  dbsocket:
