@@ -8,6 +8,8 @@ RUN go build -o server .
 
 FROM alpine:latest
 
+WORKDIR ./site
 COPY --from=builder /app/server .
+COPY --from=builder /app/public .
 
 CMD ["./server"]

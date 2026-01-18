@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"os"
 	"time"
@@ -9,15 +10,19 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+//go:embed schema.sql
+var ddlSchema string
+
 var DB *sql.DB
 
 func InitDB() {
 	user := os.Getenv("DB_USER")
 	pass := os.Getenv("DB_PASSWORD")
 	name := os.Getenv("DB_NAME")
+	baseUrl := os.Getenv("DB_BASE_URL")
 
-	dbSocketPath := fmt.Sprintf("host=/var/run/postgresql user=%s password=%s dbname=%s sslmode=disable",
-		user, pass, name)
+	dbSocketPath := fmt.Sprintf("%s user=%s password=%s dbname=%s sslmode=disable",
+		baseUrl, user, pass, name)
 
 	var err error
 	DB, err = sql.Open("pgx", dbSocketPath)
@@ -35,6 +40,11 @@ func InitDB() {
 	DB.SetMaxOpenConns(10)
 	DB.SetMaxIdleConns(10)
 	DB.SetConnMaxLifetime(5 * time.Minute)
+
+	_, err = DB.Exec(ddlSchema)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to run schema migration: %v", err))
+	}
 
 	fmt.Println("Successfully connected to Postgres!")
 }

@@ -17,10 +17,8 @@ services:
     volumes:
       - dbsocket:/var/run/postgresql
     env_file: .env
-    environment:
-      DB_BASE_URL: "host=/var/run/postgresql"
-    ports: 
-      - 80:80
+    ports:
+      - ${SERVER_PORT}:80
 volumes:
   pgdata:
   dbsocket:
