@@ -3,6 +3,8 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +47,51 @@ func HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleWeather(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	latParam := query.Get("lat")
+	lonParam := query.Get("lon")
+
+	if latParam != "" && lonParam != "" {
+		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) Coordinates {
+			lat, _ := strconv.ParseFloat(row[0], 64)
+			lon, _ := strconv.ParseFloat(row[1], 64)
+			return Coordinates{Lat: lat, Lon: lon}
+		}, "lat", "lon"))
+		return
+	}
+
+	countryParam := query.Get("country")
+	cityParam := query.Get("city")
+
+	if countryParam != "" && cityParam != "" {
+		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) LocationReadableAdress {
+			state := row[1]
+			if state == "-" {
+				state = ""
+			}
+			return LocationReadableAdress{
+				CityName: strings.TrimSpace(row[0]),
+				State:    strings.TrimSpace(state),
+				Country:  strings.TrimSpace(row[2]),
+			}
+		}, "city", "state", "country"))
+		return
+	}
+
+	if ipParam := query.Get("ip"); ipParam != "" {
+		type dunno struct {
+			Ip string `json:"ip"`
+		}
+		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) dunno {
+			return dunno{
+				Ip: row[0],
+			}
+		}, "ip"))
+		return
+	}
+
+	sendErrorJson(w, "Valid params not found: [country&city(state)||ip]", http.StatusBadRequest)
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
