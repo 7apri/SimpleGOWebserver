@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type GeoResult struct {
-	LocationReadableAdress
-	Coordinates
 	LocalNames map[string]string `json:"local_names"`
+	FullAdress
 }
 
 type IpGeoResult struct {
@@ -25,6 +25,15 @@ type LocationReadableAdress struct {
 	CityName string `json:"name"`
 	State    string `json:"state,omitempty"`
 	Country  string `json:"country"`
+}
+
+func (l *LocationReadableAdress) Key() string {
+	return strings.ToLower(fmt.Sprintf("%s|%s|%s", l.CityName, l.State, l.Country))
+}
+
+type FullAdress struct {
+	LocationReadableAdress
+	Coordinates
 }
 
 type Coordinates struct {
@@ -53,9 +62,9 @@ func IpToCoordinates(ip string) (*IpGeoResult, error) {
 	return &result, nil
 }
 
-func ReverseGeolocate(lat float64, lon float64) ([]GeoResult, error) {
+func ReverseGeolocate(coords *Coordinates) ([]GeoResult, error) {
 	url := fmt.Sprintf("http://api.openweathermap.org/geo/1.0/reverse?lat=%f&lon=%f&limit=1&appid=%s",
-		lat, lon, weatherApiKey)
+		coords.Lat, coords.Lon, weatherApiKey)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -71,7 +80,7 @@ func ReverseGeolocate(lat float64, lon float64) ([]GeoResult, error) {
 	return results, nil
 }
 
-func Geolocate(adress LocationReadableAdress) ([]GeoResult, error) {
+func Geolocate(adress *LocationReadableAdress) ([]GeoResult, error) {
 	q := adress.CityName
 	if adress.State != "" {
 		q += "," + adress.State

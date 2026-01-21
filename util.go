@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -21,16 +19,13 @@ func PingGoogle() (string, error) {
 	return time.Since(start).String(), nil
 }
 
-func sendJson(w http.ResponseWriter, code int, payload any) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Printf("Failed to marshal json payload: %v", payload)
-		w.WriteHeader(500)
-	}
-
+func SendJson(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(data)
+
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		SendErrorJson(w, "Failed to encode JSON", http.StatusInternalServerError)
+	}
 }
 
 type APIError struct {
@@ -39,29 +34,28 @@ type APIError struct {
 	Message string `json:"message"`
 }
 
-func sendErrorJson(w http.ResponseWriter, message string, code int) {
-	sendJson(w, code, APIError{
+func SendErrorJson(w http.ResponseWriter, message string, code int) {
+	SendJson(w, code, APIError{
 		Error:   http.StatusText(code),
 		Code:    code,
 		Message: message,
 	})
 }
 
-func parseGenericQuery[T any](query url.Values, mapper func([]string) T, keys ...string) []T {
-	if len(keys) == 0 {
+func ParseGenericQuery[T any](mapper func([]string) T, queries ...string) []T {
+	if len(queries) == 0 {
 		return nil
 	}
 
-	allSlices := make([][]string, len(keys))
+	allSlices := make([][]string, len(queries))
 	minLen := -1
 
-	for i, key := range keys {
-		val := query.Get(key)
-		if val == "" {
+	for i, query := range queries {
+		if query == "" {
 			return nil
 		}
 
-		parts := strings.Split(val, ",")
+		parts := strings.Split(query, ",")
 		allSlices[i] = parts
 
 		if minLen == -1 || len(parts) < minLen {
@@ -71,8 +65,8 @@ func parseGenericQuery[T any](query url.Values, mapper func([]string) T, keys ..
 
 	results := make([]T, 0, minLen)
 	for i := 0; i < minLen; i++ {
-		rowRaw := make([]string, len(keys))
-		for j := range keys {
+		rowRaw := make([]string, len(queries))
+		for j := range queries {
 			rowRaw[j] = strings.TrimSpace(allSlices[j][i])
 		}
 
@@ -80,4 +74,15 @@ func parseGenericQuery[T any](query url.Values, mapper func([]string) T, keys ..
 	}
 
 	return results
+}
+
+func filterNil[T any](data []*T) []*T {
+	n := 0
+	for _, x := range data {
+		if x != nil {
+			data[n] = x
+			n++
+		}
+	}
+	return data[:n]
 }

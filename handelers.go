@@ -3,8 +3,10 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
@@ -22,8 +24,8 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleHealth(w http.ResponseWriter, r *http.Request) {
-	dbLatency, err := GetLatency()
+func (server *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	dbLatency, err := server.database.GetLatency()
 	if err != nil {
 		http.Error(w, "Database unreachable", http.StatusInternalServerError)
 		return
@@ -35,7 +37,7 @@ func HandleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJson(w, http.StatusOK, struct {
+	SendJson(w, http.StatusOK, struct {
 		Status string `json:"status"`
 		DbPing string `json:"dbPing"`
 		ExPing string `json:"exPing"`
@@ -46,26 +48,26 @@ func HandleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func HandleWeather(w http.ResponseWriter, r *http.Request) {
+func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	ctx := r.Context()
 
-	latParam := query.Get("lat")
-	lonParam := query.Get("lon")
+	var (
+		coords   []Coordinates
+		adresses []LocationReadableAdress
+		ips      []string
+	)
 
-	if latParam != "" && lonParam != "" {
-		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) Coordinates {
-			lat, _ := strconv.ParseFloat(row[0], 64)
-			lon, _ := strconv.ParseFloat(row[1], 64)
-			return Coordinates{Lat: lat, Lon: lon}
-		}, "lat", "lon"))
-		return
+	if latParam, lonParam := query.Get("lat"), query.Get("lon"); latParam != "" && lonParam != "" {
+		coords = ParseGenericQuery(func(row []string) Coordinates {
+			lt, _ := strconv.ParseFloat(row[0], 64)
+			ln, _ := strconv.ParseFloat(row[1], 64)
+			return Coordinates{Lat: lt, Lon: ln}
+		}, latParam, lonParam)
 	}
 
-	countryParam := query.Get("country")
-	cityParam := query.Get("city")
-
-	if countryParam != "" && cityParam != "" {
-		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) LocationReadableAdress {
+	if cityParam, countryParam := query.Get("city"), query.Get("country"); cityParam != "" && countryParam != "" {
+		adresses = ParseGenericQuery(func(row []string) LocationReadableAdress {
 			state := row[1]
 			if state == "-" {
 				state = ""
@@ -75,27 +77,90 @@ func HandleWeather(w http.ResponseWriter, r *http.Request) {
 				State:    strings.TrimSpace(state),
 				Country:  strings.TrimSpace(row[2]),
 			}
-		}, "city", "state", "country"))
-		return
+		}, cityParam, query.Get("state"), countryParam)
 	}
 
 	if ipParam := query.Get("ip"); ipParam != "" {
-		type dunno struct {
-			Ip string `json:"ip"`
-		}
-		sendJson(w, http.StatusOK, parseGenericQuery(query, func(row []string) dunno {
-			return dunno{
-				Ip: row[0],
-			}
-		}, "ip"))
-		return
+		ips = strings.Split(ipParam, ",")
 	}
 
-	sendErrorJson(w, "Valid params not found: [country&city(state)||ip]", http.StatusBadRequest)
+	totalExpected := len(coords) + len(adresses) + len(ips)
+	finalData := make([]*GeoResult, 0, totalExpected)
+
+	var wg sync.WaitGroup
+
+	var currentIndex uint = 0
+
+	for _, coordinate := range coords {
+		wg.Add(1)
+		go func(c Coordinates, index uint) {
+			defer wg.Done()
+			locationData, err :=
+				server.locationService.ResolveLocation(
+					ctx,
+					&LocationResolveIn{
+						FullAdress: FullAdress{
+							Coordinates: c,
+						},
+					})
+			if err != nil {
+				return
+			}
+			finalData[index] = locationData
+		}(coordinate, currentIndex)
+		currentIndex++
+	}
+
+	for _, adress := range adresses {
+		wg.Add(1)
+		go func(a LocationReadableAdress, index uint) {
+			defer wg.Done()
+			locationData, err :=
+				server.locationService.ResolveLocation(
+					ctx,
+					&LocationResolveIn{
+						FullAdress: FullAdress{
+							LocationReadableAdress: a,
+						},
+					})
+			if err != nil {
+				return
+			}
+			finalData[index] = locationData
+		}(adress, currentIndex)
+		currentIndex++
+	}
+
+	for _, ip := range ips {
+		wg.Add(1)
+		go func(ip string, index uint) {
+			defer wg.Done()
+			locationData, err :=
+				server.locationService.ResolveLocation(
+					ctx,
+					&LocationResolveIn{
+						IP: ip,
+					},
+				)
+			if err != nil {
+				return
+			}
+			finalData[index] = locationData
+		}(ip, currentIndex)
+		currentIndex++
+	}
+
+	wg.Wait()
+	SendJson(w, http.StatusOK, slices.DeleteFunc(finalData, func(r *GeoResult) bool { return r == nil }))
 }
 
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-
+func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
+	SendErrorJson(w, "Not implemented yet", http.StatusNotImplemented)
 }
-func HandleRegister(w http.ResponseWriter, r *http.Request) {
+
+func (server *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	SendErrorJson(w, "Not implemented yet", http.StatusNotImplemented)
+}
+func (server *Server) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	SendErrorJson(w, "Not implemented yet", http.StatusNotImplemented)
 }
