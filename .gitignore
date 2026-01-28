@@ -42,6 +42,5 @@ public/templates/*
 !public/templates/.gitkeep
 
 #I dunno
-dummyData.js
-
 openWeatherExample.json
+*.nothis

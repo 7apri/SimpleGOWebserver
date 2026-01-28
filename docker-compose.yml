@@ -12,6 +12,7 @@ services:
     command: ["postgres", "-c", "unix_socket_permissions=0777"]
   app:
     build: .
+    network_mode: "host"
     depends_on:
       - db
     volumes:
