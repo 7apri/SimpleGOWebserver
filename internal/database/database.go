@@ -5,13 +5,16 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/7apri/SimpleGOWebserver/internal/weather"
 	util "github.com/7apri/SimpleGOWebserver/pkg"
 	"github.com/bytedance/sonic"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -63,19 +66,33 @@ func (db *Database) GetLatency() (string, error) {
 	return time.Since(start).String(), nil
 }
 
-func (db *Database) SaveLocation(loc *location.GeoResult) error {
+func (db *Database) SaveLocation(loc *location.GeoResult) (locationId int64, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	query := `
         INSERT INTO locations (city_name, state, country, lat, lon, local_names)
         VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (city_name, state, country) DO NOTHING`
+        ON CONFLICT (city_name, state, country) 
+        DO UPDATE SET city_name = EXCLUDED.city_name
+        RETURNING id`
 
 	var namesJson []byte
 	if len(loc.LocalNames) > 0 {
 		namesJson, _ = sonic.Marshal(loc.LocalNames)
 	}
-
-	_, err := db.Pool.Exec(context.TODO(), query, util.CleanQuery(loc.CityName), util.CleanQuery(loc.State), loc.Country, loc.Lat, loc.Lon, namesJson)
-	return err
+	err = db.Pool.QueryRow(ctx, query,
+		util.CleanQuery(loc.CityName),
+		util.CleanQuery(loc.State),
+		loc.Country,
+		loc.Lat,
+		loc.Lon,
+		namesJson,
+	).Scan(&locationId)
+	if err != nil {
+		return -1, err
+	}
+	return locationId, nil
 }
 
 func (db *Database) FindLocationByCoords(ctx context.Context, coords *location.Coordinates) (*location.GeoResult, error) {
@@ -85,7 +102,7 @@ func (db *Database) FindLocationByCoords(ctx context.Context, coords *location.C
 
 	const threshold float64 = 0.005
 	query := `
-        SELECT city_name, state, country, lat, lon, local_names
+        SELECT id, city_name, state, country, lat, lon, local_names
         FROM locations
         WHERE lat BETWEEN ($1::float - $3::float) AND ($1::float + $3::float)
           AND lon BETWEEN ($2::float - $3::float) AND ($2::float + $3::float)
@@ -93,8 +110,10 @@ func (db *Database) FindLocationByCoords(ctx context.Context, coords *location.C
 
 	var loc location.GeoResult
 	var namesRaw []byte
+	var locId int64
 
 	err := db.Pool.QueryRow(ctx, query, coords.Lat, coords.Lon, threshold).Scan(
+		&locId,
 		&loc.CityName,
 		&loc.State,
 		&loc.Country,
@@ -105,6 +124,7 @@ func (db *Database) FindLocationByCoords(ctx context.Context, coords *location.C
 	if err != nil {
 		return nil, err
 	}
+	loc.Id.Store(locId)
 
 	if len(namesRaw) > 0 {
 		sonic.Unmarshal(namesRaw, &loc.LocalNames)
@@ -125,31 +145,81 @@ func (db *Database) FindLocationByAddress(ctx context.Context, locIN *location.L
 	var b strings.Builder
 	b.Grow(195)
 	b.WriteString(`
-	SELECT city_name, state, country, lat, lon, local_names
+	SELECT  id, city_name, state, country, lat, lon, local_names
     FROM locations
     WHERE to_tsvector('simple', city_name) @@ to_tsquery('simple', $1 || ':*')
       AND country = $2 
 	`)
 	if locIN.State != "" {
-		b.WriteString("AND state = $3")
+		b.WriteString("AND state = $3 ")
 		args = append(args, locIN.State)
 	}
 	b.WriteString("LIMIT 1")
 
 	var loc location.GeoResult
 	var namesRaw []byte
+	var locId int64
 
 	err := db.Pool.QueryRow(ctx, b.String(), args...).Scan(
-		&loc.CityName, &loc.State, &loc.Country, &loc.Lat, &loc.Lon, &namesRaw,
+		&locId,
+		&loc.CityName,
+		&loc.State,
+		&loc.Country,
+		&loc.Lat,
+		&loc.Lon,
+		&namesRaw,
 	)
 
 	if err != nil {
 		return nil, err
 	}
+	loc.Id.Store(locId)
 
 	if len(namesRaw) > 0 {
 		sonic.Unmarshal(namesRaw, &loc.LocalNames)
 	}
 
 	return &loc, nil
+}
+
+func (db *Database) SaveWeatherCache(weather *weather.WeatherReportId) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	query := `
+        INSERT INTO weather_current_cache (location_id, full_data, updated_at)
+        VALUES ($1, $2, NOW())
+		ON CONFLICT (location_id) 
+		DO UPDATE SET 
+			full_data = EXCLUDED.full_data,
+			updated_at = NOW();`
+
+	_, err := db.Pool.Exec(ctx, query, weather.LocationId, weather.Report)
+	return err
+}
+
+func (db *Database) FindWeatherCacheByLocId(ctx context.Context, locID int64, ttl int16) (*weather.WeatherReport, []byte, error) {
+	slog.Info("db hit", "id", locID)
+	query := `
+    SELECT full_data 
+    FROM weather_current_cache 
+    WHERE location_id = $1 
+      AND updated_at > NOW() - ($2 * interval '1 minute');`
+
+	report := &weather.WeatherReport{}
+	var dataRaw []byte
+	err := db.Pool.QueryRow(ctx, query, locID, ttl).Scan(&dataRaw)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+
+	if err := sonic.Unmarshal(dataRaw, report); err != nil {
+		return nil, nil, err
+	}
+
+	return report, dataRaw, err
 }

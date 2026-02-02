@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS locations (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     city_name TEXT NOT NULL,
     city_search_vector tsvector GENERATED ALWAYS AS (to_tsvector('simple', city_name)) STORED,
     state TEXT,
@@ -19,9 +19,9 @@ CREATE INDEX IF NOT EXISTS idx_locations_name_pattern ON locations (city_name va
 CREATE INDEX IF NOT EXISTS idx_locations_fts_vector ON locations USING GIN (city_search_vector);
 
 CREATE TABLE IF NOT EXISTS weather_current_cache (
-    location_id INTEGER PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
-    full_data JSONB,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    location_id BIGINT PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
+    full_data JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS weather_history (

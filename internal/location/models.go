@@ -3,11 +3,42 @@ package location
 import (
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 type GeoResult struct {
+	Id         atomic.Int64      `json:"-"`
 	LocalNames map[string]string `json:"local_names"`
 	FullAddress
+}
+
+func (r *GeoResult) GetId() int64 {
+	if id := r.Id.Load(); id != 0 {
+		return id
+	}
+
+	for range 5 {
+		if id := r.Id.Load(); id != 0 {
+			return id
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return r.Id.Load()
+}
+
+func (r *GeoResult) MarshalJSON() ([]byte, error) {
+	type Alias GeoResult
+	return sonic.Marshal(&struct {
+		DbId int64 `json:"db_id,omitempty"`
+		*Alias
+	}{
+		DbId:  r.Id.Load(),
+		Alias: (*Alias)(r),
+	})
 }
 
 type IpGeoResult struct {
@@ -43,7 +74,6 @@ type LocationReadableAddress struct {
 func (l *LocationReadableAddress) Key() string {
 	var b strings.Builder
 	b.Grow(len(l.CityName) + len(l.State) + len(l.Country) + 4)
-	b.WriteString("a:")
 
 	b.WriteString(l.CityName)
 	b.WriteByte(',')
@@ -58,7 +88,6 @@ func (l *LocationReadableAddress) Key() string {
 	return b.String()
 }
 func (l *LocationReadableAddress) WriteKey(b *strings.Builder) {
-	b.WriteString("a:")
 	b.WriteString(l.CityName)
 	b.WriteByte(',')
 	if l.State != "" {
@@ -79,8 +108,6 @@ func (c *Coordinates) Key() string {
 
 	var buf [32]byte
 
-	b.WriteString("c:")
-
 	res := strconv.AppendFloat(buf[:0], c.Lat, 'f', 2, 64)
 	b.Write(res)
 
@@ -93,8 +120,6 @@ func (c *Coordinates) Key() string {
 }
 func (c *Coordinates) WriteKey(b *strings.Builder) {
 	var buf [32]byte
-
-	b.WriteString("c:")
 
 	res := strconv.AppendFloat(buf[:0], c.Lat, 'f', 2, 64)
 	b.Write(res)

@@ -41,6 +41,4 @@ public/static/*
 public/templates/*
 !public/templates/.gitkeep
 
-#I dunno
-openWeatherExample.json
-*.nothis
+*.nothis*

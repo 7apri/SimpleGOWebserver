@@ -1,0 +1,1016 @@
+runtime: goroutine stack exceeds 1000000000-byte limit
+app-1  | runtime: sp=0xc060f00370 stack=[0xc060f00000, 0xc080f00000]
+app-1  | fatal error: stack overflow
+app-1  | 
+app-1  | runtime stack:
+app-1  | runtime.throw({0xcce254?, 0xfffffffffffffb7f?})
+app-1  | 	/usr/local/go/src/runtime/panic.go:1094 +0x48 fp=0xc000b0fe98 sp=0xc000b0fe68 pc=0x47cbc8
+app-1  | runtime.newstack()
+app-1  | 	/usr/local/go/src/runtime/stack.go:1159 +0x5bd fp=0xc000b0ffc8 sp=0xc000b0fe98 pc=0x4609dd
+app-1  | runtime.morestack()
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:620 +0x7d fp=0xc000b0ffd0 sp=0xc000b0ffc8 pc=0x48281d
+app-1  | 
+app-1  | goroutine 656 gp=0xc000418a80 m=10 mp=0xc000101808 [running]:
+app-1  | net/http.(*conn).hijacked.deferwrap1()
+app-1  | 	/usr/local/go/src/net/http/server.go:312 +0x39 fp=0xc060f00380 sp=0xc060f00378 pc=0x701ed9
+app-1  | net/http.(*conn).hijacked(0x7fde5c8d25a0?)
+app-1  | 	/usr/local/go/src/net/http/server.go:313 +0x91 fp=0xc060f003c0 sp=0xc060f00380 pc=0x701e51
+app-1  | net/http.(*response).write(0xc0001a2000, 0x4e, {0xc03f342000, 0x4e, 0x1000}, {0x0, 0x0})
+app-1  | 	/usr/local/go/src/net/http/server.go:1666 +0x5a fp=0xc060f004c0 sp=0xc060f003c0 pc=0x707ffa
+app-1  | net/http.(*response).Write(0xc001280018?, {0xc03f342000?, 0xc01095a0c0?, 0x0?})
+app-1  | 	/usr/local/go/src/net/http/server.go:1657 +0x2a fp=0xc060f00508 sp=0xc060f004c0 pc=0x707f0a
+app-1  | github.com/bytedance/sonic/internal/encoder.(*StreamEncoder).Encode(0xc010957d40, {0xc42fe0, 0xc01095a0c0})
+app-1  | 	/app/vendor/github.com/bytedance/sonic/internal/encoder/stream.go:75 +0x212 fp=0xc060f005a0 sp=0xc060f00508 pc=0x853772
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:45 +0x197 fp=0xc060f00628 sp=0xc060f005a0 pc=0x8daf17
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f006b0 sp=0xc060f00628 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00738 sp=0xc060f006b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f007c0 sp=0xc060f00738 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00848 sp=0xc060f007c0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f008d0 sp=0xc060f00848 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00958 sp=0xc060f008d0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f009e0 sp=0xc060f00958 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00a68 sp=0xc060f009e0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00af0 sp=0xc060f00a68 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00b78 sp=0xc060f00af0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00c00 sp=0xc060f00b78 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00c88 sp=0xc060f00c00 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00d10 sp=0xc060f00c88 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00d98 sp=0xc060f00d10 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00e20 sp=0xc060f00d98 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00ea8 sp=0xc060f00e20 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00f30 sp=0xc060f00ea8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f00fb8 sp=0xc060f00f30 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01040 sp=0xc060f00fb8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f010c8 sp=0xc060f01040 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01150 sp=0xc060f010c8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f011d8 sp=0xc060f01150 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01260 sp=0xc060f011d8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f012e8 sp=0xc060f01260 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01370 sp=0xc060f012e8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f013f8 sp=0xc060f01370 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01480 sp=0xc060f013f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01508 sp=0xc060f01480 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01590 sp=0xc060f01508 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01618 sp=0xc060f01590 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f016a0 sp=0xc060f01618 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01728 sp=0xc060f016a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f017b0 sp=0xc060f01728 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01838 sp=0xc060f017b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f018c0 sp=0xc060f01838 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01948 sp=0xc060f018c0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f019d0 sp=0xc060f01948 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01a58 sp=0xc060f019d0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01ae0 sp=0xc060f01a58 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01b68 sp=0xc060f01ae0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01bf0 sp=0xc060f01b68 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01c78 sp=0xc060f01bf0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01d00 sp=0xc060f01c78 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc060f01d88 sp=0xc060f01d00 pc=0x8daf45
+app-1  | ...3947469 frames elided...
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe2f8 sp=0xc080efe270 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe380 sp=0xc080efe2f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe408 sp=0xc080efe380 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe490 sp=0xc080efe408 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe518 sp=0xc080efe490 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe5a0 sp=0xc080efe518 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe628 sp=0xc080efe5a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe6b0 sp=0xc080efe628 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe738 sp=0xc080efe6b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe7c0 sp=0xc080efe738 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe848 sp=0xc080efe7c0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe8d0 sp=0xc080efe848 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe958 sp=0xc080efe8d0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efe9e0 sp=0xc080efe958 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efea68 sp=0xc080efe9e0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efeaf0 sp=0xc080efea68 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efeb78 sp=0xc080efeaf0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efec00 sp=0xc080efeb78 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efec88 sp=0xc080efec00 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efed10 sp=0xc080efec88 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efed98 sp=0xc080efed10 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efee20 sp=0xc080efed98 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efeea8 sp=0xc080efee20 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efef30 sp=0xc080efeea8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080efefb8 sp=0xc080efef30 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff040 sp=0xc080efefb8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff0c8 sp=0xc080eff040 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff150 sp=0xc080eff0c8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff1d8 sp=0xc080eff150 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff260 sp=0xc080eff1d8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff2e8 sp=0xc080eff260 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff370 sp=0xc080eff2e8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff3f8 sp=0xc080eff370 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff480 sp=0xc080eff3f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff508 sp=0xc080eff480 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff590 sp=0xc080eff508 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff618 sp=0xc080eff590 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff6a0 sp=0xc080eff618 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff728 sp=0xc080eff6a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff7b0 sp=0xc080eff728 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a2000}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc080eff838 sp=0xc080eff7b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendJson({0xde9198, 0xc0001a2000}, 0x64?, {0xb88d40, 0xc000140048})
+app-1  | 	/app/pkg/util.go:32 +0x136 fp=0xc080eff890 sp=0xc080eff838 pc=0x8dacf6
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather(0xc0000a2600, {0xde9198, 0xc0001a2000}, 0xc000424140)
+app-1  | 	/app/internal/server/handelers.go:258 +0x725 fp=0xc080effab8 sp=0xc080eff890 pc=0xad7bc5
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather-fm({0xde9198?, 0xc0001a2000?}, 0xc000881b30?)
+app-1  | 	<autogenerated>:1 +0x36 fp=0xc080effae8 sp=0xc080effab8 pc=0xad9e36
+app-1  | net/http.HandlerFunc.ServeHTTP(0x145a2c0?, {0xde9198?, 0xc0001a2000?}, 0x703456?)
+app-1  | 	/usr/local/go/src/net/http/server.go:2322 +0x29 fp=0xc080effb10 sp=0xc080effae8 pc=0x70b009
+app-1  | net/http.(*ServeMux).ServeHTTP(0x479a99?, {0xde9198, 0xc0001a2000}, 0xc000424140)
+app-1  | 	/usr/local/go/src/net/http/server.go:2861 +0x1c7 fp=0xc080effb60 sp=0xc080effb10 pc=0x70cee7
+app-1  | net/http.serverHandler.ServeHTTP({0xc0000ae8c0?}, {0xde9198?, 0xc0001a2000?}, 0x6?)
+app-1  | 	/usr/local/go/src/net/http/server.go:3340 +0x8e fp=0xc080effb90 sp=0xc080effb60 pc=0x72a8ae
+app-1  | net/http.(*conn).serve(0xc00014c120, {0xdea9f8, 0xc0000b3b30})
+app-1  | 	/usr/local/go/src/net/http/server.go:2109 +0x665 fp=0xc080efffb8 sp=0xc080effb90 pc=0x709105
+app-1  | net/http.(*Server).Serve.gowrap3()
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x28 fp=0xc080efffe0 sp=0xc080efffb8 pc=0x70eea8
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc080efffe8 sp=0xc080efffe0 pc=0x484541
+app-1  | created by net/http.(*Server).Serve in goroutine 1
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x485
+app-1  | 
+app-1  | goroutine 1 gp=0xc000002380 m=nil [IO wait]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000181a30 sp=0xc000181a10 pc=0x47ccee
+app-1  | runtime.netpollblock(0xc000181a80?, 0x412ec6?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/netpoll.go:575 +0xf7 fp=0xc000181a68 sp=0xc000181a30 pc=0x43ff57
+app-1  | internal/poll.runtime_pollWait(0x7fde5ce91c00, 0x72)
+app-1  | 	/usr/local/go/src/runtime/netpoll.go:351 +0x85 fp=0xc000181a88 sp=0xc000181a68 pc=0x47bec5
+app-1  | internal/poll.(*pollDesc).wait(0xc000046300?, 0x433398?, 0x0)
+app-1  | 	/usr/local/go/src/internal/poll/fd_poll_runtime.go:84 +0x27 fp=0xc000181ab0 sp=0xc000181a88 pc=0x4f5127
+app-1  | internal/poll.(*pollDesc).waitRead(...)
+app-1  | 	/usr/local/go/src/internal/poll/fd_poll_runtime.go:89
+app-1  | internal/poll.(*FD).Accept(0xc000046300)
+app-1  | 	/usr/local/go/src/internal/poll/fd_unix.go:613 +0x28c fp=0xc000181b58 sp=0xc000181ab0 pc=0x4fa54c
+app-1  | net.(*netFD).accept(0xc000046300)
+app-1  | 	/usr/local/go/src/net/fd_unix.go:161 +0x29 fp=0xc000181c10 sp=0xc000181b58 pc=0x5cd149
+app-1  | net.(*TCPListener).accept(0xc000124400)
+app-1  | 	/usr/local/go/src/net/tcpsock_posix.go:159 +0x1b fp=0xc000181c60 sp=0xc000181c10 pc=0x5e0e9b
+app-1  | net.(*TCPListener).Accept(0xc000124400)
+app-1  | 	/usr/local/go/src/net/tcpsock.go:380 +0x30 fp=0xc000181c90 sp=0xc000181c60 pc=0x5e0070
+app-1  | net/http.(*onceCloseListener).Accept(0xc00014c360?)
+app-1  | 	<autogenerated>:1 +0x24 fp=0xc000181ca8 sp=0xc000181c90 pc=0x7370c4
+app-1  | net/http.(*Server).Serve(0xc00034e100, {0xde93c0, 0xc000124400})
+app-1  | 	/usr/local/go/src/net/http/server.go:3463 +0x30c fp=0xc000181dd8 sp=0xc000181ca8 pc=0x70eaac
+app-1  | net/http.(*Server).ListenAndServe(0xc00034e100)
+app-1  | 	/usr/local/go/src/net/http/server.go:3389 +0x72 fp=0xc000181e08 sp=0xc000181dd8 pc=0x70e692
+app-1  | net/http.ListenAndServe(...)
+app-1  | 	/usr/local/go/src/net/http/server.go:3704
+app-1  | main.main()
+app-1  | 	/app/cmd/server/main.go:76 +0x7a5 fp=0xc000181f50 sp=0xc000181e08 pc=0xad9905
+app-1  | runtime.main()
+app-1  | 	/usr/local/go/src/runtime/proc.go:285 +0x29d fp=0xc000181fe0 sp=0xc000181f50 pc=0x4475bd
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000181fe8 sp=0xc000181fe0 pc=0x484541
+app-1  | 
+app-1  | goroutine 2 gp=0xc0000028c0 m=nil [force gc (idle)]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000084fa8 sp=0xc000084f88 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.forcegchelper()
+app-1  | 	/usr/local/go/src/runtime/proc.go:373 +0xb3 fp=0xc000084fe0 sp=0xc000084fa8 pc=0x4478f3
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000084fe8 sp=0xc000084fe0 pc=0x484541
+app-1  | created by runtime.init.7 in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/proc.go:361 +0x1a
+app-1  | 
+app-1  | goroutine 3 gp=0xc000002e00 m=nil [GC sweep wait]:
+app-1  | runtime.gopark(0x1?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000085780 sp=0xc000085760 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.bgsweep(0xc0000a0000)
+app-1  | 	/usr/local/go/src/runtime/mgcsweep.go:323 +0xdf fp=0xc0000857c8 sp=0xc000085780 pc=0x43187f
+app-1  | runtime.gcenable.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:212 +0x25 fp=0xc0000857e0 sp=0xc0000857c8 pc=0x425885
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000857e8 sp=0xc0000857e0 pc=0x484541
+app-1  | created by runtime.gcenable in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:212 +0x66
+app-1  | 
+app-1  | goroutine 4 gp=0xc000002fc0 m=nil [GC scavenge wait]:
+app-1  | runtime.gopark(0x1051d5?, 0xeef0f?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000085f78 sp=0xc000085f58 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.(*scavengerState).park(0x145a0e0)
+app-1  | 	/usr/local/go/src/runtime/mgcscavenge.go:425 +0x49 fp=0xc000085fa8 sp=0xc000085f78 pc=0x42f309
+app-1  | runtime.bgscavenge(0xc0000a0000)
+app-1  | 	/usr/local/go/src/runtime/mgcscavenge.go:658 +0x59 fp=0xc000085fc8 sp=0xc000085fa8 pc=0x42f8b9
+app-1  | runtime.gcenable.gowrap2()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:213 +0x25 fp=0xc000085fe0 sp=0xc000085fc8 pc=0x425825
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000085fe8 sp=0xc000085fe0 pc=0x484541
+app-1  | created by runtime.gcenable in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:213 +0xa5
+app-1  | 
+app-1  | goroutine 5 gp=0xc000003500 m=nil [GOMAXPROCS updater (idle)]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000086788 sp=0xc000086768 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.updateMaxProcsGoroutine()
+app-1  | 	/usr/local/go/src/runtime/proc.go:6720 +0xe7 fp=0xc0000867e0 sp=0xc000086788 pc=0x455747
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000867e8 sp=0xc0000867e0 pc=0x484541
+app-1  | created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/proc.go:6708 +0x37
+app-1  | 
+app-1  | goroutine 6 gp=0xc0000036c0 m=nil [finalizer wait]:
+app-1  | runtime.gopark(0x456715?, 0x42e7fc?, 0x0?, 0xd3?, 0x490013?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000084620 sp=0xc000084600 pc=0x47ccee
+app-1  | runtime.runFinalizers()
+app-1  | 	/usr/local/go/src/runtime/mfinal.go:210 +0x107 fp=0xc0000847e0 sp=0xc000084620 pc=0x424787
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000847e8 sp=0xc0000847e0 pc=0x484541
+app-1  | created by runtime.createfing in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mfinal.go:172 +0x3d
+app-1  | 
+app-1  | goroutine 7 gp=0xc0002e0700 m=nil [cleanup wait]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000086f68 sp=0xc000086f48 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.(*cleanupQueue).dequeue(0x145a720)
+app-1  | 	/usr/local/go/src/runtime/mcleanup.go:439 +0xc5 fp=0xc000086fa0 sp=0xc000086f68 pc=0x4219a5
+app-1  | runtime.runCleanups()
+app-1  | 	/usr/local/go/src/runtime/mcleanup.go:635 +0x45 fp=0xc000086fe0 sp=0xc000086fa0 pc=0x422065
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000086fe8 sp=0xc000086fe0 pc=0x484541
+app-1  | created by runtime.(*cleanupQueue).createGs in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mcleanup.go:589 +0xa5
+app-1  | 
+app-1  | goroutine 8 gp=0xc0002e08c0 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000087738 sp=0xc000087718 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0000877c8 sp=0xc000087738 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0000877e0 sp=0xc0000877c8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000877e8 sp=0xc0000877e0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 9 gp=0xc0002e0a80 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b410a?, 0x3?, 0xcf?, 0xa2?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000087f38 sp=0xc000087f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000087fc8 sp=0xc000087f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000087fe0 sp=0xc000087fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000087fe8 sp=0xc000087fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 10 gp=0xc0002e0c40 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b88b8?, 0x1?, 0x4?, 0x20?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00013af38 sp=0xc00013af18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00013afc8 sp=0xc00013af38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00013afe0 sp=0xc00013afc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00013afe8 sp=0xc00013afe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 11 gp=0xc0002e0e00 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b3ae8?, 0x1?, 0xc9?, 0xb1?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000080f38 sp=0xc000080f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000080fc8 sp=0xc000080f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000080fe0 sp=0xc000080fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000080fe8 sp=0xc000080fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 12 gp=0xc0002e0fc0 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b7a80?, 0x3?, 0xd4?, 0x2b?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00140df38 sp=0xc00140df18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00140dfc8 sp=0xc00140df38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00140dfe0 sp=0xc00140dfc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00140dfe8 sp=0xc00140dfe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 13 gp=0xc0002e1180 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b3b1a?, 0x1?, 0xd6?, 0x5c?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00145e738 sp=0xc00145e718 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00145e7c8 sp=0xc00145e738 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00145e7e0 sp=0xc00145e7c8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00145e7e8 sp=0xc00145e7e0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 14 gp=0xc0002e1340 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b4272?, 0x3?, 0x74?, 0xa4?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b44f38 sp=0xc000b44f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b44fc8 sp=0xc000b44f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b44fe0 sp=0xc000b44fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b44fe8 sp=0xc000b44fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 15 gp=0xc0002e1500 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa03dccee0?, 0x3?, 0x21?, 0xd8?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b45f38 sp=0xc000b45f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b45fc8 sp=0xc000b45f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b45fe0 sp=0xc000b45fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b45fe8 sp=0xc000b45fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 16 gp=0xc0002e16c0 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b9718?, 0x3?, 0xd6?, 0x94?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b46f38 sp=0xc000b46f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b46fc8 sp=0xc000b46f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b46fe0 sp=0xc000b46fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b46fe8 sp=0xc000b46fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 17 gp=0xc0002e1880 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b8048?, 0x1?, 0x6c?, 0x50?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b48f38 sp=0xc000b48f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b48fc8 sp=0xc000b48f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b48fe0 sp=0xc000b48fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b48fe8 sp=0xc000b48fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 18 gp=0xc0002e1a40 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b5492?, 0x3?, 0xae?, 0x10?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b47f38 sp=0xc000b47f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b47fc8 sp=0xc000b47f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b47fe0 sp=0xc000b47fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b47fe8 sp=0xc000b47fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 19 gp=0xc0002e1c00 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b975e?, 0x3?, 0x98?, 0xd?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b43f38 sp=0xc000b43f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b43fc8 sp=0xc000b43f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b43fe0 sp=0xc000b43fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b43fe8 sp=0xc000b43fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 20 gp=0xc0002e1dc0 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b55dc?, 0x3?, 0x9e?, 0x25?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000b42f38 sp=0xc000b42f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000b42fc8 sp=0xc000b42f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000b42fe0 sp=0xc000b42fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000b42fe8 sp=0xc000b42fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 21 gp=0xc000418000 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15aa3d7b96e6?, 0x1?, 0xd5?, 0x8c?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0013fa738 sp=0xc0013fa718 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0013fa7c8 sp=0xc0013fa738 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0013fa7e0 sp=0xc0013fa7c8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0013fa7e8 sp=0xc0013fa7e0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 22 gp=0xc0004181c0 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x15a9f7e82810?, 0x3?, 0x96?, 0x87?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000816f38 sp=0xc000816f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000816fc8 sp=0xc000816f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000816fe0 sp=0xc000816fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000816fe8 sp=0xc000816fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 23 gp=0xc000418380 m=nil [GC worker (idle)]:
+app-1  | runtime.gopark(0x148d300?, 0x1?, 0xf?, 0x96?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0000b7f38 sp=0xc0000b7f18 pc=0x47ccee
+app-1  | runtime.gcBgMarkWorker(0xc0000b0930)
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0000b7fc8 sp=0xc0000b7f38 pc=0x427f6b
+app-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0000b7fe0 sp=0xc0000b7fc8 pc=0x427e45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000b7fe8 sp=0xc0000b7fe0 pc=0x484541
+app-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+app-1  | 
+app-1  | goroutine 24 gp=0xc000102380 m=nil [chan receive]:
+app-1  | runtime.gopark(0x44edb6?, 0xc00013bf00?, 0x38?, 0x69?, 0xc000053cb8?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00013beb8 sp=0xc00013be98 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc0000b00e0, 0x0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc00013bf30 sp=0xc00013beb8 pc=0x414f73
+app-1  | runtime.chanrecv1(0xc0003c8000?, 0x15aa487d7960?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:509 +0x12 fp=0xc00013bf58 sp=0xc00013bf30 pc=0x414ad2
+app-1  | runtime.(*wakeableSleep).sleep(0xc0002a6000, 0x5f5e100)
+app-1  | 	/usr/local/go/src/runtime/trace.go:1056 +0x96 fp=0xc00013bfb0 sp=0xc00013bf58 pc=0x469256
+app-1  | runtime.traceStartReadCPU.func1()
+app-1  | 	/usr/local/go/src/runtime/tracecpu.go:56 +0x45 fp=0xc00013bfe0 sp=0xc00013bfb0 pc=0x46ea25
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00013bfe8 sp=0xc00013bfe0 pc=0x484541
+app-1  | created by runtime.traceStartReadCPU in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/tracecpu.go:44 +0x147
+app-1  | 
+app-1  | goroutine 25 gp=0xc000102540 m=nil [chan receive]:
+app-1  | runtime.gopark(0xc000102540?, 0xc000138f08?, 0x38?, 0x69?, 0xc00005d6b8?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000138ec0 sp=0xc000138ea0 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc0000b0230, 0x0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc000138f38 sp=0xc000138ec0 pc=0x414f73
+app-1  | runtime.chanrecv1(0xc0003c8060?, 0x15aa483e36bc?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:509 +0x12 fp=0xc000138f60 sp=0xc000138f38 pc=0x414ad2
+app-1  | runtime.(*wakeableSleep).sleep(0xc0002a6018, 0x3b9aca00)
+app-1  | 	/usr/local/go/src/runtime/trace.go:1056 +0x96 fp=0xc000138fb8 sp=0xc000138f60 pc=0x469256
+app-1  | runtime.(*traceAdvancerState).start.func1()
+app-1  | 	/usr/local/go/src/runtime/trace.go:993 +0x28 fp=0xc000138fe0 sp=0xc000138fb8 pc=0x469128
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000138fe8 sp=0xc000138fe0 pc=0x484541
+app-1  | created by runtime.(*traceAdvancerState).start in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/trace.go:990 +0x15f
+app-1  | 
+app-1  | goroutine 26 gp=0xc000102700 m=nil [trace reader (blocked)]:
+app-1  | runtime.gopark(0xc000412f30?, 0xc0003c8a80?, 0x20?, 0xc0?, 0xffce?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000412ef0 sp=0xc000412ed0 pc=0x47ccee
+app-1  | runtime/trace.runtime_readTrace()
+app-1  | 	/usr/local/go/src/runtime/trace.go:781 +0x45 fp=0xc000412f58 sp=0xc000412ef0 pc=0x4814e5
+app-1  | runtime/trace.(*traceMultiplexer).startLocked.func1()
+app-1  | 	/usr/local/go/src/runtime/trace/subscribe.go:167 +0xb4 fp=0xc000412fe0 sp=0xc000412f58 pc=0x73a8f4
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000412fe8 sp=0xc000412fe0 pc=0x484541
+app-1  | created by runtime/trace.(*traceMultiplexer).startLocked in goroutine 1
+app-1  | 	/usr/local/go/src/runtime/trace/subscribe.go:157 +0x132
+app-1  | 
+app-1  | goroutine 27 gp=0xc0001028c0 m=nil [select]:
+app-1  | runtime.gopark(0xc0000b9f50?, 0x3?, 0x0?, 0xbe?, 0xc0000b9f42?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0000b9dc8 sp=0xc0000b9da8 pc=0x47ccee
+app-1  | runtime.selectgo(0xc0000b9f50, 0xc0000b9f3c, 0xa87de3?, 0x0, 0x5?, 0x1)
+app-1  | 	/usr/local/go/src/runtime/select.go:351 +0x8b7 fp=0xc0000b9f08 sp=0xc0000b9dc8 pc=0x45a237
+app-1  | github.com/jackc/pgx/v5/pgxpool.(*Pool).backgroundHealthCheck(0xc000426000)
+app-1  | 	/app/vendor/github.com/jackc/pgx/v5/pgxpool/pool.go:495 +0xc7 fp=0xc0000b9fa8 sp=0xc0000b9f08 pc=0xa87847
+app-1  | github.com/jackc/pgx/v5/pgxpool.NewWithConfig.func5()
+app-1  | 	/app/vendor/github.com/jackc/pgx/v5/pgxpool/pool.go:338 +0x3d fp=0xc0000b9fe0 sp=0xc0000b9fa8 pc=0xa863dd
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000b9fe8 sp=0xc0000b9fe0 pc=0x484541
+app-1  | created by github.com/jackc/pgx/v5/pgxpool.NewWithConfig in goroutine 1
+app-1  | 	/app/vendor/github.com/jackc/pgx/v5/pgxpool/pool.go:335 +0x43e
+app-1  | 
+app-1  | goroutine 83 gp=0xc000102a80 m=nil [chan receive]:
+app-1  | runtime.gopark(0xe01060?, 0xb9a480?, 0xa0?, 0x8b?, 0xc5ff60?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000811ed8 sp=0xc000811eb8 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc00011a3f0, 0xc000811fa0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc000811f50 sp=0xc000811ed8 pc=0x414f73
+app-1  | runtime.chanrecv2(0xc000124380?, 0xdf1da0?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc000811f78 sp=0xc000811f50 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.(*TieredCache[...]).promotionWorker(...)
+app-1  | 	/app/internal/cache/cache.go:55
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...].gowrap2()
+app-1  | 	/app/internal/cache/cache.go:41 +0x86 fp=0xc000811fe0 sp=0xc000811f78 pc=0xad35c6
+app-1  | runtime.goexit({})
+
+app-1 exited with code 2
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000811fe8 sp=0xc000811fe0 pc=0x484541
+
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...] in goroutine 1
+app-1  | 	/app/internal/cache/cache.go:41 +0x1b1
+app-1  | 
+app-1  | goroutine 32 gp=0xc000582700 m=nil [chan receive]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00011d6d8 sp=0xc00011d6b8 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc00011a310, 0xc00011d7a0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc00011d750 sp=0xc00011d6d8 pc=0x414f73
+app-1  | runtime.chanrecv2(0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc00011d778 sp=0xc00011d750 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.(*TieredCache[...]).promotionWorker(...)
+app-1  | 	/app/internal/cache/cache.go:55
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...].gowrap2()
+app-1  | 	/app/internal/cache/cache.go:41 +0x86 fp=0xc00011d7e0 sp=0xc00011d778 pc=0xad35c6
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00011d7e8 sp=0xc00011d7e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...] in goroutine 1
+app-1  | 	/app/internal/cache/cache.go:41 +0x1b1
+app-1  | 
+app-1  | goroutine 82 gp=0xc000582a80 m=nil [chan receive]:
+app-1  | runtime.gopark(0xc000296320?, 0xc0002962a0?, 0x0?, 0x70?, 0xd02540?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00011e6b8 sp=0xc00011e698 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc0002962a0, 0xc00011e778, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc00011e730 sp=0xc00011e6b8 pc=0x414f73
+app-1  | runtime.chanrecv2(0x8bb2c97000?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc00011e758 sp=0xc00011e730 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.(*TieredCache[...]).janitor(0x0)
+app-1  | 	/app/internal/cache/cache.go:48 +0xde fp=0xc00011e7c0 sp=0xc00011e758 pc=0xad10de
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...].gowrap1()
+app-1  | 	/app/internal/cache/cache.go:40 +0x25 fp=0xc00011e7e0 sp=0xc00011e7c0 pc=0xad3625
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00011e7e8 sp=0xc00011e7e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...] in goroutine 1
+app-1  | 	/app/internal/cache/cache.go:40 +0x153
+app-1  | 
+app-1  | goroutine 81 gp=0xc000002000 m=nil [chan receive]:
+app-1  | runtime.gopark(0xc000252150?, 0x0?, 0x1?, 0x0?, 0x7fde5cc77000?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00011def0 sp=0xc00011ded0 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc00011a380, 0xc00011dfb0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc00011df68 sp=0xc00011def0 pc=0x414f73
+app-1  | runtime.chanrecv2(0x0?, 0xdeaa68?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc00011df90 sp=0xc00011df68 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/services.(*LocationService).locationSaver(0xc0003641e0)
+app-1  | 	/app/internal/services/location-service.go:156 +0x57 fp=0xc00011dfc8 sp=0xc00011df90 pc=0xacfb97
+app-1  | github.com/7apri/SimpleGOWebserver/internal/services.NewLocationService.gowrap1()
+app-1  | 	/app/internal/services/location-service.go:185 +0x25 fp=0xc00011dfe0 sp=0xc00011dfc8 pc=0xacfe45
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00011dfe8 sp=0xc00011dfe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/services.NewLocationService in goroutine 1
+app-1  | 	/app/internal/services/location-service.go:185 +0x1bb
+app-1  | 
+app-1  | goroutine 31 gp=0xc000582e00 m=nil [chan receive]:
+app-1  | runtime.gopark(0xc000296240?, 0xc0002961c0?, 0x0?, 0x70?, 0xd02540?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000123eb8 sp=0xc000123e98 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc0002961c0, 0xc000123f78, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc000123f30 sp=0xc000123eb8 pc=0x414f73
+app-1  | runtime.chanrecv2(0x8bb2c97000?, 0xc00007c808?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc000123f58 sp=0xc000123f30 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.(*TieredCache[...]).janitor(0xc00007c808)
+app-1  | 	/app/internal/cache/cache.go:48 +0xde fp=0xc000123fc0 sp=0xc000123f58 pc=0xad10de
+app-1  | github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...].gowrap1()
+app-1  | 	/app/internal/cache/cache.go:40 +0x25 fp=0xc000123fe0 sp=0xc000123fc0 pc=0xad3625
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000123fe8 sp=0xc000123fe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/cache.NewTieredCache[...] in goroutine 1
+app-1  | 	/app/internal/cache/cache.go:40 +0x153
+app-1  | 
+app-1  | goroutine 84 gp=0xc000102fc0 m=nil [chan receive]:
+app-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00011f6f8 sp=0xc00011f6d8 pc=0x47ccee
+app-1  | runtime.chanrecv(0xc00011a460, 0xc00011f7b0, 0x1)
+app-1  | 	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc00011f770 sp=0xc00011f6f8 pc=0x414f73
+app-1  | runtime.chanrecv2(0x0?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/chan.go:514 +0x12 fp=0xc00011f798 sp=0xc00011f770 pc=0x414af2
+app-1  | github.com/7apri/SimpleGOWebserver/internal/services.(*WeatherService).weatherSaver(0xc000364230)
+app-1  | 	/app/internal/services/weather-service.go:105 +0x6c fp=0xc00011f7c8 sp=0xc00011f798 pc=0xad06cc
+app-1  | github.com/7apri/SimpleGOWebserver/internal/services.NewWeatherService.gowrap1()
+app-1  | 	/app/internal/services/weather-service.go:130 +0x25 fp=0xc00011f7e0 sp=0xc00011f7c8 pc=0xad0945
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00011f7e8 sp=0xc00011f7e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/services.NewWeatherService in goroutine 1
+app-1  | 	/app/internal/services/weather-service.go:130 +0x1bb
+app-1  | 
+app-1  | goroutine 1187 gp=0xc0008aae00 m=nil [runnable]:
+app-1  | net/http.(*connReader).startBackgroundRead.gowrap2()
+app-1  | 	/usr/local/go/src/net/http/server.go:698 fp=0xc02217ffe0 sp=0xc02217ffd8 pc=0x7034c0
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc02217ffe8 sp=0xc02217ffe0 pc=0x484541
+app-1  | created by net/http.(*connReader).startBackgroundRead in goroutine 1044
+app-1  | 	/usr/local/go/src/net/http/server.go:698 +0xb6
+app-1  | 
+app-1  | goroutine 720 gp=0xc000419a40 m=nil [runnable]:
+app-1  | runtime.mapassign_faststr(0xc6f740?, 0xc002400060?, {0xccbb27?, 0xc?})
+app-1  | 	/usr/local/go/src/internal/runtime/maps/runtime_faststr_swiss.go:263 +0x557 fp=0xc088cd4768 sp=0xc088cd4760 pc=0x40ffd7
+app-1  | net/textproto.MIMEHeader.Set(...)
+app-1  | 	/usr/local/go/src/net/textproto/header.go:22
+app-1  | net/http.Header.Set(...)
+app-1  | 	/usr/local/go/src/net/http/header.go:40
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:43 +0xa5 fp=0xc088cd47f0 sp=0xc088cd4768 pc=0x8dae25
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4878 sp=0xc088cd47f0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4900 sp=0xc088cd4878 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4988 sp=0xc088cd4900 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4a10 sp=0xc088cd4988 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4a98 sp=0xc088cd4a10 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4b20 sp=0xc088cd4a98 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4ba8 sp=0xc088cd4b20 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4c30 sp=0xc088cd4ba8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4cb8 sp=0xc088cd4c30 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4d40 sp=0xc088cd4cb8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4dc8 sp=0xc088cd4d40 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4e50 sp=0xc088cd4dc8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4ed8 sp=0xc088cd4e50 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4f60 sp=0xc088cd4ed8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd4fe8 sp=0xc088cd4f60 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5070 sp=0xc088cd4fe8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd50f8 sp=0xc088cd5070 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5180 sp=0xc088cd50f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5208 sp=0xc088cd5180 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5290 sp=0xc088cd5208 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5318 sp=0xc088cd5290 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd53a0 sp=0xc088cd5318 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5428 sp=0xc088cd53a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd54b0 sp=0xc088cd5428 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5538 sp=0xc088cd54b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd55c0 sp=0xc088cd5538 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5648 sp=0xc088cd55c0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd56d0 sp=0xc088cd5648 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5758 sp=0xc088cd56d0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd57e0 sp=0xc088cd5758 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5868 sp=0xc088cd57e0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd58f0 sp=0xc088cd5868 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5978 sp=0xc088cd58f0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5a00 sp=0xc088cd5978 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5a88 sp=0xc088cd5a00 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5b10 sp=0xc088cd5a88 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5b98 sp=0xc088cd5b10 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5c20 sp=0xc088cd5b98 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5ca8 sp=0xc088cd5c20 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5d30 sp=0xc088cd5ca8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5db8 sp=0xc088cd5d30 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5e40 sp=0xc088cd5db8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5ec8 sp=0xc088cd5e40 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5f50 sp=0xc088cd5ec8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd5fd8 sp=0xc088cd5f50 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc088cd6060 sp=0xc088cd5fd8 pc=0x8daf45
+app-1  | ...2977314 frames elided...
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe2f8 sp=0xc0a0efe270 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe380 sp=0xc0a0efe2f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe408 sp=0xc0a0efe380 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe490 sp=0xc0a0efe408 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe518 sp=0xc0a0efe490 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe5a0 sp=0xc0a0efe518 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe628 sp=0xc0a0efe5a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe6b0 sp=0xc0a0efe628 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe738 sp=0xc0a0efe6b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe7c0 sp=0xc0a0efe738 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe848 sp=0xc0a0efe7c0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe8d0 sp=0xc0a0efe848 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe958 sp=0xc0a0efe8d0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efe9e0 sp=0xc0a0efe958 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efea68 sp=0xc0a0efe9e0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efeaf0 sp=0xc0a0efea68 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efeb78 sp=0xc0a0efeaf0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efec00 sp=0xc0a0efeb78 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efec88 sp=0xc0a0efec00 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efed10 sp=0xc0a0efec88 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efed98 sp=0xc0a0efed10 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efee20 sp=0xc0a0efed98 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efeea8 sp=0xc0a0efee20 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efef30 sp=0xc0a0efeea8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0efefb8 sp=0xc0a0efef30 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff040 sp=0xc0a0efefb8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff0c8 sp=0xc0a0eff040 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff150 sp=0xc0a0eff0c8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff1d8 sp=0xc0a0eff150 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff260 sp=0xc0a0eff1d8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff2e8 sp=0xc0a0eff260 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff370 sp=0xc0a0eff2e8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff3f8 sp=0xc0a0eff370 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff480 sp=0xc0a0eff3f8 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff508 sp=0xc0a0eff480 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff590 sp=0xc0a0eff508 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff618 sp=0xc0a0eff590 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff6a0 sp=0xc0a0eff618 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff728 sp=0xc0a0eff6a0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff7b0 sp=0xc0a0eff728 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendErrorJson({0xde9198, 0xc0001a20f0}, {0xcd5763, 0x15}, 0x1f4)
+app-1  | 	/app/pkg/util.go:52 +0x1c5 fp=0xc0a0eff838 sp=0xc0a0eff7b0 pc=0x8daf45
+app-1  | github.com/7apri/SimpleGOWebserver/pkg.SendJson({0xde9198, 0xc0001a20f0}, 0x64?, {0xb88d40, 0xc000010198})
+app-1  | 	/app/pkg/util.go:32 +0x136 fp=0xc0a0eff890 sp=0xc0a0eff838 pc=0x8dacf6
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather(0xc0000a2600, {0xde9198, 0xc0001a20f0}, 0xc000016000)
+app-1  | 	/app/internal/server/handelers.go:258 +0x725 fp=0xc0a0effab8 sp=0xc0a0eff890 pc=0xad7bc5
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather-fm({0xde9198?, 0xc0001a20f0?}, 0xc00074bb30?)
+app-1  | 	<autogenerated>:1 +0x36 fp=0xc0a0effae8 sp=0xc0a0effab8 pc=0xad9e36
+app-1  | net/http.HandlerFunc.ServeHTTP(0x145a2c0?, {0xde9198?, 0xc0001a20f0?}, 0x703456?)
+app-1  | 	/usr/local/go/src/net/http/server.go:2322 +0x29 fp=0xc0a0effb10 sp=0xc0a0effae8 pc=0x70b009
+app-1  | net/http.(*ServeMux).ServeHTTP(0x479a99?, {0xde9198, 0xc0001a20f0}, 0xc000016000)
+app-1  | 	/usr/local/go/src/net/http/server.go:2861 +0x1c7 fp=0xc0a0effb60 sp=0xc0a0effb10 pc=0x70cee7
+app-1  | net/http.serverHandler.ServeHTTP({0xc000aa8000?}, {0xde9198?, 0xc0001a20f0?}, 0x6?)
+app-1  | 	/usr/local/go/src/net/http/server.go:3340 +0x8e fp=0xc0a0effb90 sp=0xc0a0effb60 pc=0x72a8ae
+app-1  | net/http.(*conn).serve(0xc00014c000, {0xdea9f8, 0xc0000b3b30})
+app-1  | 	/usr/local/go/src/net/http/server.go:2109 +0x665 fp=0xc0a0efffb8 sp=0xc0a0effb90 pc=0x709105
+app-1  | net/http.(*Server).Serve.gowrap3()
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x28 fp=0xc0a0efffe0 sp=0xc0a0efffb8 pc=0x70eea8
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0a0efffe8 sp=0xc0a0efffe0 pc=0x484541
+app-1  | created by net/http.(*Server).Serve in goroutine 1
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x485
+app-1  | 
+app-1  | goroutine 1044 gp=0xc0010daa80 m=nil [sync.WaitGroup.Wait]:
+app-1  | runtime.gopark(0xc63300?, 0x0?, 0x20?, 0x6a?, 0xc000fc5418?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc01f8ff7c8 sp=0xc01f8ff7a8 pc=0x47ccee
+app-1  | runtime.goparkunlock(...)
+app-1  | 	/usr/local/go/src/runtime/proc.go:466
+app-1  | runtime.semacquire1(0xc000da03c8, 0x0, 0x1, 0x0, 0x19)
+app-1  | 	/usr/local/go/src/runtime/sema.go:192 +0x21d fp=0xc01f8ff830 sp=0xc01f8ff7c8 pc=0x45b35d
+app-1  | sync.runtime_SemacquireWaitGroup(0x63?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/sema.go:114 +0x2e fp=0xc01f8ff868 sp=0xc01f8ff830 pc=0x47e0ee
+app-1  | sync.(*WaitGroup).Wait(0xc000da03c0)
+app-1  | 	/usr/local/go/src/sync/waitgroup.go:206 +0x85 fp=0xc01f8ff890 sp=0xc01f8ff868 pc=0x48fac5
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather(0xc0000a2600, {0xde9198, 0xc0001a21e0}, 0xc000016640)
+app-1  | 	/app/internal/server/handelers.go:256 +0x6d4 fp=0xc01f8ffab8 sp=0xc01f8ff890 pc=0xad7b74
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather-fm({0xde9198?, 0xc0001a21e0?}, 0xc01f8ffb30?)
+app-1  | 	<autogenerated>:1 +0x36 fp=0xc01f8ffae8 sp=0xc01f8ffab8 pc=0xad9e36
+app-1  | net/http.HandlerFunc.ServeHTTP(0x145a2c0?, {0xde9198?, 0xc0001a21e0?}, 0x703456?)
+app-1  | 	/usr/local/go/src/net/http/server.go:2322 +0x29 fp=0xc01f8ffb10 sp=0xc01f8ffae8 pc=0x70b009
+app-1  | net/http.(*ServeMux).ServeHTTP(0x479a99?, {0xde9198, 0xc0001a21e0}, 0xc000016640)
+app-1  | 	/usr/local/go/src/net/http/server.go:2861 +0x1c7 fp=0xc01f8ffb60 sp=0xc01f8ffb10 pc=0x70cee7
+app-1  | net/http.serverHandler.ServeHTTP({0xc002a7c000?}, {0xde9198?, 0xc0001a21e0?}, 0x6?)
+app-1  | 	/usr/local/go/src/net/http/server.go:3340 +0x8e fp=0xc01f8ffb90 sp=0xc01f8ffb60 pc=0x72a8ae
+app-1  | net/http.(*conn).serve(0xc0009ac120, {0xdea9f8, 0xc0000b3b30})
+app-1  | 	/usr/local/go/src/net/http/server.go:2109 +0x665 fp=0xc01f8fffb8 sp=0xc01f8ffb90 pc=0x709105
+app-1  | net/http.(*Server).Serve.gowrap3()
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x28 fp=0xc01f8fffe0 sp=0xc01f8fffb8 pc=0x70eea8
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc01f8fffe8 sp=0xc01f8fffe0 pc=0x484541
+app-1  | created by net/http.(*Server).Serve in goroutine 1
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x485
+app-1  | 
+app-1  | goroutine 1099 gp=0xc001313340 m=nil [IO wait]:
+app-1  | runtime.gopark(0xc03617f950?, 0x4f8725?, 0x0?, 0xa4?, 0xb?)
+app-1  | 	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0200ff938 sp=0xc0200ff918 pc=0x47ccee
+app-1  | runtime.netpollblock(0x49e998?, 0x412ec6?, 0x0?)
+app-1  | 	/usr/local/go/src/runtime/netpoll.go:575 +0xf7 fp=0xc0200ff970 sp=0xc0200ff938 pc=0x43ff57
+app-1  | internal/poll.runtime_pollWait(0x7fde5cb17c00, 0x72)
+app-1  | 	/usr/local/go/src/runtime/netpoll.go:351 +0x85 fp=0xc0200ff990 sp=0xc0200ff970 pc=0x47bec5
+app-1  | internal/poll.(*pollDesc).wait(0xc00089a400?, 0xc0018a7000?, 0x0)
+app-1  | 	/usr/local/go/src/internal/poll/fd_poll_runtime.go:84 +0x27 fp=0xc0200ff9b8 sp=0xc0200ff990 pc=0x4f5127
+app-1  | internal/poll.(*pollDesc).waitRead(...)
+app-1  | 	/usr/local/go/src/internal/poll/fd_poll_runtime.go:89
+app-1  | internal/poll.(*FD).Read(0xc00089a400, {0xc0018a7000, 0x1000, 0x1000})
+app-1  | 	/usr/local/go/src/internal/poll/fd_unix.go:165 +0x279 fp=0xc0200ffa50 sp=0xc0200ff9b8 pc=0x4f6419
+app-1  | net.(*netFD).Read(0xc00089a400, {0xc0018a7000?, 0x0?, 0xc03617fac8?})
+app-1  | 	/usr/local/go/src/net/fd_posix.go:68 +0x25 fp=0xc0200ffa98 sp=0xc0200ffa50 pc=0x5cb2a5
+app-1  | net.(*conn).Read(0xc000c600a8, {0xc0018a7000?, 0x0?, 0x0?})
+app-1  | 	/usr/local/go/src/net/net.go:196 +0x45 fp=0xc0200ffae0 sp=0xc0200ffa98 pc=0x5d7f65
+app-1  | net/http.(*connReader).Read(0xc001ca0040, {0xc0018a7000, 0x1000, 0x1000})
+app-1  | 	/usr/local/go/src/net/http/server.go:812 +0x154 fp=0xc0200ffb38 sp=0xc0200ffae0 pc=0x703a34
+app-1  | bufio.(*Reader).fill(0xc0001c6ae0)
+app-1  | 	/usr/local/go/src/bufio/bufio.go:113 +0x103 fp=0xc0200ffb70 sp=0xc0200ffb38 pc=0x688e63
+app-1  | bufio.(*Reader).Peek(0xc0001c6ae0, 0x4)
+app-1  | 	/usr/local/go/src/bufio/bufio.go:152 +0x53 fp=0xc0200ffb90 sp=0xc0200ffb70 pc=0x688f93
+app-1  | net/http.(*conn).serve(0xc00014c360, {0xdea9f8, 0xc0000b3b30})
+app-1  | 	/usr/local/go/src/net/http/server.go:2145 +0x7c5 fp=0xc0200fffb8 sp=0xc0200ffb90 pc=0x709265
+app-1  | net/http.(*Server).Serve.gowrap3()
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x28 fp=0xc0200fffe0 sp=0xc0200fffb8 pc=0x70eea8
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0200fffe8 sp=0xc0200fffe0 pc=0x484541
+app-1  | created by net/http.(*Server).Serve in goroutine 1
+app-1  | 	/usr/local/go/src/net/http/server.go:3493 +0x485
+app-1  | 
+app-1  | goroutine 1188 gp=0xc001018fc0 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0013f57e0 sp=0xc0013f57d8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0013f57e8 sp=0xc0013f57e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1189 gp=0xc001019180 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001ef7e0 sp=0xc0001ef7d8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001ef7e8 sp=0xc0001ef7e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1190 gp=0xc001019340 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001ec7e0 sp=0xc0001ec7d8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001ec7e8 sp=0xc0001ec7e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1191 gp=0xc001019500 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001ecfe0 sp=0xc0001ecfd8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001ecfe8 sp=0xc0001ecfe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1192 gp=0xc0010196c0 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001eefe0 sp=0xc0001eefd8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001eefe8 sp=0xc0001eefe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1193 gp=0xc001019880 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001f17e0 sp=0xc0001f17d8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001f17e8 sp=0xc0001f17e0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1194 gp=0xc001019a40 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001edfe0 sp=0xc0001edfd8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001edfe8 sp=0xc0001edfe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353
+app-1  | 
+app-1  | goroutine 1195 gp=0xc001019c00 m=nil [runnable]:
+app-1  | github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather.func3()
+app-1  | 	/app/internal/server/handelers.go:216 fp=0xc0001eafe0 sp=0xc0001eafd8 pc=0xad7e00
+app-1  | runtime.goexit({})
+app-1  | 	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0001eafe8 sp=0xc0001eafe0 pc=0x484541
+app-1  | created by github.com/7apri/SimpleGOWebserver/internal/server.(*Server).HandleWeather in goroutine 1044
+app-1  | 	/app/internal/server/handelers.go:216 +0x353

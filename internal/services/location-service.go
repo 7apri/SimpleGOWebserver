@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hash/maphash"
-	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,7 +13,6 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
 
-	"github.com/bytedance/sonic"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -55,12 +53,13 @@ func (lR *LocationResolveIn) Key() string {
 	lR.builder.Grow(32)
 
 	if lR.CityName != "" && lR.Country != "" {
+		lR.builder.WriteString("a:")
 		lR.LocationReadableAddress.WriteKey(&lR.builder)
 	}
 	if lR.Lat != 0 || lR.Lon != 0 {
+		lR.builder.WriteString("c:")
 		lR.Coordinates.WriteKey(&lR.builder)
 	}
-
 	if lR.IP != "" {
 		lR.builder.WriteString("i:")
 		lR.builder.WriteString(lR.IP)
@@ -83,7 +82,7 @@ func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *Loca
 	}
 
 	if locationIn.IP != "" && locationIn.CityName == "" {
-		val, err, _ := lS.sfG.Do("i:"+locationIn.IP, func() (any, error) {
+		val, err, _ := lS.sfG.Do(locationIn.IP, func() (any, error) {
 			return lS.ipClient.IpToCoordinates(ctx, locationIn.IP)
 		})
 		if err == nil {
@@ -106,13 +105,12 @@ func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *Loca
 		if locationIn.CityName != "" {
 			result, err = lS.DB.FindLocationByAddress(ctx, &locationIn.LocationReadableAddress)
 			if err != nil {
-				slog.Error("got an err", "err", err)
-				/*data, apiErr := lS.owClient.Geolocate(ctx, &locationIn.LocationReadableAddress)
+				data, apiErr := lS.owClient.Geolocate(ctx, &locationIn.LocationReadableAddress)
 				if apiErr == nil && len(data) > 0 {
 					result = &data[0]
 					lS.wg.Add(1)
 					lS.saveQueue <- result
-				}*/
+				}
 			}
 		} else if locationIn.Lat != 0 {
 			result, err = lS.DB.FindLocationByCoords(ctx, &locationIn.Coordinates)
@@ -138,15 +136,28 @@ func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *Loca
 
 	finalResult := val.(*location.GeoResult)
 
-	lS.cache.Add(locationIn.Coordinates.Key(), finalResult)
-	lS.cache.Add(locationIn.LocationReadableAddress.Key(), finalResult)
+	var b strings.Builder
+	b.Grow(64)
+
+	b.WriteString("a:")
+	finalResult.LocationReadableAddress.WriteKey(&b)
+	lS.cache.Add(b.String(), finalResult)
+
+	b.Reset()
+
+	b.WriteString("c:")
+	finalResult.Coordinates.WriteKey(&b)
+	lS.cache.Add(b.String(), finalResult)
 
 	return finalResult, nil, nil
 }
 
 func (lS *LocationService) locationSaver() {
 	for location := range lS.saveQueue {
-		lS.DB.SaveLocation(location)
+		id, err := lS.DB.SaveLocation(location)
+		if err == nil {
+			location.Id.Store(id)
+		}
 		lS.wg.Done()
 	}
 }
@@ -156,11 +167,11 @@ func (lS *LocationService) Down() {
 	lS.wg.Wait()
 }
 
-func NewLocationService(db *database.Database, cacheSize int, apiKey string, owClient *api.OpenWeatherClient, ipClient *api.IpApiClient) (*LocationService, error) {
+func NewLocationService(db *database.Database, cacheSize int, owClient *api.OpenWeatherClient, ipClient *api.IpApiClient) (*LocationService, error) {
 	s := maphash.MakeSeed()
 	c := cache.NewTieredCache(cacheSize, 16, 20, 1000,
 		func(data *location.GeoResult) ([]byte, error) {
-			return sonic.Marshal(data)
+			return data.MarshalJSON()
 		}, func(key string) uint32 {
 			return uint32(maphash.String(s, key))
 		})
