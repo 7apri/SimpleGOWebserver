@@ -10,9 +10,9 @@ import (
 )
 
 type GeoResult struct {
-	Id         atomic.Int64      `json:"-"`
-	LocalNames map[string]string `json:"local_names"`
-	FullAddress
+	Id atomic.Int64 `json:"-"`
+	LocationReadableLocalizedAddress
+	Coordinates
 }
 
 func (r *GeoResult) GetId() int64 {
@@ -63,6 +63,11 @@ func (ip *IpGeoResult) GetAddress() LocationReadableAddress {
 type FullAddress struct {
 	LocationReadableAddress
 	Coordinates
+}
+
+type LocationReadableLocalizedAddress struct {
+	LocationReadableAddress
+	LocalNames map[string]string `json:"local_names"`
 }
 
 type LocationReadableAddress struct {

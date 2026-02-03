@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 
@@ -28,8 +29,10 @@ type WeatherService struct {
 }
 
 func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *LocationResolveIn) (*weather.WeatherReport, []byte, error) {
-	if data, jsonBytes, ok := wS.cache.Get(locationIn.Key()); ok {
-		return data, jsonBytes, nil
+	if report, jsonBytes, ok := wS.cache.Get(locationIn.Key()); ok {
+		if time.Since(time.Unix(report.Data.Current.Dt, 0)) < 10*time.Minute {
+			return report, jsonBytes, nil
+		}
 	}
 
 	val, err, _ := wS.sfG.Do(locationIn.Key(), func() (any, error) {
@@ -48,8 +51,10 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *LocationRe
 	locationId := location.GetId()
 	idKey := "i:" + strconv.FormatInt(locationId, 10)
 
-	if data, jsonBytes, ok := wS.cache.Get(idKey); ok {
-		return data, jsonBytes, nil
+	if report, jsonBytes, ok := wS.cache.Get(idKey); ok {
+		if time.Since(time.Unix(report.Data.Current.Dt, 0)) < 10*time.Minute {
+			return report, jsonBytes, nil
+		}
 	}
 
 	type sfResult struct {
@@ -58,7 +63,7 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *LocationRe
 	}
 
 	weatherVal, err, _ := wS.sfG.Do(idKey, func() (any, error) {
-		wd, raw, err := wS.DB.FindWeatherCacheByLocId(ctx, locationId, 9999)
+		wd, raw, err := wS.DB.FindWeatherCacheByLocId(ctx, locationId, 10)
 		if err == nil && wd != nil {
 			return &sfResult{
 				report: wd,
@@ -71,7 +76,7 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *LocationRe
 			return nil, err
 		}
 
-		final := apiData.ToReportId(locationId, &location.LocationReadableAddress)
+		final := apiData.ToReportId(locationId, &location.LocationReadableLocalizedAddress)
 		wS.wg.Add(1)
 		wS.saveQueue <- final
 
@@ -98,12 +103,15 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *LocationRe
 	location.Coordinates.WriteKey(&b)
 	wS.cache.Add(b.String(), result.report)
 
+	wS.cache.Add(locationIn.Key(), result.report)
+
 	return result.report, result.raw, nil
 }
 
 func (wS *WeatherService) weatherSaver() {
 	for weatherRp := range wS.saveQueue {
 		wS.DB.SaveWeatherCache(weatherRp)
+		_ = wS.DB.SaveWeatherHistory(context.Background(), weatherRp)
 		wS.wg.Done()
 	}
 }
@@ -114,7 +122,7 @@ func (wS *WeatherService) Down() {
 }
 func NewWeatherService(db *database.Database, cacheSize int, owClient *api.OpenWeatherClient, lcService *LocationService) (*WeatherService, error) {
 	s := maphash.MakeSeed()
-	c := cache.NewTieredCache(cacheSize, 16, 20, 1000,
+	c := cache.NewTieredCache(cacheSize, 12, 20, 1000,
 		func(data *weather.WeatherReport) ([]byte, error) {
 			return sonic.Marshal(data)
 		}, func(key string) uint32 {

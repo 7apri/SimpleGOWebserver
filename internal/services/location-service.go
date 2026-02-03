@@ -149,6 +149,8 @@ func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *Loca
 	finalResult.Coordinates.WriteKey(&b)
 	lS.cache.Add(b.String(), finalResult)
 
+	lS.cache.Add(locationIn.Key(), finalResult)
+
 	return finalResult, nil, nil
 }
 
@@ -169,7 +171,7 @@ func (lS *LocationService) Down() {
 
 func NewLocationService(db *database.Database, cacheSize int, owClient *api.OpenWeatherClient, ipClient *api.IpApiClient) (*LocationService, error) {
 	s := maphash.MakeSeed()
-	c := cache.NewTieredCache(cacheSize, 16, 20, 1000,
+	c := cache.NewTieredCache(cacheSize, 12, 20, 1000,
 		func(data *location.GeoResult) ([]byte, error) {
 			return data.MarshalJSON()
 		}, func(key string) uint32 {

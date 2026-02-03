@@ -5,8 +5,8 @@ import (
 )
 
 type WeatherReport struct {
-	Address *location.LocationReadableAddress `json:"address"`
-	Data    *WeatherData                      `json:"data"`
+	Address *location.LocationReadableLocalizedAddress `json:"address"`
+	Data    *WeatherData                               `json:"data"`
 }
 
 type WeatherReportId struct {
@@ -24,14 +24,14 @@ type WeatherData struct {
 	Daily          []Daily    `json:"daily"`
 }
 
-func (wd *WeatherData) ToReport(address *location.LocationReadableAddress) *WeatherReport {
+func (wd *WeatherData) ToReport(address *location.LocationReadableLocalizedAddress) *WeatherReport {
 	return &WeatherReport{
 		Address: address,
 		Data:    wd,
 	}
 }
 
-func (wd *WeatherData) ToReportId(id int64, address *location.LocationReadableAddress) *WeatherReportId {
+func (wd *WeatherData) ToReportId(id int64, address *location.LocationReadableLocalizedAddress) *WeatherReportId {
 	return &WeatherReportId{
 		LocationId: id,
 		Report:     wd.ToReport(address),
