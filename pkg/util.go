@@ -40,11 +40,14 @@ type apiError struct {
 }
 
 func SendErrorJson(w http.ResponseWriter, message string, code int) {
-	SendJson(w, code, apiError{
-		Error:   http.StatusText(code),
-		Code:    code,
-		Message: message,
-	})
+	w.Header().Set("Content-Type", "application/json")
+
+	sonic.ConfigDefault.NewEncoder(w).Encode(
+		apiError{
+			Error:   http.StatusText(code),
+			Code:    code,
+			Message: message,
+		})
 }
 
 func ParseGenericQuery[T any](mapper func([]string) T, queries ...string) []T {

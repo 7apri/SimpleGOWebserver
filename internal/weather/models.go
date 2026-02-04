@@ -1,5 +1,18 @@
 package weather
 
+import (
+	"github.com/7apri/SimpleGOWebserver/internal/location"
+)
+
+type WeatherReport struct {
+	Address *location.LocationReadableLocalizedAddress `json:"address"`
+	Data    *WeatherData                               `json:"data"`
+}
+
+type WeatherReportId struct {
+	LocationId int64
+	Report     *WeatherReport
+}
 type WeatherData struct {
 	Lat            float64    `json:"lat"`
 	Lon            float64    `json:"lon"`
@@ -9,6 +22,20 @@ type WeatherData struct {
 	Hourly         []Hourly   `json:"hourly"`
 	Minutely       []Minutely `json:"minutely,omitempty"`
 	Daily          []Daily    `json:"daily"`
+}
+
+func (wd *WeatherData) ToReport(address *location.LocationReadableLocalizedAddress) *WeatherReport {
+	return &WeatherReport{
+		Address: address,
+		Data:    wd,
+	}
+}
+
+func (wd *WeatherData) ToReportId(id int64, address *location.LocationReadableLocalizedAddress) *WeatherReportId {
+	return &WeatherReportId{
+		LocationId: id,
+		Report:     wd.ToReport(address),
+	}
 }
 
 type WeatherDesc struct {

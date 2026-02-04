@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	lc "github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/bytedance/sonic"
 	"golang.org/x/time/rate"
 )
 
@@ -41,7 +41,7 @@ func (c *IpApiClient) IpToCoordinates(ctx context.Context, ip string) (*lc.IpGeo
 	defer resp.Body.Close()
 
 	var result lc.IpGeoResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := sonic.ConfigDefault.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 
@@ -72,7 +72,7 @@ func (c *OpenWeatherClient) ReverseGeolocate(ctx context.Context, coords *lc.Coo
 	defer resp.Body.Close()
 
 	var results []lc.GeoResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+	if err := sonic.ConfigDefault.NewDecoder(resp.Body).Decode(&results); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +98,7 @@ func (c *OpenWeatherClient) Geolocate(ctx context.Context, adress *lc.LocationRe
 	defer resp.Body.Close()
 
 	var results []lc.GeoResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+	if err := sonic.ConfigDefault.NewDecoder(resp.Body).Decode(&results); err != nil {
 		return nil, err
 	}
 

@@ -1,13 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/7apri/SimpleGOWebserver/internal/location"
 )
 
 type resp struct {
@@ -70,7 +67,7 @@ func main() {
 			{CityName: "vilnius", Country: "LT"}, {CityName: "valletta", Country: "MT"},
 		}*/
 
-	const totalRequests = 500
+	const totalRequests = 10000
 	const concurrentWorkers = 100
 
 	var httpCl = &http.Client{
@@ -90,7 +87,7 @@ func main() {
 	for range concurrentWorkers {
 		go func() {
 			for id := range jobs {
-				u := "http://localhost/api/location?city=nairobi&country=KE&state=-" // "http://localhost/api/location?city=prague,brno,berlin,munich,paris,lyon,london,manchester,madrid,barcelona,rome,milan,vienna,salzburg,warsaw,krakow,amsterdam,rotterdam,brussels,antwerp,stockholm,gothenburg,oslo,bergen,helsinki,tampere,lisbon,porto,athens,thessaloniki,budapest,debrecen,dublin,cork,copenhagen,aarhus,zurich,geneva,bratislava,kosice,sofia,plovdiv,bucharest,cluj,zagreb,split,belgrade,lubna,tokyo,osaka,seoul,busan,beijing,shanghai,bangkok,phuket,singapore,jakarta,mumbai,delhi,sydney,melbourne,auckland,wellington,new-york,los-angeles,chicago,houston,old-toronto,vancouver,mexico-city,cancun,sao-paulo,rio-de-janeiro,buenos-aires,santiago,bogota,lima,cairo,alexandria,cape-town,johannesburg,nairobi,casablanca,dubai,abu-dhabi,istanbul,ankara,riyadh,jeddah,tel-aviv,jerusalem,kyiv,lviv,reykjavik,luxembourg,tallinn,riga,vilnius,valletta&country=CZ,CZ,DE,DE,FR,FR,GB,GB,ES,ES,IT,IT,AT,AT,PL,PL,NL,NL,BE,BE,SE,SE,NO,NO,FI,FI,PT,PT,GR,GR,HU,HU,IE,IE,DK,DK,CH,CH,SK,SK,BG,BG,RO,RO,HR,HR,RS,CZ,JP,JP,KR,KR,CN,CN,TH,TH,SG,ID,IN,IN,AU,AU,NZ,NZ,US,US,US,US,CA,CA,MX,MX,BR,BR,AR,CL,CO,PE,EG,EG,ZA,ZA,KE,MA,AE,AE,TR,TR,SA,SA,IL,IL,UA,UA,IS,LU,EE,LV,LT,MT&state=-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-"
+				u := "http://localhost/api/weather?city=prague,brno,berlin,munich,paris,lyon,london,manchester,madrid,barcelona,rome,milan,vienna,salzburg,warsaw,krakow,amsterdam,rotterdam,brussels,antwerp,stockholm,gothenburg,oslo,bergen,helsinki,tampere,lisbon,porto,athens,thessaloniki,budapest,debrecen,dublin,cork,copenhagen,aarhus,zurich,geneva,bratislava,kosice,sofia,plovdiv,bucharest,cluj,zagreb,split,belgrade,lubna,tokyo,osaka,seoul,busan,beijing,shanghai,bangkok,phuket,singapore,jakarta,mumbai,delhi,sydney,melbourne,auckland,wellington,new-york,los-angeles,chicago,houston,old-toronto,vancouver,mexico-city,cancun,sao-paulo,rio-de-janeiro,buenos-aires,santiago,bogota,lima,cairo,alexandria,cape-town,johannesburg,nairobi,casablanca,dubai,abu-dhabi,istanbul,ankara,riyadh,jeddah,tel-aviv,jerusalem,kyiv,lviv,reykjavik,luxembourg,tallinn,riga,vilnius,valletta&country=CZ,CZ,DE,DE,FR,FR,GB,GB,ES,ES,IT,IT,AT,AT,PL,PL,NL,NL,BE,BE,SE,SE,NO,NO,FI,FI,PT,PT,GR,GR,HU,HU,IE,IE,DK,DK,CH,CH,SK,SK,BG,BG,RO,RO,HR,HR,RS,CZ,JP,JP,KR,KR,CN,CN,TH,TH,SG,ID,IN,IN,AU,AU,NZ,NZ,US,US,US,US,CA,CA,MX,MX,BR,BR,AR,CL,CO,PE,EG,EG,ZA,ZA,KE,MA,AE,AE,TR,TR,SA,SA,IL,IL,UA,UA,IS,LU,EE,LV,LT,MT&state=-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-" //"http://localhost/api/location?city=nairobi&country=KE&state=-"
 				t := time.Now()
 				response, err := httpCl.Get(u)
 				if err != nil {
@@ -98,11 +95,6 @@ func main() {
 				}
 				ti := time.Since(t)
 
-				var result []location.GeoResult
-				err = json.NewDecoder(response.Body).Decode(&result)
-				if err != nil {
-					return
-				}
 				respChan <- resp{
 					time: ti,
 					id:   id,

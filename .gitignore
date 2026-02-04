@@ -1,6 +1,3 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -32,8 +29,14 @@ go.work.sum
 .vscode/*
 !.vscode/settings.json
 
+#Test stuff
+cmd/*
+!cmd/server
+
 #Go exec
 main
+dunno
+dontask
 
 #Site
 public/static/*
@@ -41,6 +44,4 @@ public/static/*
 public/templates/*
 !public/templates/.gitkeep
 
-#I dunno
-openWeatherExample.json
-*.nothis
+*.nothis*

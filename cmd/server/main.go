@@ -39,14 +39,14 @@ func main() {
 	db := database.InitDB()
 	defer db.Pool.Close()
 
-	owClient := api.NewOwClient(weatherApiKey, (24*time.Hour)/1000)
+	owClient := api.NewOwClient(weatherApiKey, time.Microsecond) //(24*time.Hour)/1000
 
-	ls, err := services.NewLocationService(db, 500, weatherApiKey, owClient, api.NewIpClient(time.Minute/40))
+	ls, err := services.NewLocationService(db, 500, owClient, api.NewIpClient(time.Minute/40))
 	if err != nil {
 		slog.Error("There was an error creating the location service", "error", err)
 		os.Exit(1)
 	}
-	ws, err := services.NewWeatherService(db, 500)
+	ws, err := services.NewWeatherService(db, 500, owClient, ls)
 	if err != nil {
 		slog.Error("There was an error creating the weather service", "error", err)
 		os.Exit(1)
