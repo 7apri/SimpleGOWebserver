@@ -4,10 +4,12 @@ go 1.25.5
 
 require (
 	github.com/bytedance/sonic v1.15.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.8.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/text v0.29.0
+	golang.org/x/text v0.33.0
 	golang.org/x/time v0.14.0
 )
 
@@ -21,5 +23,5 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 )

@@ -9,19 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/7apri/SimpleGOWebserver/internal/database"
+	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
-	"github.com/7apri/SimpleGOWebserver/internal/services"
 	util "github.com/7apri/SimpleGOWebserver/pkg"
 	"github.com/bytedance/sonic"
 )
-
-type Server struct {
-	LocationService *services.LocationService
-	WeatherService  *services.WeatherService
-	Database        *database.Database
-	Templates       *template.Template
-}
 
 func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -64,7 +56,7 @@ func (server *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 
 var resolveInPool = sync.Pool{
 	New: func() any {
-		return &services.LocationResolveIn{}
+		return &location.LocationResolveIn{}
 	},
 }
 
@@ -73,26 +65,26 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var (
-		coords    []location.Coordinates
-		addresses []location.LocationReadableAddress
+		coords    []exApi.Coordinates
+		addresses []exApi.LocationReadableAddress
 		ips       []string
 	)
 
 	if latParam, lonParam := query.Get("lat"), query.Get("lon"); latParam != "" && lonParam != "" {
-		coords = util.ParseGenericQuery(func(row []string) location.Coordinates {
+		coords = util.ParseGenericQuery(func(row []string) exApi.Coordinates {
 			lt, _ := strconv.ParseFloat(row[0], 64)
 			ln, _ := strconv.ParseFloat(row[1], 64)
-			return location.Coordinates{Lat: lt, Lon: ln}
+			return exApi.Coordinates{Lat: lt, Lon: ln}
 		}, latParam, lonParam)
 	}
 
 	if cityParam, countryParam := query.Get("city"), query.Get("country"); cityParam != "" && countryParam != "" {
-		addresses = util.ParseGenericQuery(func(row []string) location.LocationReadableAddress {
+		addresses = util.ParseGenericQuery(func(row []string) exApi.LocationReadableAddress {
 			state := row[1]
 			if state == "-" {
 				state = ""
 			}
-			return location.LocationReadableAddress{
+			return exApi.LocationReadableAddress{
 				CityName: util.CleanQuery(row[0]),
 				State:    util.CleanQuery(state),
 				Country:  strings.ToUpper(strings.TrimSpace(row[2])),
@@ -109,7 +101,7 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 
 	type job struct {
 		index uint
-		in    *services.LocationResolveIn
+		in    *location.LocationResolveIn
 	}
 
 	jobs := make(chan job, totalExpected)
@@ -126,7 +118,7 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 					if jsonBytes == nil {
 						jsonBytes, _ = res.MarshalJSON()
 					}
-					finalData[j.index] = json.RawMessage(jsonBytes)
+					finalData[j.index] = jsonBytes
 				}
 
 				resolveInPool.Put(j.in)
@@ -135,8 +127,8 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	feedJob := func(idx uint, setup func(*services.LocationResolveIn)) {
-		in := resolveInPool.Get().(*services.LocationResolveIn)
+	feedJob := func(idx uint, setup func(*location.LocationResolveIn)) {
+		in := resolveInPool.Get().(*location.LocationResolveIn)
 		in.Reset()
 		setup(in)
 		wg.Add(1)
@@ -145,22 +137,28 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 
 	var currIdx uint
 	for _, c := range coords {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.Coordinates = c })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.Coordinates = c })
 		currIdx++
 	}
 	for _, a := range addresses {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.LocationReadableAddress = a })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.LocationReadableAddress = a })
 		currIdx++
 	}
 	for _, ip := range ips {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.IP = ip })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.IP = ip })
 		currIdx++
 	}
 
 	close(jobs)
 	wg.Wait()
 
-	util.SendJson(w, http.StatusOK, slices.DeleteFunc(finalData, func(r json.RawMessage) bool { return r == nil }))
+	finalData = slices.DeleteFunc(finalData, func(r json.RawMessage) bool { return r == nil })
+
+	if len(finalData) == 0 {
+		util.SendErrorJson(w, "no locations resolved", http.StatusNotFound)
+		return
+	}
+	util.SendRawJsonSlice(w, http.StatusOK, finalData)
 }
 
 func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
@@ -168,26 +166,26 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var (
-		coords    []location.Coordinates
-		addresses []location.LocationReadableAddress
+		coords    []exApi.Coordinates
+		addresses []exApi.LocationReadableAddress
 		ips       []string
 	)
 
 	if latParam, lonParam := query.Get("lat"), query.Get("lon"); latParam != "" && lonParam != "" {
-		coords = util.ParseGenericQuery(func(row []string) location.Coordinates {
+		coords = util.ParseGenericQuery(func(row []string) exApi.Coordinates {
 			lt, _ := strconv.ParseFloat(row[0], 64)
 			ln, _ := strconv.ParseFloat(row[1], 64)
-			return location.Coordinates{Lat: lt, Lon: ln}
+			return exApi.Coordinates{Lat: lt, Lon: ln}
 		}, latParam, lonParam)
 	}
 
 	if cityParam, countryParam := query.Get("city"), query.Get("country"); cityParam != "" && countryParam != "" {
-		addresses = util.ParseGenericQuery(func(row []string) location.LocationReadableAddress {
+		addresses = util.ParseGenericQuery(func(row []string) exApi.LocationReadableAddress {
 			state := row[1]
 			if state == "-" {
 				state = ""
 			}
-			return location.LocationReadableAddress{
+			return exApi.LocationReadableAddress{
 				CityName: util.CleanQuery(row[0]),
 				State:    util.CleanQuery(state),
 				Country:  strings.ToUpper(strings.TrimSpace(row[2])),
@@ -204,7 +202,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 
 	type job struct {
 		index uint
-		in    *services.LocationResolveIn
+		in    *location.LocationResolveIn
 	}
 
 	jobs := make(chan job, totalExpected)
@@ -230,8 +228,8 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	feedJob := func(idx uint, setup func(*services.LocationResolveIn)) {
-		in := resolveInPool.Get().(*services.LocationResolveIn)
+	feedJob := func(idx uint, setup func(*location.LocationResolveIn)) {
+		in := resolveInPool.Get().(*location.LocationResolveIn)
 		in.Reset()
 		setup(in)
 		wg.Add(1)
@@ -240,15 +238,15 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 
 	var currIdx uint
 	for _, c := range coords {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.Coordinates = c })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.Coordinates = c })
 		currIdx++
 	}
 	for _, a := range addresses {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.LocationReadableAddress = a })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.LocationReadableAddress = a })
 		currIdx++
 	}
 	for _, ip := range ips {
-		feedJob(currIdx, func(i *services.LocationResolveIn) { i.IP = ip })
+		feedJob(currIdx, func(i *location.LocationResolveIn) { i.IP = ip })
 		currIdx++
 	}
 

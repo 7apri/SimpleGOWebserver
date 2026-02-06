@@ -1,7 +1,10 @@
 package util
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -26,21 +29,35 @@ func PingGoogle() (string, error) {
 
 func SendJson(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 
 	err := sonic.ConfigDefault.NewEncoder(w).Encode(payload)
 	if err != nil {
-		SendErrorJson(w, "Failed to encode JSON", http.StatusInternalServerError)
+		log.Printf("JSON Encode Error: %v", err)
 	}
 }
-
-type apiError struct {
-	Error   string `json:"error"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func SendErrorJson(w http.ResponseWriter, message string, code int) {
+func SendRawJsonSlice(w http.ResponseWriter, code int, payload []json.RawMessage) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+
+	w.Write([]byte{'['})
+	for i, p := range payload {
+		if i > 0 {
+			w.Write([]byte{','})
+		}
+		w.Write(p)
+	}
+	w.Write([]byte{']'})
+}
+func SendErrorJson(w http.ResponseWriter, message string, code int) {
+	type apiError struct {
+		Error   string `json:"error"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 
 	sonic.ConfigDefault.NewEncoder(w).Encode(
 		apiError{
@@ -124,4 +141,15 @@ func RemoveWhiteSpaceUrl(s string) string {
 		return r
 	}, s)
 	return s
+}
+
+func AllowMethods(next http.Handler, methods ...string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !slices.Contains(methods, r.Method) {
+			w.Header().Set("Allow", strings.Join(methods, ", "))
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

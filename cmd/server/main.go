@@ -9,10 +9,12 @@ import (
 	"runtime/trace"
 	"time"
 
-	"github.com/7apri/SimpleGOWebserver/internal/api"
+	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
+	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
+	"github.com/7apri/SimpleGOWebserver/internal/location"
 	"github.com/7apri/SimpleGOWebserver/internal/server"
-	"github.com/7apri/SimpleGOWebserver/internal/services"
+	"github.com/7apri/SimpleGOWebserver/internal/weather"
 )
 
 // //go:embed public/templates/* public/static/*
@@ -39,41 +41,34 @@ func main() {
 	db := database.InitDB()
 	defer db.Pool.Close()
 
-	owClient := api.NewOwClient(weatherApiKey, time.Microsecond) //(24*time.Hour)/1000
+	owClient := exApi.NewOwClient(weatherApiKey, time.Microsecond) //(24*time.Hour)/1000
 
-	ls, err := services.NewLocationService(db, 500, owClient, api.NewIpClient(time.Minute/40))
+	ls, err := location.NewLocationService(db, 500, owClient, exApi.NewIpClient(time.Minute/40))
 	if err != nil {
 		slog.Error("There was an error creating the location service", "error", err)
 		os.Exit(1)
 	}
-	ws, err := services.NewWeatherService(db, 500, owClient, ls)
+	ws, err := weather.NewWeatherService(db, 500, owClient, ls)
 	if err != nil {
 		slog.Error("There was an error creating the weather service", "error", err)
 		os.Exit(1)
 	}
 
+	ah := auth.NewAuthHandler(db.Pool)
+
 	srv := &server.Server{
 		LocationService: ls,
 		WeatherService:  ws,
 		Database:        db,
+		AuthHandler:     ah,
 	}
-
-	http.HandleFunc("/", srv.HandleRoot)
-
-	http.HandleFunc("/api/health", srv.HandleHealth)
-
-	http.HandleFunc("/api/weather", srv.HandleWeather)
-	http.HandleFunc("/api/location", srv.HandleLocation)
-
-	http.HandleFunc("/api/login", srv.HandleLogin)
-	http.HandleFunc("/api/register", srv.HandleRegister)
 
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	slog.Info(fmt.Sprintf("Server starting on %s:80 (external:inernal)", os.Getenv("SERVER_PORT")))
 
-	err = http.ListenAndServe(":80", nil)
+	err = http.ListenAndServe(":80", srv.Routes())
 	if err != nil {
 		slog.Error("There was an error running the server", "error", err)
 		os.Exit(1)

@@ -8,12 +8,12 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-type TieredCache[V any, K comparable] struct {
+type TieredCache[K comparable, V any] struct {
 	hot         atomic.Value // just a *sync.Map (for poiter swap)
 	counters    atomic.Value // just a *sync.Map
-	cold        *ShardedCache[V, K]
+	cold        *ShardedCache[K, V]
 	threshold   int64
-	promoChan   chan promoTask[V, K]
+	promoChan   chan promoTask[K, V]
 	marshalFunc func(V) ([]byte, error)
 }
 
@@ -22,16 +22,16 @@ type HotEntry[V any] struct {
 	JSONBytes []byte
 }
 
-type promoTask[V any, K comparable] struct {
+type promoTask[K comparable, V any] struct {
 	key K
 	val V
 }
 
-func NewTieredCache[V any, K comparable](lruSize int, lruShardCount int, promoteThreshold int64, promoChanBuffer int, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[V, K] {
-	tc := &TieredCache[V, K]{
-		cold:        NewShardedCache[V](lruSize, lruShardCount, hashFunc),
+func NewTieredCache[V any, K comparable](lruSize int, lruShardCount int, promoteThreshold int64, promoChanBuffer int, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[K, V] {
+	tc := &TieredCache[K, V]{
+		cold:        NewShardedCache[K, V](lruSize, lruShardCount, hashFunc),
 		threshold:   promoteThreshold,
-		promoChan:   make(chan promoTask[V, K], promoChanBuffer),
+		promoChan:   make(chan promoTask[K, V], promoChanBuffer),
 		marshalFunc: marshal,
 	}
 	tc.hot.Store(&sync.Map{})
@@ -41,7 +41,7 @@ func NewTieredCache[V any, K comparable](lruSize int, lruShardCount int, promote
 	go tc.promotionWorker()
 	return tc
 }
-func (tc *TieredCache[V, K]) janitor() {
+func (tc *TieredCache[K, V]) janitor() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 
@@ -51,12 +51,12 @@ func (tc *TieredCache[V, K]) janitor() {
 	}
 }
 
-func (tc *TieredCache[V, K]) promotionWorker() {
+func (tc *TieredCache[K, V]) promotionWorker() {
 	for task := range tc.promoChan {
 		tc.promote(task.key, task.val)
 	}
 }
-func (tc *TieredCache[V, K]) promote(key K, val V) {
+func (tc *TieredCache[K, V]) promote(key K, val V) {
 	counters := tc.counters.Load().(*sync.Map)
 	hot := tc.hot.Load().(*sync.Map)
 
@@ -77,7 +77,7 @@ func (tc *TieredCache[V, K]) promote(key K, val V) {
 	}
 }
 
-func (tc *TieredCache[V, K]) Get(key K) (V, []byte, bool) {
+func (tc *TieredCache[K, V]) Get(key K) (V, []byte, bool) {
 	hot := tc.hot.Load().(*sync.Map)
 
 	if val, ok := hot.Load(key); ok {
@@ -87,25 +87,25 @@ func (tc *TieredCache[V, K]) Get(key K) (V, []byte, bool) {
 	val, ok := tc.cold.Get(key)
 	if ok {
 		select {
-		case tc.promoChan <- promoTask[V, K]{key, val}:
+		case tc.promoChan <- promoTask[K, V]{key, val}:
 		default:
 		}
 	}
 	return val, nil, ok
 }
 
-func (tc *TieredCache[V, K]) Add(key K, val V) {
+func (tc *TieredCache[K, V]) Add(key K, val V) {
 	tc.cold.Add(key, val)
 }
 
-type ShardedCache[V any, K comparable] struct {
+type ShardedCache[K comparable, V any] struct {
 	shards   []*lru.Cache[K, V]
 	mask     uint32
 	hashFunc func(K) uint32
 }
 
-func NewShardedCache[V any, K comparable](totalSize int, shardCount int, hash func(K) uint32) *ShardedCache[V, K] {
-	sc := &ShardedCache[V, K]{
+func NewShardedCache[K comparable, V any](totalSize int, shardCount int, hash func(K) uint32) *ShardedCache[K, V] {
+	sc := &ShardedCache[K, V]{
 		shards:   make([]*lru.Cache[K, V], shardCount),
 		mask:     uint32(shardCount - 1),
 		hashFunc: hash,
@@ -116,14 +116,14 @@ func NewShardedCache[V any, K comparable](totalSize int, shardCount int, hash fu
 	return sc
 }
 
-func (sc *ShardedCache[V, K]) getShard(key K) *lru.Cache[K, V] {
+func (sc *ShardedCache[K, V]) getShard(key K) *lru.Cache[K, V] {
 	return sc.shards[sc.hashFunc(key)&sc.mask]
 }
 
-func (sc *ShardedCache[V, K]) Get(key K) (V, bool) {
+func (sc *ShardedCache[K, V]) Get(key K) (V, bool) {
 	return sc.getShard(key).Get(key)
 }
 
-func (sc *ShardedCache[V, K]) Add(key K, val V) {
+func (sc *ShardedCache[K, V]) Add(key K, val V) {
 	sc.getShard(key).Add(key, val)
 }

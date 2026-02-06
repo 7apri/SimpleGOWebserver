@@ -1,0 +1,27 @@
+services:
+  database:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.database
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - dbsocket:${DB_SOCKET_PATH}
+    command: ["postgres", "-c", "unix_socket_permissions=0777"]
+  server:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.server
+    network_mode: "host"
+    depends_on:
+      - database
+    volumes:
+      - dbsocket:/var/run/postgresql
+    env_file: .env
+volumes:
+  pgdata:
+  dbsocket:
