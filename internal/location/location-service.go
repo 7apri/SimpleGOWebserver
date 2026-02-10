@@ -4,27 +4,18 @@ import (
 	"context"
 	"fmt"
 	"hash/maphash"
-	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/cache"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
+	"github.com/bytedance/sonic"
 
 	"golang.org/x/sync/singleflight"
 )
-
-type LocationService struct {
-	DB        *database.Database
-	cache     *cache.TieredCache[string, *exApi.GeoResult]
-	sfG       singleflight.Group
-	saveQueue chan *exApi.GeoResult
-	owClient  *exApi.OpenWeatherClient
-	ipClient  *exApi.IpApiClient
-	wg        sync.WaitGroup
-}
 
 type LocationResolveIn struct {
 	exApi.FullAddress
@@ -74,6 +65,87 @@ func (lR *LocationResolveIn) Key() string {
 
 func (lR *LocationResolveIn) ResetKey() {
 	lR.cachedKey.Store(nil)
+}
+
+type LocationService struct {
+	DB        *database.Database
+	cache     *cache.TieredCache[string, *exApi.GeoResult]
+	sfG       singleflight.Group
+	saveQueue chan *exApi.GeoResult
+	owClient  *exApi.OpenWeatherClient
+	ipClient  *exApi.IpApiClient
+	wg        sync.WaitGroup
+}
+
+func NewService(ctx context.Context, db *database.Database, cacheSize int, owClient *exApi.OpenWeatherClient, ipClient *exApi.IpApiClient) (*LocationService, error) {
+	s := maphash.MakeSeed()
+	c := cache.NewTieredCache(cacheSize, 4, 20, 100,
+		func(data *exApi.GeoResult) ([]byte, error) {
+			return sonic.Marshal(data)
+		}, func(key string) uint32 {
+			return uint32(maphash.String(s, key))
+		})
+	service := LocationService{
+		DB:        db,
+		cache:     c,
+		saveQueue: make(chan *exApi.GeoResult, 100),
+		owClient:  owClient,
+		ipClient:  ipClient,
+	}
+	go service.saver()
+
+	return &service, nil
+}
+
+func (wS *LocationService) Down(ctx context.Context) error {
+	close(wS.saveQueue)
+
+	done := make(chan struct{})
+
+	go func() {
+		wS.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return fmt.Errorf("shutdown timed out: %w", ctx.Err())
+	}
+	return nil
+}
+
+func (lS *LocationService) saver() {
+	const timeout = 5 * time.Millisecond
+	const batchLimit = 40
+
+	timer := time.NewTimer(timeout)
+	batch := make([]*exApi.GeoResult, 0, batchLimit)
+
+	for {
+		select {
+		case report, ok := <-lS.saveQueue:
+			if !ok {
+				lS.flush(batch)
+				break
+			}
+			batch = append(batch, report)
+			if len(batch) >= batchLimit {
+				lS.flush(batch)
+				batch = batch[:0]
+				if !timer.Stop() {
+					<-timer.C
+				}
+				timer.Reset(timeout)
+			}
+		case <-timer.C:
+			if len(batch) > 0 {
+				lS.flush(batch)
+				batch = batch[:0]
+			}
+			timer.Reset(timeout)
+		}
+	}
 }
 
 func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *LocationResolveIn) (*exApi.GeoResult, []byte, error) {
@@ -152,40 +224,4 @@ func (lS *LocationService) ResolveLocation(ctx context.Context, locationIn *Loca
 	lS.cache.Add(locationIn.Key(), finalResult)
 
 	return finalResult, nil, nil
-}
-
-func (lS *LocationService) locationSaver() {
-	for location := range lS.saveQueue {
-		slog.Info("saving loc", "key", location.Key())
-		id, err := lS.SaveLocation(location)
-		if err == nil {
-			location.Id.Store(id)
-		}
-		lS.wg.Done()
-	}
-}
-
-func (lS *LocationService) Down() {
-	close(lS.saveQueue)
-	lS.wg.Wait()
-}
-
-func NewLocationService(db *database.Database, cacheSize int, owClient *exApi.OpenWeatherClient, ipClient *exApi.IpApiClient) (*LocationService, error) {
-	s := maphash.MakeSeed()
-	c := cache.NewTieredCache(cacheSize, 8, 20, 1000,
-		func(data *exApi.GeoResult) ([]byte, error) {
-			return data.MarshalJSON()
-		}, func(key string) uint32 {
-			return uint32(maphash.String(s, key))
-		})
-	service := LocationService{
-		DB:        db,
-		cache:     c,
-		saveQueue: make(chan *exApi.GeoResult, 100),
-		owClient:  owClient,
-		ipClient:  ipClient,
-	}
-	go service.locationSaver()
-
-	return &service, nil
 }

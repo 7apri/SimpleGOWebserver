@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log/slog"
 	"strings"
 	"sync"
-	"time"
 
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
 	util "github.com/7apri/SimpleGOWebserver/pkg"
@@ -15,39 +13,56 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (lc *LocationService) SaveLocation(loc *exApi.GeoResult) (locationId int64, err error) {
-	slog.Info("db save")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+const saveQ = `INSERT INTO locations (city_name, state, country, lat, lon, local_names)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (city_name, country, (COALESCE(state, ''))) 
+               DO UPDATE SET 
+                   lat = EXCLUDED.lat,
+                   lon = EXCLUDED.lon,
+                   local_names = EXCLUDED.local_names
+               RETURNING id`
 
-	state := sql.NullString{String: util.CleanQuery(loc.State), Valid: loc.State != ""}
+func (lS *LocationService) flush(batch []*exApi.GeoResult) {
+	b := &pgx.Batch{}
 
-	const query = `INSERT INTO locations (city_name, state, country, lat, lon, local_names)
-        	       VALUES ($1, $2, $3, $4, $5, $6)
-        		   ON CONFLICT (city_name, state, country) 
-        		   DO UPDATE SET city_name = EXCLUDED.city_name
-        		   RETURNING id`
+	for _, item := range batch {
+		cleanCity := util.CleanQuery(item.CityName)
+		cleanState := util.CleanQuery(item.State)
 
-	var namesJson []byte
-	if len(loc.LocalNames) > 0 {
-		namesJson, _ = sonic.Marshal(loc.LocalNames)
+		state := sql.NullString{
+			String: cleanState,
+			Valid:  cleanState != "",
+		}
+
+		var namesJson any = nil
+		if len(item.LocalNames) > 2 {
+			namesJson = item.LocalNames
+		}
+
+		b.Queue(saveQ,
+			cleanCity,
+			state,
+			item.Country,
+			item.Lat,
+			item.Lon,
+			namesJson,
+		)
 	}
-	err = lc.DB.Pool.QueryRow(ctx, query,
-		util.CleanQuery(loc.CityName),
-		state,
-		loc.Country,
-		loc.Lat,
-		loc.Lon,
-		namesJson,
-	).Scan(&locationId)
-	if err != nil {
-		return -1, err
+
+	res := lS.DB.Pool.SendBatch(context.Background(), b)
+	defer res.Close()
+
+	for i := range b.Len() {
+		var id int64
+		err := res.QueryRow().Scan(&id)
+		if err == nil {
+			batch[i].Id.Store(id)
+		}
+		lS.wg.Done()
 	}
-	return locationId, nil
 }
 
 func (lc *LocationService) FindLocationByCoords(ctx context.Context, coords *exApi.Coordinates) (*exApi.GeoResult, error) {
-	slog.Info("db find coords")
 	if coords == nil {
 		return nil, errors.New("coordinates cannot be nil")
 	}
@@ -66,10 +81,9 @@ func (lc *LocationService) FindLocationByCoords(ctx context.Context, coords *exA
 
 	var loc exApi.GeoResult
 	var namesRaw []byte
-	var locId int64
 
 	err := lc.DB.Pool.QueryRow(ctx, query, coords.Lon, coords.Lat).Scan(
-		&locId, &loc.CityName, &loc.State, &loc.Country, &loc.Lat, &loc.Lon, &namesRaw,
+		&loc.Id, &loc.CityName, &loc.State, &loc.Country, &loc.Lat, &loc.Lon, &namesRaw,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -77,7 +91,6 @@ func (lc *LocationService) FindLocationByCoords(ctx context.Context, coords *exA
 		}
 		return nil, err
 	}
-	loc.Id.Store(locId)
 
 	if len(namesRaw) > 0 {
 		sonic.Unmarshal(namesRaw, &loc.LocalNames)
@@ -172,16 +185,15 @@ func (lc *LocationService) FindExactLocationByAddress(ctx context.Context, locIN
 		&loc.Lon,
 		&loc.LocalNames,
 	)
-
 	if err != nil {
 		return nil, err
 	}
+
 	loc.Id.Store(locId)
 
 	return &loc, nil
 }
 func (lc *LocationService) FindFuzziestLocations(ctx context.Context, locIN *exApi.LocationReadableAddress) ([]*exApi.GeoResult, error) {
-	slog.Info("db find fuzzy")
 	const q = `
     SELECT id, city_name, state, country, lat, lon, local_names,
            ts_rank(search_vector, websearch_to_tsquery('simple', $1)) AS rank_score,
@@ -220,15 +232,13 @@ func (lc *LocationService) FindFuzziestLocations(ctx context.Context, locIN *exA
 	for rows.Next() {
 		var loc exApi.GeoResult
 		var namesRaw []byte
-		var locId int64
 
-		err := rows.Scan(&locId, &loc.CityName, &loc.State, &loc.Country,
+		err := rows.Scan(&loc.Id, &loc.CityName, &loc.State, &loc.Country,
 			&loc.Lat, &loc.Lon, &namesRaw)
 		if err != nil {
 			return nil, err
 		}
 
-		loc.Id.Store(locId)
 		if len(namesRaw) > 0 {
 			_ = sonic.Unmarshal(namesRaw, &loc.LocalNames)
 		}

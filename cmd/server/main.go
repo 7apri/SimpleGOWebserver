@@ -1,76 +1,102 @@
 package main
 
 import (
+	"context"
+	"embed"
 	_ "embed"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
-	"runtime/trace"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/analytics"
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/7apri/SimpleGOWebserver/internal/redis"
 	"github.com/7apri/SimpleGOWebserver/internal/server"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
+	util "github.com/7apri/SimpleGOWebserver/pkg"
 )
 
-// //go:embed public/templates/* public/static/*
-// var webAssets embed.FS
-// var templates *template.Template
-
-/*
-func init() {
-	templates = template.Must(template.ParseFS(webAssets, "public/templates/index.html", "public/templates/404.html"))
-}
-*/
+//go:embed all:site
+var siteEmbed embed.FS
 
 func main() {
-	f, _ := os.Create("trace.out")
-	trace.Start(f)
-	defer trace.Stop()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	weatherApiKey := os.Getenv("WEATHER_API_KEY")
-	if weatherApiKey == "" {
-		slog.Error("weather API key is empty please check the .env")
-		os.Exit(1)
-	}
+	weatherApiKey := util.TryGetEnvFatal("WEATHER_API_KEY")
+	accessSecret := util.TryGetEnvFatal("ACCESS_SECRET_AUTH")
 
-	db := database.InitDB()
-	defer db.Pool.Close()
+	db := database.Init(ctx)
+	rdb := redis.Init(ctx)
 
-	owClient := exApi.NewOwClient(weatherApiKey, time.Microsecond) //(24*time.Hour)/1000
+	owClient := exApi.NewOwClient(weatherApiKey, 0) //time.Second
 
-	ls, err := location.NewLocationService(db, 500, owClient, exApi.NewIpClient(time.Minute/40))
+	ls, err := location.NewService(ctx, db, 500, owClient, exApi.NewIpClient(time.Minute/40))
 	if err != nil {
 		slog.Error("There was an error creating the location service", "error", err)
 		os.Exit(1)
 	}
-	ws, err := weather.NewWeatherService(db, 500, owClient, ls)
+	ws, err := weather.NewService(ctx, db, 500, owClient, ls)
 	if err != nil {
 		slog.Error("There was an error creating the weather service", "error", err)
 		os.Exit(1)
 	}
 
-	ah := auth.NewAuthHandler(db.Pool)
+	au := auth.NewAuthHandler(db, accessSecret)
+	as := analytics.NewService(ctx, db, rdb)
 
-	srv := &server.Server{
-		LocationService: ls,
-		WeatherService:  ws,
-		Database:        db,
-		AuthHandler:     ah,
-	}
+	srv := server.NewServer(ls, ws, au, db, siteEmbed, rdb, as)
 
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	slog.Info(fmt.Sprintf("Server starting on %s:80 (external:inernal)", os.Getenv("SERVER_PORT")))
+	slog.Info(fmt.Sprintf("Server starting on %s:8080 (external:inernal)", os.Getenv("SERVER_PORT")))
 
-	err = http.ListenAndServe(":80", srv.Routes())
-	if err != nil {
-		slog.Error("There was an error running the server", "error", err)
-		os.Exit(1)
+	httpSrv := &http.Server{
+		Addr:         ":8080",
+		Handler:      srv.Routes(),
+		IdleTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
+	httpSrv.SetKeepAlivesEnabled(false)
+
+	go func() {
+		slog.Info("Starting server on :8080")
+		if err = httpSrv.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				slog.Error("There was an error running the server", "error", err)
+			}
+			return
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("Shutdown signal received")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP shutdown failed", "error", err)
+	}
+
+	if err := ls.Down(shutdownCtx); err != nil {
+		slog.Error("Location service shutdown failed", "error", err)
+	}
+	if err := ws.Down(shutdownCtx); err != nil {
+		slog.Error("Weather service shutdown failed", "error", err)
+	}
+
+	db.Pool.Close()
+	rdb.Close()
+
+	slog.Info("Server exited gracefully")
 }

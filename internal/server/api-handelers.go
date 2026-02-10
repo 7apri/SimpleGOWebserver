@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"html/template"
 	"net/http"
 	"slices"
 	"strconv"
@@ -15,23 +14,8 @@ import (
 	"github.com/bytedance/sonic"
 )
 
-func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		server.Templates, _ = template.ParseFiles("templates/404.html")
-		server.Templates.ExecuteTemplate(w, "404.html", nil)
-		return
-	}
-
-	server.Templates, _ = template.ParseFiles("templates/index.html")
-	err := server.Templates.ExecuteTemplate(w, "index.html", nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 func (server *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
-	dbLatency, err := server.Database.GetLatency()
+	dbLatency, err := server.database.GetLatency()
 	if err != nil {
 		http.Error(w, "Database unreachable", http.StatusInternalServerError)
 		return
@@ -112,11 +96,11 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.LocationService.ResolveLocation(ctx, j.in)
+				res, jsonBytes, err := server.locationService.ResolveLocation(ctx, j.in)
 
 				if err == nil {
 					if jsonBytes == nil {
-						jsonBytes, _ = res.MarshalJSON()
+						jsonBytes, _ = sonic.Marshal(res)
 					}
 					finalData[j.index] = jsonBytes
 				}
@@ -213,7 +197,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.WeatherService.GetWeather(ctx, j.in)
+				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in)
 
 				if err == nil {
 					if jsonBytes == nil {
@@ -254,11 +238,4 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	wg.Wait()
 
 	util.SendJson(w, http.StatusOK, slices.DeleteFunc(finalData, func(r json.RawMessage) bool { return r == nil }))
-}
-
-func (server *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	util.SendErrorJson(w, "Not implemented yet", http.StatusNotImplemented)
-}
-func (server *Server) HandleRegister(w http.ResponseWriter, r *http.Request) {
-	util.SendErrorJson(w, "Not implemented yet", http.StatusNotImplemented)
 }

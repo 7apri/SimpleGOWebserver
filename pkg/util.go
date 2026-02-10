@@ -3,8 +3,9 @@ package util
 import (
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
-	"slices"
+	"os"
 	"strings"
 	"time"
 	"unicode"
@@ -142,14 +143,11 @@ func RemoveWhiteSpaceUrl(s string) string {
 	}, s)
 	return s
 }
-
-func AllowMethods(next http.Handler, methods ...string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !slices.Contains(methods, r.Method) {
-			w.Header().Set("Allow", strings.Join(methods, ", "))
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+func TryGetEnvFatal(k string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		slog.Error("redis address is empty please check the .env")
+		os.Exit(1)
+	}
+	return v
 }

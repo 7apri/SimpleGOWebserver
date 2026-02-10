@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,13 +15,16 @@ import (
 )
 
 type secretWrap struct {
-	accessSecret  []byte
-	refreshSecret []byte
+	accessSecret []byte
 }
 
 type UserClaims struct {
-	UserID int64 `json:"uid"`
+	User *UserPrint
 	jwt.RegisteredClaims
+}
+type UserPrint struct {
+	ID   int64  `json:"uid"`
+	Role string `json:"role"`
 }
 
 func HashPassword(password string) (string, error) {
@@ -51,12 +55,14 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
 
-func (s *secretWrap) GenerateAccess(userID int64) (string, time.Time, error) {
+func (s *secretWrap) GenerateAccess(user *UserPrint) (string, time.Time, error) {
 	expiry := time.Now().Add(15 * time.Minute)
 	claims := UserClaims{
-		UserID: userID,
+		User: user,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   strconv.FormatInt(user.ID, 10),
 			ExpiresAt: jwt.NewNumericDate(expiry),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "weather-app",
 		},
 	}
@@ -65,7 +71,7 @@ func (s *secretWrap) GenerateAccess(userID int64) (string, time.Time, error) {
 }
 
 func (s *secretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (any, error) {
 		return s.accessSecret, nil
 	})
 	if err != nil || !token.Valid {

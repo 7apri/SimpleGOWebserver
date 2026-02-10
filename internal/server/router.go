@@ -1,43 +1,61 @@
 package server
 
 import (
-	"html/template"
+	"io/fs"
 	"net/http"
-
-	"github.com/7apri/SimpleGOWebserver/internal/auth"
-	"github.com/7apri/SimpleGOWebserver/internal/database"
-	"github.com/7apri/SimpleGOWebserver/internal/location"
-	"github.com/7apri/SimpleGOWebserver/internal/weather"
-	util "github.com/7apri/SimpleGOWebserver/pkg"
 )
-
-type Server struct {
-	LocationService *location.LocationService
-	WeatherService  *weather.WeatherService
-	AuthHandler     *auth.AuthHandler
-	Database        *database.Database
-	Templates       *template.Template
-}
 
 func (srv *Server) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.Handle("/", util.AllowMethods(http.HandlerFunc(srv.HandleRoot), "GET"))
+	getRecover := []Middleware{
+		recoveryMiddleware,
+		NewAllowMethodMiddleware("GET"),
+	}
 
-	mux.Handle("/api/health", util.AllowMethods(http.HandlerFunc(srv.HandleHealth), "GET"))
+	guestOnlySite := []Middleware{
+		recoveryMiddleware,
+		NewAllowMethodMiddleware("GET"),
+		srv.authHandler.MiddlewareGuestOnly,
+	}
 
-	mux.Handle("/api/weather", srv.protected(srv.HandleWeather, "GET"))
-	mux.Handle("/api/location", srv.protected(srv.HandleLocation, "GET"))
+	api := []Middleware{
+		recoveryMiddleware,
+		NewAllowMethodMiddleware("GET"),
+		srv.authHandler.Middleware,
+		srv.rateLimited,
+		srv.analyticsService.Middleware,
+	}
 
-	mux.Handle("/api/auth/login", util.AllowMethods(http.HandlerFunc(srv.AuthHandler.Login), "POST"))
-	mux.Handle("/api/auth/register", util.AllowMethods(http.HandlerFunc(srv.AuthHandler.Register), "POST"))
-	mux.Handle("/api/auth/refresh", srv.protected(http.HandlerFunc(srv.AuthHandler.Refresh), "GET"))
+	guestOnlyApi := []Middleware{
+		recoveryMiddleware,
+		NewAllowMethodMiddleware("POST"),
+		srv.authHandler.MiddlewareGuestOnly,
+	}
 
-	fs := http.FileServer(http.Dir("./static"))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.Handle("/", Chain(srv.authHandler.MiddlewareSoft(http.HandlerFunc(srv.HandleRoot)), getRecover...))
+
+	mux.Handle("/login", Chain(srv.serveHtml("login.html", nil), guestOnlySite...))
+	mux.Handle("/register", Chain(srv.serveHtml("register.html", nil), guestOnlySite...))
+
+	mux.Handle("/api/health", Chain(http.HandlerFunc(srv.HandleHealth), getRecover...))
+
+	mux.Handle("/api/weather", Chain(http.HandlerFunc(srv.HandleWeather), api...))
+
+	mux.Handle("/api/location", Chain(http.HandlerFunc(srv.HandleLocation), api...))
+
+	mux.Handle("/api/auth/register", Chain(http.HandlerFunc(srv.authHandler.Register), guestOnlyApi...))
+	mux.Handle("/api/auth/login", Chain(http.HandlerFunc(srv.authHandler.Login), guestOnlyApi...))
+
+	mux.Handle("/api/auth/logout", Chain(http.HandlerFunc(srv.authHandler.Logout),
+		recoveryMiddleware,
+		NewAllowMethodMiddleware("POST"),
+		srv.authHandler.Middleware,
+	))
+	mux.Handle("/api/auth/refresh", Chain(http.HandlerFunc(srv.authHandler.Refresh), api...))
+
+	staticFiles, _ := fs.Sub(srv.siteEmbed, "site/static")
+	mux.Handle("/static/", http.StripPrefix("/static/", CacheMiddleware(http.FileServer(http.FS(staticFiles)))))
 
 	return mux
-}
-func (s *Server) protected(h http.HandlerFunc, m string) http.Handler {
-	return s.AuthHandler.Middleware((util.AllowMethods(h, m)))
 }

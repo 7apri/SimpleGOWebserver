@@ -2,28 +2,44 @@ package auth
 
 import (
 	"context"
-	"fmt"
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/database"
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AuthHandler struct {
-	db     *pgxpool.Pool
+	db     *database.Database
 	secret *secretWrap
 }
 
-func NewAuthHandler(db *pgxpool.Pool) *AuthHandler {
+func NewAuthHandler(db *database.Database, accessSecret string) *AuthHandler {
+
 	return &AuthHandler{
 		db: db,
 		secret: &secretWrap{
-			accessSecret:  []byte{},
-			refreshSecret: []byte{},
+			accessSecret: []byte(accessSecret),
 		},
 	}
+}
+
+type contextKey string
+
+const (
+	userKey contextKey = "user"
+)
+
+func SetUserContext(ctx context.Context, user *UserPrint) context.Context {
+	return context.WithValue(ctx, userKey, user)
+}
+
+func GetUserFromContext(ctx context.Context) (*UserPrint, bool) {
+	uid, ok := ctx.Value(userKey).(*UserPrint)
+	return uid, ok
 }
 
 func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
@@ -40,7 +56,55 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userID", claims.UserID)
+		ctx := SetUserContext(r.Context(), claims.User)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+func (h *AuthHandler) MiddlewareSoft(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("access_token")
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		claims, err := h.secret.ValidateAccess(cookie.Value)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := SetUserContext(r.Context(), claims.User)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+func (h *AuthHandler) MiddlewareGuestOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("access_token")
+		if err == nil {
+			if _, err := h.secret.ValidateAccess(cookie.Value); err == nil {
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+func (h *AuthHandler) MiddlewareRedirect(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("access_token")
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		claims, err := h.secret.ValidateAccess(cookie.Value)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		ctx := SetUserContext(r.Context(), claims.User)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -65,17 +129,27 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	hashed, _ := HashPassword(req.Password)
 
-	var userID int64
-	err := h.db.QueryRow(r.Context(),
-		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
-		req.Username, strings.ToLower(req.Email), hashed).Scan(&userID)
+	var user UserPrint
+	err := h.db.Pool.QueryRow(r.Context(),
+		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id,role",
+		req.Username, strings.ToLower(req.Email), hashed).Scan(
+		&user.ID,
+		&user.Role,
+	)
 
 	if err != nil {
 		http.Error(w, "Username or Email already taken", http.StatusConflict)
 		return
 	}
 
-	h.issueTokens(w, userID)
+	h.issueTokens(w, &user)
+
+	next := r.URL.Query().Get("next")
+	if next == "" {
+		next = "/"
+	}
+
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 type loginRequest struct {
@@ -90,19 +164,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int64
+	var user UserPrint
 	var hash string
 
 	input := strings.ToLower(strings.TrimSpace(req.Identifier))
 
 	const q = `
-        SELECT id, password_hash 
+        SELECT id, role,password_hash 
         FROM users 
         WHERE email = $1 OR username = $1 
         LIMIT 1
     `
 
-	err := h.db.QueryRow(r.Context(), q, input).Scan(&userID, &hash)
+	err := h.db.Pool.QueryRow(r.Context(), q, input).Scan(&user.ID, &user.Role, &hash)
 
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -114,7 +188,40 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.issueTokens(w, userID)
+	h.issueTokens(w, &user)
+
+	next := r.URL.Query().Get("next")
+	if next == "" {
+		next = "/"
+	}
+
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("refresh_token")
+	if err == nil {
+		h.db.Pool.Exec(r.Context(), "DELETE FROM refresh_sessions WHERE token_hash = $1", cookie.Value)
+	}
+
+	expiredCookie := &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+	}
+	http.SetCookie(w, expiredCookie)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/api/auth/refresh",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
@@ -124,33 +231,73 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int64
-	err = h.db.QueryRow(context.Background(),
-		"DELETE FROM refresh_sessions WHERE token_hash = $1 AND expires_at > NOW() RETURNING user_id",
-		cookie.Value).Scan(&userID)
+	const q = `
+	DELETE FROM refresh_sessions rs
+			USING users u
+			WHERE rs.user_id = u.id 
+			AND rs.token_hash = $1 
+			AND rs.expires_at > NOW()
+			RETURNING u.id, u.role`
+
+	var user UserPrint
+	err = h.db.Pool.QueryRow(context.Background(),
+		q,
+		cookie.Value).Scan(
+		&user.ID,
+		&user.Role,
+	)
 
 	if err != nil {
 		http.Error(w, "Session expired", http.StatusUnauthorized)
 		return
 	}
 
-	h.issueTokens(w, userID)
+	h.issueTokens(w, &user)
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, userID int64) {
-	access, exp, _ := h.secret.GenerateAccess(userID)
-	refresh := fmt.Sprintf("%d-%d", userID, time.Now().UnixNano())
+func generateRandomRefreshToken() (string, error) {
+	b := make([]byte, 48)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
 
-	h.db.Exec(context.Background(),
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, user *UserPrint) {
+	var refresh string
+
+	access, exp, err := h.secret.GenerateAccess(user)
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	refresh, err = generateRandomRefreshToken()
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	h.db.Pool.Exec(context.Background(),
 		"INSERT INTO refresh_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-		userID, refresh, time.Now().Add(30*24*time.Hour))
+		user.ID, refresh, time.Now().Add(30*24*time.Hour))
 
 	http.SetCookie(w, &http.Cookie{
-		Name: "access_token", Value: access, Expires: exp, HttpOnly: true, Secure: true, Path: "/",
+		Name:     "access_token",
+		Value:    access,
+		Expires:  exp,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(w, &http.Cookie{
-		Name: "refresh_token", Value: refresh, Expires: time.Now().Add(30 * 24 * time.Hour), HttpOnly: true, Secure: true, Path: "/auth/refresh",
+		Name:     "refresh_token",
+		Value:    refresh,
+		Expires:  time.Now().Add(30 * 24 * time.Hour),
+		HttpOnly: true, Secure: true,
+		Path:     "/api/auth/refresh",
+		SameSite: http.SameSiteLaxMode,
 	})
-
-	w.Write([]byte(`{"status":"success"}`))
 }

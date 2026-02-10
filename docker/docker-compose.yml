@@ -1,4 +1,18 @@
 services:
+  server:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.server
+    depends_on:
+      - database
+      - redis
+    volumes:
+      - dbsocket:/var/run/postgresql
+    env_file: .env
+    ports:
+      - 80:8080
+    environment:
+      - REDIS_ADDRESS=redis:6379
   database:
     build:
       context: ..
@@ -12,16 +26,19 @@ services:
       - pgdata:/var/lib/postgresql/data
       - dbsocket:${DB_SOCKET_PATH}
     command: ["postgres", "-c", "unix_socket_permissions=0777"]
-  server:
-    build:
-      context: ..
-      dockerfile: ./docker/Dockerfile.server
-    network_mode: "host"
-    depends_on:
-      - database
+  redis:
+    image: redis:7-alpine
     volumes:
-      - dbsocket:/var/run/postgresql
+      - redis_data:/data
     env_file: .env
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes 
+  cloudflare:
+    env_file: .env
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - server
 volumes:
   pgdata:
+  redis_data:
   dbsocket:
