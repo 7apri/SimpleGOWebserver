@@ -142,8 +142,8 @@ WHERE level IN ('WARN', 'ERROR');
 
 INSERT INTO users (username, email, password_hash, role, is_verified) 
 VALUES (
-    '7apri', 
-    'papri123465@gmail.com', 
+    'dev', 
+    'dev@email.com', 
     '$argon2id$v=19$m=65536,t=1,p=4$fGovHETYRunoIoJdj/wrFg$3Ipo8IZeGzV9bNl0wqekkV8BC35znyNmCSK1cb6bOwM', -- verysecure
     'admin',
     'true'
