@@ -1,5 +1,9 @@
 package exApi
 
+import (
+	"time"
+)
+
 type WeatherReport struct {
 	Address *LocationReadableLocalizedAddress `json:"address"`
 	Data    *WeatherData                      `json:"data"`
@@ -24,6 +28,58 @@ type WeatherData struct {
 	Alerts         []Alert    `json:"alerts,omitempty"`
 }
 
+func (data *WeatherData) IsFresh() bool {
+	if data == nil {
+		return false
+	}
+	return time.Since(time.Unix(data.Current.Dt, 0)) < 10*time.Minute
+}
+
+func (wd *WeatherData) Localize(trMap map[int16]string) *WeatherData {
+	if wd == nil || len(trMap) == 0 {
+		return wd
+	}
+
+	newData := *wd
+
+	translateSlice := func(descs []WeatherDesc) []WeatherDesc {
+		if len(descs) == 0 {
+			return nil
+		}
+		newDescs := make([]WeatherDesc, len(descs))
+		copy(newDescs, descs)
+
+		for i := range newDescs {
+			if translated, ok := trMap[newDescs[i].ID]; ok {
+				newDescs[i].Description = translated
+			}
+		}
+		return newDescs
+	}
+
+	newData.Current.Weather = translateSlice(newData.Current.Weather)
+
+	if len(newData.Daily) > 0 {
+		newDaily := make([]Daily, len(newData.Daily))
+		copy(newDaily, newData.Daily)
+		for i := range newDaily {
+			newDaily[i].Weather = translateSlice(newDaily[i].Weather)
+		}
+		newData.Daily = newDaily
+	}
+
+	if len(newData.Hourly) > 0 {
+		newHourly := make([]Hourly, len(newData.Hourly))
+		copy(newHourly, newData.Hourly)
+		for i := range newHourly {
+			newHourly[i].Weather = translateSlice(newHourly[i].Weather)
+		}
+		newData.Hourly = newHourly
+	}
+
+	return &newData
+}
+
 func (wd *WeatherData) ToReport(address *LocationReadableLocalizedAddress) *WeatherReport {
 	return &WeatherReport{
 		Address: address,
@@ -39,7 +95,7 @@ func (wd *WeatherData) ToReportId(id int64, address *LocationReadableLocalizedAd
 }
 
 type WeatherDesc struct {
-	ID          uint16 `json:"id"`
+	ID          int16  `json:"id"`
 	Main        string `json:"main"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`

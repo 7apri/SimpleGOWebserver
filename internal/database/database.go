@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	util "github.com/7apri/SimpleGOWebserver/pkg"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

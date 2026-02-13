@@ -6,10 +6,12 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 type GeoResult struct {
-	Id atomic.Int64 `json:"dbId"`
+	Id atomic.Int64
 	LocationReadableLocalizedAddress
 	Coordinates
 }
@@ -23,10 +25,21 @@ func (r *GeoResult) GetId() int64 {
 		if id := r.Id.Load(); id != 0 {
 			return id
 		}
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 
 	return r.Id.Load()
+}
+func (r *GeoResult) Marshal() ([]byte, error) {
+	return sonic.Marshal(&struct {
+		Id int64 `json:"id"`
+		*LocationReadableLocalizedAddress
+		*Coordinates
+	}{
+		Id:                               r.Id.Load(),
+		LocationReadableLocalizedAddress: &r.LocationReadableLocalizedAddress,
+		Coordinates:                      &r.Coordinates,
+	})
 }
 
 type IpGeoResult struct {

@@ -2,6 +2,7 @@ package weather
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
@@ -99,9 +100,7 @@ func addIfPresent(m map[string]any, key string, val any) {
 	}
 }
 
-func (wS *WeatherService) flush(batch []exApi.WeatherReportId) {
-	b := &pgx.Batch{}
-
+func (wS *WeatherService) flush(ctx context.Context, batch []exApi.WeatherReportId, b *pgx.Batch) {
 	for _, item := range batch {
 		data := item.Report.Data
 
@@ -113,7 +112,7 @@ func (wS *WeatherService) flush(batch []exApi.WeatherReportId) {
 		currentLocal := time.Unix(data.Current.Dt, 0).In(timezone)
 
 		var tMorn, tDay, tEve, tNight, tMin, tMax *float64
-		var currentDayId *uint16
+		var currentDayId *int16
 
 		rawCurrent := make(map[string]any)
 		addIfPresent(rawCurrent, "sunrise", data.Current.Sunrise)
@@ -123,7 +122,7 @@ func (wS *WeatherService) flush(batch []exApi.WeatherReportId) {
 			for _, day := range data.Daily {
 				dayLocal := time.Unix(day.Dt, 0).In(timezone)
 				rawDay := make(map[string]any)
-				var dayId uint16
+				var dayId int16
 				if len(day.Weather) > 0 {
 					dayId = day.Weather[0].ID
 				}
@@ -199,10 +198,13 @@ func (wS *WeatherService) flush(batch []exApi.WeatherReportId) {
 		wS.wg.Done()
 	}
 
-	res := wS.DB.Pool.SendBatch(context.Background(), b)
+	res := wS.DB.Pool.SendBatch(ctx, b)
 	defer res.Close()
 
-	for range b.Len() {
-		_, _ = res.Exec()
+	for i := range b.Len() {
+		_, err := res.Exec()
+		if err != nil {
+			slog.Error("Batch execution failed", "error", err, "index", i)
+		}
 	}
 }

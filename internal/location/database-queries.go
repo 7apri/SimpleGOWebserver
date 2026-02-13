@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
-	util "github.com/7apri/SimpleGOWebserver/pkg"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5"
 )

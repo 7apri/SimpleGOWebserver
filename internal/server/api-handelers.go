@@ -9,8 +9,9 @@ import (
 	"sync"
 
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
-	util "github.com/7apri/SimpleGOWebserver/pkg"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 )
 
@@ -100,9 +101,14 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 
 				if err == nil {
 					if jsonBytes == nil {
-						jsonBytes, _ = sonic.Marshal(res)
+						jsonBytes, err = res.Marshal()
 					}
-					finalData[j.index] = jsonBytes
+					if err != nil {
+						finalData[j.index] = json.RawMessage{}
+					} else {
+						finalData[j.index] = jsonBytes
+					}
+
 				}
 
 				resolveInPool.Put(j.in)
@@ -148,6 +154,10 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
+	lang, ok := i18n.GetLangFromContext(ctx)
+	if !ok {
+		lang = "en"
+	}
 
 	var (
 		coords    []exApi.Coordinates
@@ -197,7 +207,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in)
+				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in, lang)
 
 				if err == nil {
 					if jsonBytes == nil {

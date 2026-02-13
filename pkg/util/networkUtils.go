@@ -3,11 +3,9 @@ package util
 import (
 	"encoding/json"
 	"log"
-	"log/slog"
+	"net"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/bytedance/sonic"
@@ -16,16 +14,17 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-func PingGoogle() (string, error) {
-	start := time.Now()
-
-	resp, err := http.Head("https://www.google.com")
-	if err != nil {
-		return "", err
+func GetClientIP(r *http.Request) string {
+	if ip := r.Header.Get("Cf-Connecting-Ip"); ip != "" {
+		return ip
 	}
-	defer resp.Body.Close()
 
-	return time.Since(start).String(), nil
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		return strings.Split(xff, ",")[0]
+	}
+
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return ip
 }
 
 func SendJson(w http.ResponseWriter, code int, payload any) {
@@ -108,17 +107,6 @@ func ParseGenericQuery[T any](mapper func([]string) T, queries ...string) []T {
 	return results
 }
 
-func FilterNil[T any](data []*T) []*T {
-	n := 0
-	for _, x := range data {
-		if x != nil {
-			data[n] = x
-			n++
-		}
-	}
-	return data[:n]
-}
-
 func CleanQuery(input string) string {
 	words := strings.Fields(input)
 	s := strings.Join(words, " ")
@@ -142,12 +130,4 @@ func RemoveWhiteSpaceUrl(s string) string {
 		return r
 	}, s)
 	return s
-}
-func TryGetEnvFatal(k string) string {
-	v := os.Getenv(k)
-	if v == "" {
-		slog.Error("redis address is empty please check the .env")
-		os.Exit(1)
-	}
-	return v
 }

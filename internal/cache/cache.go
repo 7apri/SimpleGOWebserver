@@ -11,7 +11,7 @@ import (
 type TieredCache[K comparable, V any] struct {
 	hot         atomic.Value // just a *sync.Map (for poiter swap)
 	counters    atomic.Value // just a *sync.Map
-	cold        *ShardedCache[K, V]
+	cold        *lru.Cache[K, V]
 	threshold   int64
 	promoChan   chan promoTask[K, V]
 	marshalFunc func(V) ([]byte, error)
@@ -27,22 +27,22 @@ type promoTask[K comparable, V any] struct {
 	val V
 }
 
-func NewTieredCache[V any, K comparable](lruSize int, lruShardCount int, promoteThreshold int64, promoChanBuffer int, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[K, V] {
+func NewTieredCache[V any, K comparable](lruSize int, promoteThreshold int64, promoChanBuffer int, janitorInterval time.Duration, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[K, V] {
 	tc := &TieredCache[K, V]{
-		cold:        NewShardedCache[K, V](lruSize, lruShardCount, hashFunc),
 		threshold:   promoteThreshold,
 		promoChan:   make(chan promoTask[K, V], promoChanBuffer),
 		marshalFunc: marshal,
 	}
 	tc.hot.Store(&sync.Map{})
 	tc.counters.Store(&sync.Map{})
+	tc.cold, _ = lru.New[K, V](lruSize) // add error handeling and such PLEASE
 
-	go tc.janitor()
+	go tc.janitor(janitorInterval)
 	go tc.promotionWorker()
 	return tc
 }
-func (tc *TieredCache[K, V]) janitor() {
-	ticker := time.NewTicker(10 * time.Minute)
+func (tc *TieredCache[K, V]) janitor(wipeInterval time.Duration) {
+	ticker := time.NewTicker(wipeInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {

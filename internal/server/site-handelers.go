@@ -4,12 +4,15 @@ import (
 	"net/http"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 )
 
 func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
+	lang, _ := i18n.GetLangFromContext(r.Context())
+
 	if r.URL.Path != "/" {
 		w.WriteHeader(http.StatusNotFound)
-		server.templates["404.html"].Execute(w, nil)
+		server.templates[lang]["404"].Execute(w, nil)
 		return
 	}
 	_, loggedIn := auth.GetUserFromContext(r.Context())
@@ -19,10 +22,11 @@ func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.templates["dashboard.html"].Execute(w, nil)
+	server.templates[lang]["dashboard"].Execute(w, nil)
 }
-func (server *Server) serveHtml(path string, data any) http.Handler {
+func (server *Server) serveHtml(name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.templates[path].Execute(w, data)
+		lang, _ := i18n.GetLangFromContext(r.Context())
+		server.templates[lang][name].Execute(w, nil)
 	})
 }

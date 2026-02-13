@@ -1,8 +1,10 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE TABLE IF NOT EXISTS locations (
+CREATE TABLE locations (
     id BIGSERIAL PRIMARY KEY,
     city_name TEXT NOT NULL,
     search_vector tsvector GENERATED ALWAYS AS (
@@ -22,23 +24,23 @@ CREATE TABLE IF NOT EXISTS locations (
     UNIQUE (city_name, country, state) 
 );
 
-CREATE INDEX IF NOT EXISTS idx_locations_geom ON locations USING GIST (geom);
+CREATE INDEX idx_locations_geom ON locations USING GIST (geom);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_unique_identity ON locations (city_name, country, COALESCE(state, ''));
+CREATE UNIQUE INDEX idx_locations_unique_identity ON locations (city_name, country, COALESCE(state, ''));
 
-CREATE INDEX IF NOT EXISTS idx_locations_fts_vector ON locations USING GIN (search_vector);
+CREATE INDEX idx_locations_fts_vector ON locations USING GIN (search_vector);
 
-CREATE INDEX IF NOT EXISTS idx_locations_city_trgm ON locations USING GIN (city_name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_local_names_en_trgm ON locations USING GIN 
+CREATE INDEX idx_locations_city_trgm ON locations USING GIN (city_name gin_trgm_ops);
+CREATE INDEX idx_local_names_en_trgm ON locations USING GIN 
   ((local_names->>'en') gin_trgm_ops);
 
-CREATE UNLOGGED TABLE IF NOT EXISTS weather_current_cache (
+CREATE UNLOGGED TABLE weather_current_cache (
     location_id BIGINT PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
     full_data JSONB NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS weather_history (
+CREATE TABLE weather_history (
     id BIGSERIAL PRIMARY KEY,
     location_id BIGINT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
     recorded_date DATE NOT NULL,
@@ -67,28 +69,42 @@ CREATE TABLE IF NOT EXISTS weather_history (
     UNIQUE(location_id, recorded_date)
 );
 
-CREATE INDEX IF NOT EXISTS idx_history_loc_date ON weather_history (location_id, recorded_date DESC);
+CREATE INDEX idx_history_loc_date ON weather_history (location_id, recorded_date DESC);
 
-CREATE TABLE IF NOT EXISTS users (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username CITEXT UNIQUE NOT NULL,
+    email CITEXT UNIQUE NOT NULL,
+    password_hash TEXT,
     role TEXT DEFAULT 'basic',
+    preferred_lang VARCHAR(5) DEFAULT 'en',
+    units VARCHAR(10) DEFAULT 'metric',
+    google_id TEXT UNIQUE,
+    github_id TEXT UNIQUE,
+    is_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS refresh_sessions (
+CREATE TABLE refresh_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE user_verifications (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '8 hours')
+);
+
+CREATE UNIQUE INDEX idx_verifications_token ON user_verifications(token);
+CREATE INDEX idx_verifications_expiry ON user_verifications(expires_at);
+
+CREATE TABLE tasks (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     description TEXT,
     is_completed BOOLEAN DEFAULT FALSE,
     due_at TIMESTAMPTZ,
@@ -96,11 +112,11 @@ CREATE TABLE IF NOT EXISTS tasks (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+CREATE INDEX idx_tasks_user_id ON tasks(user_id);
 
 CREATE TABLE analytics (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     path TEXT NOT NULL,
     method TEXT NOT NULL,
     status INT NOT NULL,
@@ -112,19 +128,33 @@ CREATE TABLE analytics (
 CREATE INDEX idx_analytics_created_at ON analytics(created_at);
 CREATE INDEX idx_analytics_created_by ON analytics(user_id);
 
-INSERT INTO users (username, email, password_hash, role) 
+CREATE TABLE logs (
+    id BIGSERIAL PRIMARY KEY,
+    level VARCHAR(10) NOT NULL,
+    message TEXT NOT NULL,
+    context JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_logs_created_at ON logs(created_at);
+CREATE INDEX idx_logs_critical ON logs(created_at) 
+WHERE level IN ('WARN', 'ERROR');
+
+INSERT INTO users (username, email, password_hash, role, is_verified) 
 VALUES (
-    'admin', 
-    'admin@email.com', 
+    '7apri', 
+    'papri123465@gmail.com', 
     '$argon2id$v=19$m=65536,t=1,p=4$fGovHETYRunoIoJdj/wrFg$3Ipo8IZeGzV9bNl0wqekkV8BC35znyNmCSK1cb6bOwM', -- verysecure
-    'admin'
+    'admin',
+    'true'
 )
 ON CONFLICT (username) DO NOTHING;
 
-INSERT INTO users (username, email, password_hash) 
+INSERT INTO users (username, email, password_hash, is_verified) 
 VALUES (
     'user', 
     'user@email.com', 
-    '$argon2id$v=19$m=65536,t=1,p=4$uUvCIM8lk2Usn3tEe6rOBw$EBeEIMtuHWDGC/aEf+WsH1CGlUUq0zN4+SAyVpuKzuw' -- password
+    '$argon2id$v=19$m=65536,t=1,p=4$uUvCIM8lk2Usn3tEe6rOBw$EBeEIMtuHWDGC/aEf+WsH1CGlUUq0zN4+SAyVpuKzuw', -- password
+    'true'
 )
 ON CONFLICT (username) DO NOTHING;

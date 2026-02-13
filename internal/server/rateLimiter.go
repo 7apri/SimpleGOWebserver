@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"golang.org/x/time/rate"
 )
 
@@ -36,14 +37,21 @@ func (s *Server) cleanupLimiters() {
 
 func (s *Server) rateLimited(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var key any
+
 		user, ok := auth.GetUserFromContext(r.Context())
-		if !ok || user.Role == "admin" {
+		if !ok {
+			key = util.GetClientIP(r)
+		} else if user.Role == "admin" {
 			next.ServeHTTP(w, r)
 			return
+		} else {
+			key = user.ID
 		}
 
 		now := time.Now().Unix()
-		val, exists := s.userLimiters.Load(user.ID)
+
+		val, exists := s.userLimiters.Load(key)
 
 		var wrap *limiterTimeWrap
 		if !exists {
@@ -51,7 +59,7 @@ func (s *Server) rateLimited(next http.Handler) http.Handler {
 				limiter:  rate.NewLimiter(rate.Every(time.Second), 5),
 				lastSeen: now,
 			}
-			actual, _ := s.userLimiters.LoadOrStore(user.ID, wrap)
+			actual, _ := s.userLimiters.LoadOrStore(key, wrap)
 			wrap = actual.(*limiterTimeWrap)
 		} else {
 			wrap = val.(*limiterTimeWrap)
