@@ -1,10 +1,7 @@
 package auth
 
 import (
-	"fmt"
-	"log/slog"
 	"net/http"
-	"net/smtp"
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
@@ -34,15 +31,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	token, err := generateRandomToken()
+	token, err := GenerateRandomToken()
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	lang := i18n.GetLangFromReq(r)
 
 	ctx := r.Context()
-	i18n.GetLangFromContext(ctx)
+	lang := i18n.GetLangFromReq(r)
 
 	const registerQuery = `
 	WITH new_user AS (
@@ -59,7 +55,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		strings.ToLower(req.Email),
 		hashed,
 		lang,
-		token,
+		HashToken(token),
 	)
 	if err != nil {
 		http.Error(w, "User already exists", http.StatusConflict)
@@ -70,56 +66,4 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	sonic.ConfigDefault.NewEncoder(w).Encode(map[string]string{"message": "Please check your email to verify your account"})
-}
-
-const (
-	from     = "noreply@panels.com"
-	password = ""
-	smtpHost = "mailpit"
-	smtpPort = "1025"
-)
-
-func (h *AuthHandler) sendVerificationEmail(targetEmail, token string, lang string) {
-	verifyLink := fmt.Sprintf("https://local.7apri.cfd/api/auth/verify?token=%s", token)
-
-	msg := fmt.Sprintf("Subject: Confirm your Email\r\n"+
-		"To: %s\r\n"+
-		"MIME-Version: 1.0\r\n"+
-		"Content-Type: text/plain; charset=UTF-8\r\n"+
-		"\r\n"+
-		"Please click the link to verify your account: %s", targetEmail, verifyLink)
-
-	err := smtp.SendMail(smtpHost+":"+smtpPort, nil, from, []string{targetEmail}, []byte(msg))
-	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", targetEmail, "host", smtpHost+":"+smtpPort)
-	}
-}
-func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Missing token", http.StatusBadRequest)
-		return
-	}
-
-	const q = `
-	WITH deleted AS (
-		DELETE FROM user_verifications 
-		WHERE token = $1 AND expires_at > NOW()
-		RETURNING user_id
-	)
-	UPDATE users 
-		SET is_verified = true 
-		FROM deleted 
-		WHERE users.id = deleted.user_id
-	RETURNING users.id, users.role;`
-
-	var user UserPrint
-	err := h.db.Pool.QueryRow(r.Context(), q, token).Scan(&user.ID, &user.Role)
-	if err != nil {
-		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
-		return
-	}
-
-	h.issueTokens(w, &user)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

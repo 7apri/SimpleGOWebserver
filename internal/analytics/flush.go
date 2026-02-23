@@ -11,21 +11,18 @@ import (
 )
 
 func (s *Service) runFlushCycle() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	s.flush(ctx, "analytics_queue", "analytics",
-		[]string{"user_id", "path", "method", "status", "duration_ms", "ip", "created_at"},
+	s.flush("analytics_queue", "analytics",
+		[]string{"user_id", "path", "method", "status", "duration_micro", "ip", "user_agent", "created_at"},
 		func(val string) ([]any, error) {
 			var e Event
 			if err := sonic.UnmarshalString(val, &e); err != nil {
 				return nil, err
 			}
-			return []any{e.UserID, e.Path, e.Method, e.Status, e.DurationMS, e.IP, e.CreatedAt}, nil
+			return []any{e.UserID, e.Path, e.Method, e.Status, e.DurationMicro, e.IP, e.UserAgent, e.CreatedAt}, nil
 		},
 	)
 
-	s.flush(ctx, "logs_queue", "logs",
+	s.flush("logs_queue", "logs",
 		[]string{"level", "message", "context", "created_at"},
 		func(val string) ([]any, error) {
 			var l Log
@@ -37,7 +34,10 @@ func (s *Service) runFlushCycle() {
 	)
 }
 
-func (s *Service) flush(ctx context.Context, redisKey, tableName string, columns []string, mapper func(string) ([]any, error)) {
+func (s *Service) flush(redisKey, tableName string, columns []string, mapper func(string) ([]any, error)) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	results, err := s.redis.LPopCount(ctx, redisKey, 150).Result()
 	if err != nil {
 		if err != redis.Nil {
@@ -45,7 +45,6 @@ func (s *Service) flush(ctx context.Context, redisKey, tableName string, columns
 		}
 		return
 	}
-
 	if len(results) == 0 {
 		return
 	}
@@ -70,9 +69,8 @@ func (s *Service) flush(ctx context.Context, redisKey, tableName string, columns
 		columns,
 		pgx.CopyFromRows(rows),
 	)
-
 	if err != nil {
-		slog.Error("Failed to flush to DB", "table", tableName, "err", err)
+		slog.Error("CRITICAL: Flush to DB failed. Data lost. (and we do not care)", "table", tableName, "err", err, "count", len(rows))
 	} else {
 		slog.Info("Flushed batch", "table", tableName, "count", len(rows))
 	}

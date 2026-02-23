@@ -2,7 +2,6 @@ package weather
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -18,7 +17,7 @@ var builderPool = sync.Pool{
 	},
 }
 
-func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.LocationResolveIn, lang string) (*exApi.WeatherReport, []byte, error) {
+func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.LocationResolveIn, lang string, unit exApi.Unit, exclude exApi.Exclude) (*exApi.WeatherReport, []byte, error) {
 	b := builderPool.Get().(*strings.Builder)
 	defer func() {
 		b.Reset()
@@ -37,29 +36,28 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.L
 	}
 
 	location := val.(*exApi.GeoResult)
-	locationId := location.GetId()
+	locationId := location.Id.Load()
 
-	var numBuf [20]byte
-
-	b.WriteString("i:")
-	b.Write(strconv.AppendInt(numBuf[:0], locationId, 10))
-	b.WriteRune(':')
-	idString := b.String()
+	location.LocationReadableAddress.WriteKey(b)
+	locKey := b.String()
 
 	b.Reset()
-	b.WriteString(idString)
+	b.WriteString(locKey)
 	b.WriteString(lang)
 
 	selectedLangKey := b.String()
 
 	if report, jsonBytes, ok := wS.cache.Get(selectedLangKey); ok {
 		if report.Data.IsFresh() {
-			return report, jsonBytes, nil
+			if unit == exApi.UnitStandard && exclude == 0 {
+				return report, jsonBytes, nil
+			}
+			return report.ConvertAndFilter(unit, exclude), nil, nil
 		}
 	}
 
 	b.Reset()
-	b.WriteString(idString)
+	b.WriteString(locKey)
 	b.WriteString("en")
 
 	enKey := b.String()
@@ -67,7 +65,11 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.L
 	if lang != "en" {
 		if enReport, _, ok := wS.cache.Get(enKey); ok {
 			if enReport.Data.IsFresh() {
-				return wS.localizeAndCache(selectedLangKey, enReport, lang)
+				localized, err := wS.localizeAndCache(selectedLangKey, enReport, lang)
+				if err != nil {
+					return nil, nil, err
+				}
+				return localized.ConvertAndFilter(unit, exclude), nil, err
 			}
 		}
 	}
@@ -79,13 +81,22 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.L
 
 	b.Reset()
 	b.WriteString("f:")
-	b.WriteString(idString)
+	b.WriteString(locKey)
 
 	weatherVal, err, _ := wS.sfG.Do(b.String(), func() (any, error) {
-		wd, raw, err := wS.FindWeatherCacheByLocId(ctx, locationId, 10)
-		if err == nil && wd != nil {
+		var (
+			wr  *exApi.WeatherReport
+			raw []byte
+			err error
+		)
+		if locationId == 0 {
+			_, wr, raw, err = wS.FindWeatherCacheByAddress(ctx, &location.LocationReadableAddress, 10)
+		} else {
+			wr, raw, err = wS.FindWeatherCacheByLocId(ctx, locationId, 10)
+		}
+		if err == nil && wr != nil {
 			return &sfResult{
-				report: wd,
+				report: wr,
 				raw:    raw,
 			}, nil
 		}
@@ -95,7 +106,7 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.L
 			return nil, err
 		}
 
-		final := apiData.ToReportId(locationId, &location.LocationReadableLocalizedAddress)
+		final := apiData.ToReportGeoRes(location)
 		wS.wg.Add(1)
 		wS.saveQueue <- final
 
@@ -107,21 +118,28 @@ func (wS *WeatherService) GetWeather(ctx context.Context, locationIn *location.L
 
 	result := weatherVal.(*sfResult)
 
-	wS.cache.Add(enKey, result.report)
+	if result.raw != nil {
+		wS.cache.AddHot(enKey, result.report, result.raw)
+	} else {
+		wS.cache.Add(enKey, result.report)
+	}
 
-	if lang == "en" {
+	if lang == "en" && unit == exApi.UnitStandard && exclude == 0 {
 		return result.report, result.raw, nil
 	}
 
-	return wS.localizeAndCache(selectedLangKey, result.report, lang)
+	localizedReport, err := wS.localizeAndCache(selectedLangKey, result.report, lang)
+	if err != nil {
+		return nil, nil, err
+	}
+	return localizedReport.ConvertAndFilter(unit, exclude), nil, err
 }
 
-func (wS *WeatherService) localizeAndCache(key string, raw *exApi.WeatherReport, lang string) (*exApi.WeatherReport, []byte, error) {
-	if report, bytes, ok := wS.cache.Get(key); ok {
-		return report, bytes, nil
+func (wS *WeatherService) localizeAndCache(key string, raw *exApi.WeatherReport, lang string) (*exApi.WeatherReport, error) {
+	trMap, err := wS.i18n.InternalWeatherMap(lang)
+	if err != nil {
+		return raw, nil
 	}
-
-	trMap := wS.i18n[lang]
 
 	localizedReport := &exApi.WeatherReport{
 		Data:    raw.Data.Localize(trMap),
@@ -130,5 +148,5 @@ func (wS *WeatherService) localizeAndCache(key string, raw *exApi.WeatherReport,
 
 	wS.cache.Add(key, localizedReport)
 
-	return localizedReport, nil, nil
+	return localizedReport, nil
 }

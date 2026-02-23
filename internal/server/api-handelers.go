@@ -154,9 +154,48 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
-	lang, ok := i18n.GetLangFromContext(ctx)
-	if !ok {
-		lang = "en"
+	var lang string
+	if langQ := query.Get("lang"); langQ != "" {
+		lang = langQ
+	} else {
+		var ok bool
+		lang, ok = i18n.GetLangFromContext(ctx)
+		if !ok {
+			lang = "en"
+		}
+	}
+
+	var (
+		exclude exApi.Exclude
+		unit    exApi.Unit = exApi.UnitStandard
+	)
+
+	excludeParam := query.Get("exclude")
+	if excludeParam != "" {
+		var excludeMap = map[string]exApi.Exclude{
+			"minutely": exApi.ExcludeMinutely,
+			"hourly":   exApi.ExcludeHourly,
+			"daily":    exApi.ExcludeDaily,
+			"alerts":   exApi.ExcludeAlerts,
+			"current":  exApi.ExcludeCurrent,
+			"address":  exApi.ExcludeAddress,
+		}
+		parts := strings.SplitSeq(excludeParam, ",")
+		for p := range parts {
+			if f, ok := excludeMap[p]; ok {
+				exclude |= f
+			}
+		}
+	}
+
+	unitParam := query.Get("units")
+	if unitParam != "" {
+		switch unitParam {
+		case "imperial":
+			unit = exApi.UnitImperial
+		case "metric":
+			unit = exApi.UnitMetric
+		}
 	}
 
 	var (
@@ -207,7 +246,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in, lang)
+				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in, lang, unit, exclude)
 
 				if err == nil {
 					if jsonBytes == nil {

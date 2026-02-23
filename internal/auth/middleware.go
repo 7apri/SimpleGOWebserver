@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 )
 
 type contextKey string
@@ -22,7 +24,7 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("access_token")
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Redirect(w, r, fmt.Sprintf("/api/auth/refresh?next=%s", url.QueryEscape(r.URL.RequestURI())), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -64,23 +66,5 @@ func (h *AuthHandler) MiddlewareGuestOnly(next http.Handler) http.Handler {
 			}
 		}
 		next.ServeHTTP(w, r)
-	})
-}
-func (h *AuthHandler) MiddlewareRedirect(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("access_token")
-		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusFound)
-			return
-		}
-
-		claims, err := h.secret.ValidateAccess(cookie.Value)
-		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusFound)
-			return
-		}
-
-		ctx := SetUserContext(r.Context(), claims.User)
-		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

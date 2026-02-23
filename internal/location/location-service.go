@@ -21,6 +21,7 @@ type LocationService struct {
 	saveQueue chan *exApi.GeoResult
 	owClient  *exApi.OpenWeatherClient
 	ipClient  *exApi.IpApiClient
+	flushChan chan struct{}
 	wg        sync.WaitGroup
 }
 
@@ -30,6 +31,7 @@ func NewService(db *database.Database, cacheSize int, promoteThreshold int64, pr
 		cacheSize,
 		promoteThreshold,
 		promotioChanBufferSize,
+		time.Hour*2,
 		janitorInterval,
 		func(data *exApi.GeoResult) ([]byte, error) {
 			return sonic.Marshal(data)
@@ -44,6 +46,7 @@ func NewService(db *database.Database, cacheSize int, promoteThreshold int64, pr
 		saveQueue: make(chan *exApi.GeoResult, saveChanBufferSize),
 		owClient:  owClient,
 		ipClient:  ipClient,
+		flushChan: make(chan struct{}),
 	}
 	go service.saver()
 
@@ -69,7 +72,7 @@ func (wS *LocationService) Down(ctx context.Context) error {
 }
 
 func (lS *LocationService) saver() {
-	const timeout = 5 * time.Millisecond
+	const timeout = time.Millisecond
 	const batchLimit = 40
 
 	timer := time.NewTimer(timeout)
@@ -97,6 +100,11 @@ func (lS *LocationService) saver() {
 				batch = batch[:0]
 			}
 			timer.Reset(timeout)
+		case <-lS.flushChan:
+			if len(batch) > 0 {
+				lS.flush(batch)
+				batch = batch[:0]
+			}
 		}
 	}
 }

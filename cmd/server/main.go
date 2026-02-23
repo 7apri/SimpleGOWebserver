@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	_ "embed"
-	"fmt"
 	"io/fs"
 	"log"
 	"log/slog"
@@ -22,6 +21,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/location"
 	"github.com/7apri/SimpleGOWebserver/internal/redis"
 	"github.com/7apri/SimpleGOWebserver/internal/server"
+	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
@@ -29,12 +29,13 @@ import (
 //go:embed all:site/templates
 var templatesRaw embed.FS
 
-//go:embed all:site/i18n
-var i18nRaw embed.FS
+// //go:embed all:site/i18n
+//var i18nRaw embed.FS
 
 var (
 	templatesEmbed, _ = fs.Sub(templatesRaw, "site/templates")
-	i18nEmbed, _      = fs.Sub(i18nRaw, "site/i18n")
+
+// i18nEmbed, _      = fs.ReadDir(i18nRaw, "site/i18n")
 )
 
 const (
@@ -75,7 +76,24 @@ func main() {
 	googleRedirectUrl := util.TryGetEnvFatal("GOOGLE_REDIRECT_URL_AUTH")
 	googleClientSecret := util.TryGetEnvFatal("GOOGLE_CLIENT_SECRET_AUTH")
 
-	mgr, err := i18n.NewManager(i18nEmbed)
+	i18nPath := os.Getenv("I18N_PATH")
+	if i18nPath == "" {
+		i18nPath = "./i18n"
+	}
+	tmplPath := os.Getenv("TMPL_PATH")
+	if tmplPath == "" {
+		tmplPath = "./templates"
+	}
+
+	i18nFS := os.DirFS(i18nPath)
+	tmplFS := os.DirFS(tmplPath)
+
+	i18nMgr, err := i18n.NewManager(i18nFS)
+	if err != nil {
+		log.Fatalf("Error creating the i18n manager: %s", err)
+	}
+
+	tmplMgr, err := templates.NewManager(tmplFS, i18nMgr)
 	if err != nil {
 		log.Fatalf("Error creating the i18n manager: %s", err)
 	}
@@ -102,7 +120,7 @@ func main() {
 		promoteBufferSizeWeather,
 		janitorIntervalWeather,
 		saveChanBufferSizeWeather,
-		mgr.GetWeatherT(),
+		i18nMgr,
 		owClient,
 		ls,
 	)
@@ -116,12 +134,10 @@ func main() {
 
 	au := auth.NewAuthHandler(db, accessSecret, githubProv, googleProv)
 
-	srv := server.NewServer(ls, ws, au, db, templatesEmbed, rdb, mgr, as)
+	srv := server.NewServer(ls, ws, au, db, templatesEmbed, rdb, i18nMgr, tmplMgr, as)
 
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
-	slog.Info(fmt.Sprintf("Server starting on %s:8080 (external:inernal)", os.Getenv("SERVER_PORT")))
 
 	httpSrv := &http.Server{
 		Addr:         ":8080",

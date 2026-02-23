@@ -54,6 +54,7 @@ func (s *Server) rateLimited(next http.Handler) http.Handler {
 		val, exists := s.userLimiters.Load(key)
 
 		var wrap *limiterTimeWrap
+		var isAllowed = true
 		if !exists {
 			wrap = &limiterTimeWrap{
 				limiter:  rate.NewLimiter(rate.Every(time.Second), 5),
@@ -63,13 +64,10 @@ func (s *Server) rateLimited(next http.Handler) http.Handler {
 			wrap = actual.(*limiterTimeWrap)
 		} else {
 			wrap = val.(*limiterTimeWrap)
-
-			if now-atomic.LoadInt64(&wrap.lastSeen) > 60 {
-				atomic.StoreInt64(&wrap.lastSeen, now)
-			}
+			isAllowed = wrap.limiter.Allow()
 		}
 
-		if !wrap.limiter.Allow() {
+		if !isAllowed {
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}

@@ -151,7 +151,7 @@ func (g *GithubOAuth) mapToExternalUser(u *githubUserResp) *ExternalUser {
 
 func (g *GithubOAuth) getUserPrint(ctx context.Context, extUser *ExternalUser, lang string, dbPool *pgxpool.Pool) (*UserPrint, error) {
 	var user UserPrint
-	err := dbPool.QueryRow(ctx, "SELECT id, role FROM users WHERE  github_id=$1", extUser.ID).Scan(&user.ID, &user.Role)
+	err := dbPool.QueryRow(ctx, "SELECT id, role FROM users WHERE github_id=$1", extUser.ID).Scan(&user.ID, &user.Role)
 
 	if err == pgx.ErrNoRows {
 		const linkQuery = `
@@ -167,6 +167,14 @@ func (g *GithubOAuth) getUserPrint(ctx context.Context, extUser *ExternalUser, l
 			extUser.ID,       // $3 id
 			lang,             // $4 preferred_lang
 		).Scan(&user.ID, &user.Role)
+		if err == nil {
+			go sendWelcomeEmail(&userInfo{
+				username: extUser.Username,
+				email:    extUser.Email,
+				lang:     lang,
+			})
+		}
 	}
+
 	return &user, err
 }

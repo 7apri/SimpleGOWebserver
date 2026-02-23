@@ -12,21 +12,20 @@ func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path != "/" {
 		w.WriteHeader(http.StatusNotFound)
-		server.templates[lang]["404"].Execute(w, nil)
+		server.templateMgr.Get(lang, "page", "404").Execute(w, nil)
 		return
 	}
 	_, loggedIn := auth.GetUserFromContext(r.Context())
 
 	if !loggedIn {
-		http.Redirect(w, r, "/login?next=/", http.StatusFound)
+		http.Redirect(w, r, "/api/auth/refresh", http.StatusTemporaryRedirect)
 		return
 	}
 
-	server.templates[lang]["dashboard"].Execute(w, nil)
+	server.templateMgr.Get(lang, "page", "dashboard").Execute(w, nil)
 }
 func (server *Server) serveHtml(name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		lang, _ := i18n.GetLangFromContext(r.Context())
-		server.templates[lang][name].Execute(w, nil)
+		server.templateMgr.RenderPage(w, r, name, nil)
 	})
 }

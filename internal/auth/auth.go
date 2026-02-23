@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
@@ -12,8 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/mileusna/useragent"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -29,13 +32,17 @@ type UserPrint struct {
 	Role string    `json:"role"`
 }
 
-func generateRandomToken() (string, error) {
+func GenerateRandomToken() (string, error) {
 	b := make([]byte, 48)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+func HashToken(token string) string {
+	hashed := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hashed[:])
 }
 
 const (
@@ -55,12 +62,22 @@ func HashPassword(password string) (string, error) {
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
-	return fmt.Sprintf("$argon2id$v=19$m=32768,t=2,p=1$%s$%s", b64Salt, b64Hash), nil
+	return fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		argonMemory, argonPasses, argonThreads, b64Salt, b64Hash), nil
 }
 func VerifyPassword(password, encodedHash string) (bool, error) {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
 		return false, errors.New("invalid hash format")
+	}
+
+	var (
+		passes, memory uint32
+		threads        uint8
+	)
+	_, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &passes, &threads)
+	if err != nil {
+		return false, errors.New("invalid argon2 parameters in hash")
 	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
@@ -73,7 +90,14 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		return false, err
 	}
 
-	comparisonHash := argon2.IDKey([]byte(password), salt, argonPasses, argonMemory, argonThreads, uint32(len(decodedHash)))
+	comparisonHash := argon2.IDKey(
+		[]byte(password),
+		salt,
+		passes,
+		memory,
+		threads,
+		uint32(len(decodedHash)),
+	)
 
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
@@ -86,7 +110,7 @@ func (s *accessSecretWrap) GenerateAccess(user *UserPrint) (string, time.Time, e
 			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(expiry),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "weather-app",
+			Issuer:    "panels",
 		},
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.accessSecret)
@@ -95,6 +119,9 @@ func (s *accessSecretWrap) GenerateAccess(user *UserPrint) (string, time.Time, e
 
 func (s *accessSecretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return s.accessSecret, nil
 	})
 	if err != nil || !token.Valid {
@@ -103,7 +130,7 @@ func (s *accessSecretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) 
 	return token.Claims.(*UserClaims), nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, user *UserPrint) {
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint) {
 	var refresh string
 
 	access, exp, err := h.secret.GenerateAccess(user)
@@ -112,18 +139,46 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, user *UserPrint) {
 		return
 	}
 
-	refresh, err = generateRandomToken()
+	refresh, err = GenerateRandomToken()
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
+	refreshHash := HashToken(refresh)
+	ip := util.GetClientIP(r)
+	rawUA := r.UserAgent()
+	ua := useragent.Parse(rawUA)
+	deviceName := fmt.Sprintf("%s on %s", ua.Name, ua.OS)
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var email string
+		const q = `
+        SELECT email FROM users 
+        WHERE id = $1 
+          AND NOT EXISTS (
+              SELECT 1 FROM refresh_sessions 
+              WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
+          )`
+
+		err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(&email)
+
+		if err == nil {
+			sendNewLoginEmail(email, ip, deviceName)
+		}
+	}()
+
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelCtx()
 
-	h.db.Pool.Exec(ctx,
-		"INSERT INTO refresh_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-		user.ID, refresh, time.Now().Add(30*24*time.Hour))
+	_, err = h.db.Pool.Exec(ctx,
+		`INSERT INTO refresh_sessions 
+        (user_id, token_hash, expires_at, ip_address, user_agent, device_name) 
+        VALUES ($1, $2, $3, $4, $5, $6)`,
+		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, rawUA, deviceName)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
@@ -138,7 +193,8 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, user *UserPrint) {
 		Name:     "refresh_token",
 		Value:    refresh,
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
-		HttpOnly: true, Secure: true,
+		HttpOnly: true,
+		Secure:   true,
 		Path:     "/api/auth/refresh",
 		SameSite: http.SameSiteLaxMode,
 	})

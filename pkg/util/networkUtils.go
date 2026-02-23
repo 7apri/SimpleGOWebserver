@@ -15,15 +15,19 @@ import (
 )
 
 func GetClientIP(r *http.Request) string {
-	if ip := r.Header.Get("Cf-Connecting-Ip"); ip != "" {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip
 	}
 
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.Split(xff, ",")[0]
+		part := strings.Split(xff, ",")[0]
+		return strings.TrimSpace(part)
 	}
 
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
 	return ip
 }
 

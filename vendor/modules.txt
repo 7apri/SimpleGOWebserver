@@ -93,6 +93,9 @@ github.com/jackc/puddle/v2/internal/genstack
 # github.com/klauspost/cpuid/v2 v2.2.9
 ## explicit; go 1.20
 github.com/klauspost/cpuid/v2
+# github.com/mileusna/useragent v1.3.5
+## explicit; go 1.14
+github.com/mileusna/useragent
 # github.com/redis/go-redis/v9 v9.17.3
 ## explicit; go 1.18
 github.com/redis/go-redis/v9

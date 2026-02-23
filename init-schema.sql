@@ -77,21 +77,26 @@ CREATE TABLE users (
     email CITEXT UNIQUE NOT NULL,
     password_hash TEXT,
     role TEXT DEFAULT 'basic',
-    preferred_lang VARCHAR(5) DEFAULT 'en',
+    preferred_lang VARCHAR(12) DEFAULT 'en',
     units VARCHAR(10) DEFAULT 'metric',
     google_id TEXT UNIQUE,
     github_id TEXT UNIQUE,
     is_verified BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE TABLE refresh_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash TEXT NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    device_name TEXT,
+    user_agent  TEXT,
+    ip_address  INET,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX idx_sessions_user_device ON refresh_sessions (user_id, ip_address, device_name);
 
 CREATE TABLE user_verifications (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -101,6 +106,15 @@ CREATE TABLE user_verifications (
 
 CREATE UNIQUE INDEX idx_verifications_token ON user_verifications(token);
 CREATE INDEX idx_verifications_expiry ON user_verifications(expires_at);
+
+CREATE TABLE user_password_resets (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token CHAR(64) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes')
+);
+
+CREATE UNIQUE INDEX idx_password_resets_token ON user_password_resets(token);
+CREATE INDEX idx_password_resets_expiry ON user_password_resets(expires_at);
 
 CREATE TABLE tasks (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -116,17 +130,19 @@ CREATE INDEX idx_tasks_user_id ON tasks(user_id);
 
 CREATE TABLE analytics (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     path TEXT NOT NULL,
     method TEXT NOT NULL,
     status INT NOT NULL,
-    duration_ms INT NOT NULL,
+    duration_micro BIGINT NOT NULL,
     ip TEXT,
+    user_agent TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_analytics_created_at ON analytics(created_at);
 CREATE INDEX idx_analytics_created_by ON analytics(user_id);
+CREATE INDEX idx_analytics_path ON analytics(path);
 
 CREATE TABLE logs (
     id BIGSERIAL PRIMARY KEY,

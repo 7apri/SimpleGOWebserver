@@ -15,11 +15,13 @@ type TieredCache[K comparable, V any] struct {
 	threshold   int64
 	promoChan   chan promoTask[K, V]
 	marshalFunc func(V) ([]byte, error)
+	HotEntryTtl time.Duration
 }
 
 type HotEntry[V any] struct {
 	Data      V
 	JSONBytes []byte
+	ExpiresAt time.Time
 }
 
 type promoTask[K comparable, V any] struct {
@@ -27,11 +29,12 @@ type promoTask[K comparable, V any] struct {
 	val V
 }
 
-func NewTieredCache[V any, K comparable](lruSize int, promoteThreshold int64, promoChanBuffer int, janitorInterval time.Duration, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[K, V] {
+func NewTieredCache[V any, K comparable](lruSize int, promoteThreshold int64, promoChanBuffer int, HotEntryTtl time.Duration, janitorInterval time.Duration, marshal func(V) ([]byte, error), hashFunc func(K) uint32) *TieredCache[K, V] {
 	tc := &TieredCache[K, V]{
 		threshold:   promoteThreshold,
 		promoChan:   make(chan promoTask[K, V], promoChanBuffer),
 		marshalFunc: marshal,
+		HotEntryTtl: HotEntryTtl,
 	}
 	tc.hot.Store(&sync.Map{})
 	tc.counters.Store(&sync.Map{})
@@ -72,6 +75,7 @@ func (tc *TieredCache[K, V]) promote(key K, val V) {
 		hot.Store(key, &HotEntry[V]{
 			Data:      val,
 			JSONBytes: b,
+			ExpiresAt: time.Now().Add(tc.HotEntryTtl),
 		})
 		counters.Delete(key)
 	}
@@ -82,6 +86,11 @@ func (tc *TieredCache[K, V]) Get(key K) (V, []byte, bool) {
 
 	if val, ok := hot.Load(key); ok {
 		entry := val.(*HotEntry[V])
+		if time.Now().After(entry.ExpiresAt) {
+			hot.Delete(key)
+			var zero V
+			return zero, nil, false
+		}
 		return entry.Data, entry.JSONBytes, true
 	}
 	val, ok := tc.cold.Get(key)
@@ -96,6 +105,17 @@ func (tc *TieredCache[K, V]) Get(key K) (V, []byte, bool) {
 
 func (tc *TieredCache[K, V]) Add(key K, val V) {
 	tc.cold.Add(key, val)
+}
+func (tc *TieredCache[K, V]) AddHot(key K, val V, raw []byte) {
+	hot := tc.hot.Load().(*sync.Map)
+	hot.Store(key, &HotEntry[V]{
+		Data:      val,
+		JSONBytes: raw,
+		ExpiresAt: time.Now().Add(tc.HotEntryTtl),
+	})
+
+	counters := tc.counters.Load().(*sync.Map)
+	counters.Delete(key)
 }
 
 type ShardedCache[K comparable, V any] struct {

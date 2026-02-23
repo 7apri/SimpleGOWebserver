@@ -21,7 +21,7 @@ func (r *GeoResult) GetId() int64 {
 		return id
 	}
 
-	for range 5 {
+	for range 200 {
 		if id := r.Id.Load(); id != 0 {
 			return id
 		}
@@ -32,7 +32,7 @@ func (r *GeoResult) GetId() int64 {
 }
 func (r *GeoResult) Marshal() ([]byte, error) {
 	return sonic.Marshal(&struct {
-		Id int64 `json:"id"`
+		Id int64 `json:"id,omitempty"`
 		*LocationReadableLocalizedAddress
 		*Coordinates
 	}{

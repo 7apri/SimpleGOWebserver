@@ -12,6 +12,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/cache"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5"
@@ -20,20 +21,21 @@ import (
 type WeatherService struct {
 	DB              *database.Database
 	cache           *cache.TieredCache[string, *exApi.WeatherReport]
-	i18n            map[string]map[int16]string
+	i18n            *i18n.Manager
 	sfG             singleflight.Group
-	saveQueue       chan exApi.WeatherReportId
+	saveQueue       chan exApi.WeatherReportGeoRes
 	owClient        *exApi.OpenWeatherClient
 	locationService *location.LocationService
 	wg              sync.WaitGroup
 }
 
-func NewService(db *database.Database, cacheSize int, promoteThreshold int64, promotioChanBufferSize int, janitorInterval time.Duration, saveChanBufferSize int, i18n map[string]map[int16]string, owClient *exApi.OpenWeatherClient, lcService *location.LocationService) (*WeatherService, error) {
+func NewService(db *database.Database, cacheSize int, promoteThreshold int64, promotioChanBufferSize int, janitorInterval time.Duration, saveChanBufferSize int, i18n *i18n.Manager, owClient *exApi.OpenWeatherClient, lcService *location.LocationService) (*WeatherService, error) {
 	s := maphash.MakeSeed()
 	c := cache.NewTieredCache(
 		cacheSize,
 		promoteThreshold,
 		promotioChanBufferSize,
+		time.Hour*2,
 		janitorInterval,
 		func(data *exApi.WeatherReport) ([]byte, error) {
 			return sonic.Marshal(data)
@@ -46,7 +48,7 @@ func NewService(db *database.Database, cacheSize int, promoteThreshold int64, pr
 		DB:              db,
 		cache:           c,
 		i18n:            i18n,
-		saveQueue:       make(chan exApi.WeatherReportId, saveChanBufferSize),
+		saveQueue:       make(chan exApi.WeatherReportGeoRes, saveChanBufferSize),
 		owClient:        owClient,
 		locationService: lcService,
 	}
@@ -79,7 +81,7 @@ func (wS *WeatherService) saver() {
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
-	batch := make([]exApi.WeatherReportId, 0, batchLimit)
+	batch := make([]exApi.WeatherReportGeoRes, 0, batchLimit)
 
 	b := &pgx.Batch{}
 

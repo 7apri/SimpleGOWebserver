@@ -23,7 +23,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var user UserPrint
 	var hash sql.NullString
 
-	input := strings.ToLower(strings.TrimSpace(req.Identifier))
+	input := strings.TrimSpace(req.Identifier)
 
 	const q = `
         SELECT id, role,password_hash 
@@ -44,12 +44,5 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.issueTokens(w, &user)
-
-	next := r.URL.Query().Get("next")
-	if next == "" {
-		next = "/"
-	}
-
-	http.Redirect(w, r, next, http.StatusSeeOther)
+	h.issueTokens(w, r, &user)
 }

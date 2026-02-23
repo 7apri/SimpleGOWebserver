@@ -8,6 +8,8 @@ services:
       - redis
     volumes:
       - dbsocket:/var/run/postgresql
+      - ../cmd/server/site/i18n:/app/i18n
+      - ../cmd/server/site/templates:/app/templates
     env_file: .env
     environment:
       - REDIS_ADDRESS=redis:6379

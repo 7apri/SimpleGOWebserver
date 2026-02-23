@@ -29,7 +29,8 @@ func NewService(db *database.Database, rdb *redis.Client) *Service {
 
 	sv.LogHandler = &Handler{
 		service: sv,
-		console: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+		out:     os.Stdout,
+		level:   slog.LevelInfo,
 	}
 
 	sv.workerWg.Add(1)

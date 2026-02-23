@@ -71,7 +71,7 @@ const historyQ = `
 						 WHEN EXCLUDED.is_forecast = FALSE THEN weather_history.update_count + 1 
 						 ELSE weather_history.update_count END;`
 
-const findQ = `
+const findQId = `
     SELECT full_data
     FROM weather_current_cache 
     WHERE location_id = $1 
@@ -81,7 +81,7 @@ func (wS *WeatherService) FindWeatherCacheByLocId(ctx context.Context, locID int
 
 	report := &exApi.WeatherReport{}
 	var dataRaw []byte
-	err := wS.DB.Pool.QueryRow(ctx, findQ, locID, ttl).Scan(&dataRaw)
+	err := wS.DB.Pool.QueryRow(ctx, findQId, locID, ttl).Scan(&dataRaw)
 
 	if err != nil {
 		return nil, nil, err
@@ -94,18 +94,58 @@ func (wS *WeatherService) FindWeatherCacheByLocId(ctx context.Context, locID int
 	return report, dataRaw, err
 }
 
+const findQAddress = `
+SELECT l.id, w.full_data
+FROM weather_current_cache w
+JOIN locations l ON l.id = w.location_id
+WHERE l.city_name = $1 
+  AND l.country = $2 
+  AND COALESCE(l.state, '') = $3
+  AND w.updated_at > NOW() - ($4 * interval '1 minute');`
+
+func (wS *WeatherService) FindWeatherCacheByAddress(ctx context.Context, address *exApi.LocationReadableAddress, ttl int16) (int64, *exApi.WeatherReport, []byte, error) {
+	report := &exApi.WeatherReport{}
+	var (
+		locID   int64
+		dataRaw []byte
+	)
+
+	err := wS.DB.Pool.QueryRow(
+		ctx,
+		findQAddress,
+		address.CityName,
+		address.Country,
+		address.State,
+		ttl,
+	).Scan(&locID, &dataRaw)
+
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	if err := sonic.Unmarshal(dataRaw, report); err != nil {
+		return locID, nil, nil, err
+	}
+
+	return locID, report, dataRaw, nil
+}
+
 func addIfPresent(m map[string]any, key string, val any) {
 	if val != nil {
 		m[key] = val
 	}
 }
 
-func (wS *WeatherService) flush(ctx context.Context, batch []exApi.WeatherReportId, b *pgx.Batch) {
+func (wS *WeatherService) flush(ctx context.Context, batch []exApi.WeatherReportGeoRes, b *pgx.Batch) {
 	for _, item := range batch {
 		data := item.Report.Data
+		if data.Current == nil {
+			continue
+		}
 
+		locID := item.GeoRes.GetId()
 		b.Queue(cacheQ,
-			item.LocationId, item.Report,
+			locID, item.Report,
 		)
 
 		timezone := time.FixedZone("Local", data.TimezoneOffset)
@@ -155,7 +195,7 @@ func (wS *WeatherService) flush(ctx context.Context, batch []exApi.WeatherReport
 				addIfPresent(rawDay, "clouds", day.Clouds)
 
 				b.Queue(historyQ,
-					item.LocationId,
+					locID,
 					dayLocal,
 					nil,
 					nil,
@@ -177,7 +217,7 @@ func (wS *WeatherService) flush(ctx context.Context, batch []exApi.WeatherReport
 		}
 
 		b.Queue(historyQ,
-			item.LocationId,
+			locID,
 			currentLocal,
 			data.Current.Temp,
 			data.Current.FeelsLike,

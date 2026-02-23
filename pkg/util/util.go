@@ -7,6 +7,28 @@ import (
 	"time"
 )
 
+type ReadOnlyMap[K comparable, V any] struct {
+	data map[K]V
+}
+
+func NewReadOnlyMap[K comparable, V any](m map[K]V) ReadOnlyMap[K, V] {
+	return ReadOnlyMap[K, V]{m}
+}
+
+func (w ReadOnlyMap[K, V]) Lookup(id K) (V, bool) {
+	val, ok := w.data[id]
+	return val, ok
+}
+func (w ReadOnlyMap[K, V]) Len() int {
+	return len(w.data)
+}
+func (w ReadOnlyMap[K, V]) Get(id K) V {
+	return w.data[id]
+}
+func (w ReadOnlyMap[K, V]) All() map[K]V {
+	return w.data
+}
+
 func PingGoogle() (string, error) {
 	start := time.Now()
 

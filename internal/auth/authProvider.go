@@ -7,10 +7,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const callbackPath = "/api/auth/e/callback"
 
 type OAuthProvider interface {
 	Name() string
@@ -41,13 +45,15 @@ func GeneratePKCE() (verifier string, challenge string, err error) {
 }
 
 func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
-	p, ok := h.providers[r.URL.Query().Get("provider")]
+	q := r.URL.Query()
+
+	p, ok := h.providers[q.Get("provider")]
 	if !ok {
 		http.Error(w, "Provider not supported", http.StatusBadRequest)
 		return
 	}
 
-	state, err := generateRandomToken()
+	state, err := GenerateRandomToken()
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -59,10 +65,25 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	next := q.Get("next")
+	if next == "" {
+		next = "/"
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_next",
+		Value:    next,
+		Path:     callbackPath,
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
-		Path:     "/api/auth/e/callback",
+		Path:     callbackPath,
 		HttpOnly: true,
 		MaxAge:   300,
 		Secure:   true,
@@ -72,7 +93,7 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_verifier",
 		Value:    verifier,
-		Path:     "/api/auth/e/callback",
+		Path:     callbackPath,
 		HttpOnly: true,
 		MaxAge:   300,
 		Secure:   true,
@@ -81,7 +102,20 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, p.getAuthURL(state, challenge), http.StatusTemporaryRedirect)
 }
-
+func clearCookies(w http.ResponseWriter, path string, names ...string) {
+	for _, name := range names {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     path,
+			MaxAge:   -1,
+			Expires:  time.Unix(0, 0),
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+}
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	p, ok := h.providers[r.URL.Query().Get("provider")]
 	if !ok {
@@ -120,14 +154,17 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name: "oauth_state", Path: "/api/auth/e/callback", MaxAge: -1,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name: "oauth_verifier", Path: "/api/auth/e/callback", MaxAge: -1,
-	})
+	h.issueTokens(w, r, user)
 
-	h.issueTokens(w, user)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	next := "/"
+	if cookie, err := r.Cookie("oauth_next"); err == nil {
+		next = cookie.Value
+	}
 
+	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
+		next = "/"
+	}
+
+	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier", "oauth_next")
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }

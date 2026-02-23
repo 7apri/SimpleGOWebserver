@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -10,16 +11,18 @@ import (
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
+	"github.com/mileusna/useragent"
 )
 
 type Event struct {
-	UserID     *uuid.UUID `json:"uid,omitempty"`
-	Path       string     `json:"path"`
-	Method     string     `json:"method"`
-	Status     int        `json:"status"`
-	DurationMS int64      `json:"dur"`
-	IP         string     `json:"ip"`
-	CreatedAt  time.Time  `json:"ts"`
+	UserID        *uuid.UUID `json:"uid,omitempty"`
+	Path          string     `json:"path"`
+	Method        string     `json:"method"`
+	Status        int        `json:"status"`
+	DurationMicro int64      `json:"dur"`
+	IP            string     `json:"ip"`
+	UserAgent     string     `json:"user_agent"`
+	CreatedAt     time.Time  `json:"ts"`
 }
 
 type responseWriter struct {
@@ -46,34 +49,45 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		rw := &responseWriter{ResponseWriter: w}
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)
 
-		duration := time.Since(start).Milliseconds()
+		duration := time.Since(start).Microseconds()
+		path := r.URL.Path
+		method := r.Method
+		ip := util.GetClientIP(r)
+		rawUA := r.UserAgent()
 
 		var uid *uuid.UUID
 		if user, ok := auth.GetUserFromContext(r.Context()); ok {
 			uid = &user.ID
 		}
 
-		event := Event{
-			UserID:     uid,
-			Path:       r.URL.Path,
-			Method:     r.Method,
-			Status:     rw.status,
-			DurationMS: duration,
-			IP:         util.GetClientIP(r),
-			CreatedAt:  time.Now(),
-		}
+		go func(u *uuid.UUID) {
+			ua := useragent.Parse(rawUA)
 
-		go func() {
-			data, _ := sonic.Marshal(event)
+			event := Event{
+				UserID:        u,
+				Path:          path,
+				Method:        method,
+				Status:        rw.status,
+				DurationMicro: duration,
+				IP:            ip,
+				UserAgent:     fmt.Sprintf("%s on %s", ua.Name, ua.OS),
+				CreatedAt:     time.Now(),
+			}
+
+			data, err := sonic.Marshal(event)
+			if err != nil {
+				return
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
 			if err := s.redis.RPush(ctx, "analytics_queue", data).Err(); err != nil {
 				slog.Error("Failed to push analytics", "err", err)
 			}
-		}()
+		}(uid)
 	})
 }
