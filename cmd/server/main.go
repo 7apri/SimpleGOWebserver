@@ -1,81 +1,189 @@
 package main
 
 import (
+	"context"
 	_ "embed"
-	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
-	"runtime/trace"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/7apri/SimpleGOWebserver/internal/api"
+	"github.com/7apri/SimpleGOWebserver/internal/analytics"
+	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
+	"github.com/7apri/SimpleGOWebserver/internal/email"
+	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
+	"github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/7apri/SimpleGOWebserver/internal/redis"
 	"github.com/7apri/SimpleGOWebserver/internal/server"
-	"github.com/7apri/SimpleGOWebserver/internal/services"
+	"github.com/7apri/SimpleGOWebserver/internal/templates"
+	"github.com/7apri/SimpleGOWebserver/internal/weather"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
 
-// //go:embed public/templates/* public/static/*
-// var webAssets embed.FS
-// var templates *template.Template
+// //go:embed all:site/templates
+// var templatesRaw embed.FS
 
-/*
-func init() {
-	templates = template.Must(template.ParseFS(webAssets, "public/templates/index.html", "public/templates/404.html"))
-}
-*/
+// //go:embed all:site/i18n
+// var i18nRaw embed.FS
+
+var (
+// templatesEmbed, _ = fs.Sub(templatesRaw, "site/templates")
+// i18nEmbed, _      = fs.ReadDir(i18nRaw, "site/i18n")
+)
+
+const (
+	coldCacheSizeLocation = 500
+	coldCacheSizeWeather  = 500
+
+	promoteThresholdLocation = 20
+
+	promoteBufferSizeLocation = 100
+	promoteBufferSizeWeather  = 100
+
+	janitorIntervalLocation = 10 * time.Minute
+	janitorIntervalWeather  = 10 * time.Minute
+
+	saveChanBufferSizeLocation = 100
+	saveChanBufferSizeWeather  = 100
+
+	// smtp
+	smtpHost     = "mailpit:1025"
+	smtpFrom     = "noreply@panels.com"
+	smtpPassword = ""
+	smtpUser     = ""
+)
 
 func main() {
-	f, _ := os.Create("trace.out")
-	trace.Start(f)
-	defer trace.Stop()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	weatherApiKey := os.Getenv("WEATHER_API_KEY")
-	if weatherApiKey == "" {
-		slog.Error("weather API key is empty please check the .env")
-		os.Exit(1)
+	db := database.Init(ctx)
+	rdb := redis.Init(ctx)
+
+	as := analytics.NewService(db, rdb)
+
+	slog.SetDefault(slog.New(as.LogHandler))
+
+	weatherApiKey := util.TryGetEnvFatal("WEATHER_API_KEY")
+	accessSecret := util.TryGetEnvFatal("ACCESS_SECRET_AUTH")
+
+	githubClientID := util.TryGetEnvFatal("GITHUB_CLIENT_ID_AUTH")
+	githubRedirectUrl := util.TryGetEnvFatal("GITHUB_REDIRECT_URL_AUTH")
+	githubClientSecret := util.TryGetEnvFatal("GITHUB_CLIENT_SECRET_AUTH")
+
+	googleClientID := util.TryGetEnvFatal("GOOGLE_CLIENT_ID_AUTH")
+	googleRedirectUrl := util.TryGetEnvFatal("GOOGLE_REDIRECT_URL_AUTH")
+	googleClientSecret := util.TryGetEnvFatal("GOOGLE_CLIENT_SECRET_AUTH")
+
+	i18nPath := os.Getenv("I18N_PATH")
+	if i18nPath == "" {
+		i18nPath = "./i18n"
+	}
+	tmplPath := os.Getenv("TMPL_PATH")
+	if tmplPath == "" {
+		tmplPath = "./templates"
+	}
+	statPath := os.Getenv("STAT_PATH")
+	if statPath == "" {
+		statPath = "./static"
 	}
 
-	db := database.InitDB()
-	defer db.Pool.Close()
+	i18nFS := os.DirFS(i18nPath)
+	tmplFS := os.DirFS(tmplPath)
+	statFS := os.DirFS(statPath)
 
-	owClient := api.NewOwClient(weatherApiKey, time.Microsecond) //(24*time.Hour)/1000
+	i18nMgr, err := i18n.NewManager(i18nFS)
+	if err != nil {
+		log.Fatalf("Error creating the i18n manager: %s", err)
+	}
 
-	ls, err := services.NewLocationService(db, 500, owClient, api.NewIpClient(time.Minute/40))
+	tmplMgr, err := templates.NewManager(tmplFS, statFS, statPath, i18nMgr)
+	if err != nil {
+		log.Fatalf("Error creating the tmpl manager: %s", err)
+	}
+
+	owClient := exApi.NewOwClient(weatherApiKey, 0) //time.Second
+
+	ls, err := location.NewService(db,
+		coldCacheSizeLocation,
+		promoteThresholdLocation,
+		promoteBufferSizeLocation,
+		janitorIntervalLocation,
+		saveChanBufferSizeLocation,
+		owClient,
+		exApi.NewIpClient(time.Minute/40),
+	)
 	if err != nil {
 		slog.Error("There was an error creating the location service", "error", err)
 		os.Exit(1)
 	}
-	ws, err := services.NewWeatherService(db, 500, owClient, ls)
+	ws, err := weather.NewService(
+		db,
+		coldCacheSizeWeather,
+		promoteBufferSizeWeather,
+		promoteBufferSizeWeather,
+		janitorIntervalWeather,
+		saveChanBufferSizeWeather,
+		i18nMgr,
+		owClient,
+		ls,
+	)
 	if err != nil {
 		slog.Error("There was an error creating the weather service", "error", err)
 		os.Exit(1)
 	}
 
-	srv := &server.Server{
-		LocationService: ls,
-		WeatherService:  ws,
-		Database:        db,
+	em := email.NewEmailManager(smtpHost, smtpFrom, smtpPassword, smtpUser, tmplMgr)
+	ah := auth.NewAuthHandler(db, rdb, em, accessSecret)
+
+	githubProv := auth.NewGithubOAuth(githubClientID, githubClientSecret, githubRedirectUrl)
+	googleProv := auth.NewGoogleOAuth(googleClientID, googleClientSecret, googleRedirectUrl)
+
+	ah.RegisterProviders(githubProv, googleProv)
+
+	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as)
+
+	httpSrv := &http.Server{
+		Addr:         ":8080",
+		Handler:      srv.Routes(),
+		IdleTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		slog.Info("Starting server on :8080")
+		if err = httpSrv.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				slog.Error("There was an error running the server", "error", err)
+			}
+			return
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("Shutdown signal received")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP shutdown failed", "error", err)
 	}
 
-	http.HandleFunc("/", srv.HandleRoot)
-
-	http.HandleFunc("/api/health", srv.HandleHealth)
-
-	http.HandleFunc("/api/weather", srv.HandleWeather)
-	http.HandleFunc("/api/location", srv.HandleLocation)
-
-	http.HandleFunc("/api/login", srv.HandleLogin)
-	http.HandleFunc("/api/register", srv.HandleRegister)
-
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
-	slog.Info(fmt.Sprintf("Server starting on %s:80 (external:inernal)", os.Getenv("SERVER_PORT")))
-
-	err = http.ListenAndServe(":80", nil)
-	if err != nil {
-		slog.Error("There was an error running the server", "error", err)
-		os.Exit(1)
+	if err := ls.Down(shutdownCtx); err != nil {
+		slog.Error("Location service shutdown failed", "error", err)
 	}
+	if err := ws.Down(shutdownCtx); err != nil {
+		slog.Error("Weather service shutdown failed", "error", err)
+	}
+
+	db.Pool.Close()
+	rdb.Close()
+
+	slog.Info("Server exited gracefully")
 }

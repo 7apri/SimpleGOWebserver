@@ -1,0 +1,79 @@
+{{define "page_title"}}
+    {{- if .PageTitleKey -}}
+        {{ tr .PageTitleKey }} | Panels
+    {{- else -}}
+        {{ fullTitle }}
+    {{- end -}}
+{{end}}
+
+{{define "page_desc"}}{{ tr .PageDescKey }}{{end}}
+
+{{define "content"}}
+<main class="flx ali-c j-center fil">
+    <div class="txt-center flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+        <h1 class="txt-2xl mb-sm ls-wide">{{ tr .PageTitleKey }}</h1>
+        <form id="form" data-endpoint="{{ .Endpoint }}" class="flx col ali-s j-left txt-left mb-sm">
+            <label  class="sr-only" for="code-input">{{ tr "phrase:code" }}</label>
+            <div    class="pos-rel fil-x my-lg h-var" style="--h:70px">
+                <input 
+                    id="code-input"
+                    class="pos-abs fil crs-text txt-center"
+                    style="letter-spacing: 50px; opacity: 0; z-index: 2;"
+                    name="code" 
+                    type="text" 
+                    inputmode="numeric" 
+                    maxlength="6" 
+                    pattern="[0-9]*" 
+                    autocomplete="one-time-code" 
+                    required
+                />
+                
+                <div id="code" class="flx gap-sm fil" aria-hidden="true">
+                    <span class="auth-code-box"></span>
+                    <span class="auth-code-box"></span>
+                    <span class="auth-code-box"></span>
+                    <span class="auth-code-box"></span>
+                    <span class="auth-code-box"></span>
+                    <span class="auth-code-box"></span>
+                </div>
+            </div>
+            <div class="flx fil-x gap-md">
+                <button class="txt-capitl txt-lg fw-bold py-sm bg-primary" type="submit" style="--load-color: var(--on-primary); flex: 1;">{{ tr "phrase:next" }}</button>
+                <button class="txt-capitl txt-lg fw-bold p-sm  bg-primary" type="button" style="--load-color: var(--on-primary);" id="resend-btn" data-endpoint="{{ .ResendEndpoint }}">{{ tr "btn:resend" }}</button>
+            </div>
+        </form>
+        <div class="flx gap-lg j-spcBetween">
+            <div class="flx col txt-left w-fit">
+                <a class="txt-capitl keep-next" href="/sign-in">
+                    <span>{{ tr "phrase:sign_in" }}</span>
+                </a>
+                 <a class="txt-capitl keep-next" href="/sign-up">
+                    <span>{{ tr "phrase:sign_up" }}</span>
+                </a>
+            </div>
+            <div class="flx col txt-left">
+                <span id="error-dsp"  class="txt-right txt-error" style="flex: 1;"></span>
+                <span id="error-dsp2" class="txt-right txt-error" style="flex: 1;"></span>
+            </div>
+        </div>
+    </div>
+    <div class="flx col ali-end gap-sm pos-abs bottom right p-sm txt-lg ovr-none pev-none-container">
+        <ul id="lang-menu" class="flx col gap-sm bg-surface-container w-var tr-right-100" style="--w: 80px">
+            {{ getLangElements }}
+        </ul>
+        <div class="flx ali-end gap-sm">
+            <button class="mode-btn icon-container bgr-container" id="themeSwitch-btn" aria-label="">
+                <svg class="icon" aria-hidden="true">
+                    <use href=""></use>
+                </svg>
+            </button>
+            <button class="icon-container bgr-container" id="langSwitch-btn" aria-label="">
+                <svg class="icon" aria-hidden="true">
+                    <use href="/static/assets/iconBundle.svg#i18n"></use>
+                </svg>
+            </button>
+        </div>
+    </div>
+</main>
+<script type="module" src="/static/js/auth/code-confirm.js"></script>
+{{end}}

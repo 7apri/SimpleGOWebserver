@@ -22,7 +22,7 @@ go.work
 go.work.sum
 
 # env file
-.env
+*.env
 
 # Editor/IDE
 # .idea/
@@ -32,6 +32,7 @@ go.work.sum
 #Test stuff
 cmd/*
 !cmd/server
+cmd/server/site/oldSite/*
 
 #Go exec
 main
