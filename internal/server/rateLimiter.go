@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"golang.org/x/time/rate"
 )
@@ -67,6 +68,8 @@ func (s *Server) rateLimited(next http.Handler) http.Handler {
 			isAllowed = wrap.limiter.Allow()
 		}
 
+		atomic.StoreInt64(&wrap.lastSeen, now)
+
 		if !isAllowed {
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
@@ -74,4 +77,26 @@ func (s *Server) rateLimited(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) authRateLimited(next http.Handler) http.Handler {
+	return web.MakeHandler(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		ip := util.GetClientIP(r)
+		key := "auth_ip:" + ip
+
+		val, _ := s.userLimiters.LoadOrStore(key, &limiterTimeWrap{
+			limiter:  rate.NewLimiter(rate.Every(3*time.Second), 3),
+			lastSeen: time.Now().Unix(),
+		})
+		wrap := val.(*limiterTimeWrap)
+
+		atomic.StoreInt64(&wrap.lastSeen, time.Now().Unix())
+
+		if !wrap.limiter.Allow() {
+			return web.NewError(http.StatusTooManyRequests, "err_too_many_requests", nil, nil)
+		}
+
+		next.ServeHTTP(w, r)
+		return nil
+	}, s.i18Mgr)
 }

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="[[ .Lang.Code ]]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <title>[[ getTitleBrand ]]</title>
+    <meta property="og:title"       content="[[ getTitleBrand ]]">
+    <meta property="og:description" content="[[ getDesc ]]">
+    <meta name="description"        content="[[ getDesc ]]">
+    <meta property="og:type"  content="website">
+    <meta property="og:image" content="[[ asset "/static/assets/og-image.png" ]]">
+    
+    <meta name="theme-color"  content="#222831" id="theme-color">
+    <meta name="color-scheme" content="dark light">
+    <script>
+    (function() {
+      window.themeLSKey = window.themeLSKey || 'user-theme';
+      const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      
+      const savedTheme = localStorage.getItem(window.themeLSKey);
+      const theme = savedTheme || (darkQuery.matches ? 'dark' : 'light');
+
+      document.documentElement.setAttribute('data-theme', theme) 
+    })();
+    </script>
+
+    <link rel="stylesheet" href="[[ asset "/static/css/main.css" ]]">
+    <link data-no-hot href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    
+    <link rel="icon" type="image/x-icon" href="[[ asset "/static/assets/favicon.svg" ]]">
+    
+    [[ $trans := getTranslations ]]
+    [[- if ne $trans "{}" -]][[ import "scripts/i18n-cache" $trans ]][[- end -]]
+    [[ range $name, $_ := .Scripts ]]
+    <script src="[[ asset (concat "/static/js/" $name) ]]" type="module"></script>
+    [[- end ]]
+</head>
+<body>
+    [[ .Body ]]
+    [[ import "scripts/hot-reload" nil ]]
+</body>
+</html>

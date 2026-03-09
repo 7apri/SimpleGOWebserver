@@ -74,16 +74,23 @@ CREATE INDEX idx_history_loc_date ON weather_history (location_id, recorded_date
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username CITEXT UNIQUE NOT NULL,
-    email CITEXT UNIQUE NOT NULL,
-    password_hash TEXT,
-    role TEXT DEFAULT 'basic',
-    preferred_lang VARCHAR(12) DEFAULT 'en',
-    units VARCHAR(10) DEFAULT 'metric',
-    google_id TEXT UNIQUE,
-    github_id TEXT UNIQUE,
-    is_verified BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
+    email    CITEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'basic',
+    preferred_lang VARCHAR(12) NOT NULL DEFAULT 'en',
+    units VARCHAR(10) NOT NULL DEFAULT 'metric',
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+CREATE TABLE user_credentials (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind   TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, kind),
+    UNIQUE (kind, secret)
 );
 
 CREATE TABLE refresh_sessions (
@@ -98,23 +105,21 @@ CREATE TABLE refresh_sessions (
 );
 CREATE INDEX idx_sessions_user_device ON refresh_sessions (user_id, ip_address, device_name);
 
-CREATE TABLE user_verifications (
-    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    token TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '8 hours')
+CREATE TYPE challenge_kind AS ENUM ('verify', 'reset', 'lock');
+
+CREATE TABLE user_challenges (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    challenge_type challenge_kind NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    code_hash  CHAR(64) NOT NULL,
+    attempts   SMALLINT DEFAULT 0 CHECK (attempts >= 0 AND attempts <= 10),
+    expires_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, challenge_type)
 );
 
-CREATE UNIQUE INDEX idx_verifications_token ON user_verifications(token);
-CREATE INDEX idx_verifications_expiry ON user_verifications(expires_at);
-
-CREATE TABLE user_password_resets (
-    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    token CHAR(64) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes')
-);
-
-CREATE UNIQUE INDEX idx_password_resets_token ON user_password_resets(token);
-CREATE INDEX idx_password_resets_expiry ON user_password_resets(expires_at);
+CREATE INDEX idx_challenges_token ON user_challenges(token_hash);
+CREATE INDEX idx_challenges_code ON user_challenges(code_hash);
 
 CREATE TABLE tasks (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -155,22 +160,3 @@ CREATE TABLE logs (
 CREATE INDEX idx_logs_created_at ON logs(created_at);
 CREATE INDEX idx_logs_critical ON logs(created_at) 
 WHERE level IN ('WARN', 'ERROR');
-
-INSERT INTO users (username, email, password_hash, role, is_verified) 
-VALUES (
-    'dev', 
-    'dev@email.com', 
-    '$argon2id$v=19$m=65536,t=1,p=4$fGovHETYRunoIoJdj/wrFg$3Ipo8IZeGzV9bNl0wqekkV8BC35znyNmCSK1cb6bOwM', -- verysecure
-    'admin',
-    'true'
-)
-ON CONFLICT (username) DO NOTHING;
-
-INSERT INTO users (username, email, password_hash, is_verified) 
-VALUES (
-    'user', 
-    'user@email.com', 
-    '$argon2id$v=19$m=65536,t=1,p=4$uUvCIM8lk2Usn3tEe6rOBw$EBeEIMtuHWDGC/aEf+WsH1CGlUUq0zN4+SAyVpuKzuw', -- password
-    'true'
-)
-ON CONFLICT (username) DO NOTHING;

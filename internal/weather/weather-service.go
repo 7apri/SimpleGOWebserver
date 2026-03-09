@@ -21,7 +21,7 @@ import (
 type WeatherService struct {
 	DB              *database.Database
 	cache           *cache.TieredCache[string, *exApi.WeatherReport]
-	i18n            *i18n.Manager
+	i18n            *i18n.I18nManager
 	sfG             singleflight.Group
 	saveQueue       chan exApi.WeatherReportGeoRes
 	owClient        *exApi.OpenWeatherClient
@@ -29,7 +29,17 @@ type WeatherService struct {
 	wg              sync.WaitGroup
 }
 
-func NewService(db *database.Database, cacheSize int, promoteThreshold int64, promotioChanBufferSize int, janitorInterval time.Duration, saveChanBufferSize int, i18n *i18n.Manager, owClient *exApi.OpenWeatherClient, lcService *location.LocationService) (*WeatherService, error) {
+func NewService(
+	db *database.Database,
+	cacheSize int,
+	promoteThreshold int64,
+	promotioChanBufferSize int,
+	janitorInterval time.Duration,
+	saveChanBufferSize int,
+	i18n *i18n.I18nManager,
+	owClient *exApi.OpenWeatherClient,
+	lcService *location.LocationService,
+) (*WeatherService, error) {
 	s := maphash.MakeSeed()
 	c := cache.NewTieredCache(
 		cacheSize,

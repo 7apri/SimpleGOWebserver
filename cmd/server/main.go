@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"embed"
 	_ "embed"
-	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
@@ -16,6 +14,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/analytics"
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
+	"github.com/7apri/SimpleGOWebserver/internal/email"
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
@@ -26,15 +25,14 @@ import (
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
 
-//go:embed all:site/templates
-var templatesRaw embed.FS
+// //go:embed all:site/templates
+// var templatesRaw embed.FS
 
 // //go:embed all:site/i18n
-//var i18nRaw embed.FS
+// var i18nRaw embed.FS
 
 var (
-	templatesEmbed, _ = fs.Sub(templatesRaw, "site/templates")
-
+// templatesEmbed, _ = fs.Sub(templatesRaw, "site/templates")
 // i18nEmbed, _      = fs.ReadDir(i18nRaw, "site/i18n")
 )
 
@@ -52,6 +50,12 @@ const (
 
 	saveChanBufferSizeLocation = 100
 	saveChanBufferSizeWeather  = 100
+
+	// smtp
+	smtpHost     = "mailpit:1025"
+	smtpFrom     = "noreply@panels.com"
+	smtpPassword = ""
+	smtpUser     = ""
 )
 
 func main() {
@@ -84,18 +88,23 @@ func main() {
 	if tmplPath == "" {
 		tmplPath = "./templates"
 	}
+	statPath := os.Getenv("STAT_PATH")
+	if statPath == "" {
+		statPath = "./static"
+	}
 
 	i18nFS := os.DirFS(i18nPath)
 	tmplFS := os.DirFS(tmplPath)
+	statFS := os.DirFS(statPath)
 
 	i18nMgr, err := i18n.NewManager(i18nFS)
 	if err != nil {
 		log.Fatalf("Error creating the i18n manager: %s", err)
 	}
 
-	tmplMgr, err := templates.NewManager(tmplFS, i18nMgr)
+	tmplMgr, err := templates.NewManager(tmplFS, statFS, statPath, i18nMgr)
 	if err != nil {
-		log.Fatalf("Error creating the i18n manager: %s", err)
+		log.Fatalf("Error creating the tmpl manager: %s", err)
 	}
 
 	owClient := exApi.NewOwClient(weatherApiKey, 0) //time.Second
@@ -129,15 +138,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	em := email.NewEmailManager(smtpHost, smtpFrom, smtpPassword, smtpUser, tmplMgr)
+	ah := auth.NewAuthHandler(db, rdb, em, accessSecret)
+
 	githubProv := auth.NewGithubOAuth(githubClientID, githubClientSecret, githubRedirectUrl)
 	googleProv := auth.NewGoogleOAuth(googleClientID, googleClientSecret, googleRedirectUrl)
 
-	au := auth.NewAuthHandler(db, accessSecret, githubProv, googleProv)
+	ah.RegisterProviders(githubProv, googleProv)
 
-	srv := server.NewServer(ls, ws, au, db, templatesEmbed, rdb, i18nMgr, tmplMgr, as)
-
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as)
 
 	httpSrv := &http.Server{
 		Addr:         ":8080",
@@ -146,8 +155,6 @@ func main() {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	httpSrv.SetKeepAlivesEnabled(false)
-
 	go func() {
 		slog.Info("Starting server on :8080")
 		if err = httpSrv.ListenAndServe(); err != nil {

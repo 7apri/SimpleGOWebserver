@@ -1,0 +1,36 @@
+---
+ layout: page
+---
+<main class="flx ali-c j-center fil">
+    <div class="txt-center flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+        <h1 class="txt-2xl mb-sm ls-wide"> [[  tr "title:auth/login" ]]</h1>
+        [[ import "components/oauth-btns.html" . ]]
+        <div class="separator my-sm txt-capitl"><span class="txt-capitl"> [[ tr "phrase:or_use_local" ]]</span></div>
+        <form id="form" data-endpoint="/api/auth/login" class="flx col ali-s j-left txt-left mb-sm">
+            <label  class="txt-capitl fil-x" for="identifier-input"> [[ tr "lbl:login_identifier" ]]</label>
+            <input  
+                class="fil-x p-sm mb-md mt-sm txt-lg" 
+                name="identifier" 
+                id="identifier-input" 
+                type="text" 
+                placeholder=" [[ tr "plh:email" ]]"
+                required
+            />
+            [[ import "components/password-input.html" nil ]]
+            <button class="txt-capitl txt-lg fw-bold fil-x py-sm bg-primary" type="submit" style="--load-color: var(--on-primary)"> [[ tr "phrase:sign_in" ]]</button>   
+        </form>
+        <div class="flx gap-lg j-spcBetween">
+            <div class="flx col txt-left w-fit">
+                <a class="txt-capitl keep-next" href="/sign-up" id="register-link">
+                    <span> [[ tr "phrase:sign_up" ]]</span>
+                </a>
+                <a class="txt-capitl keep-next" href="/password-reset">
+                    <span> [[ tr "phrase:forgot_password" ]]</span>
+                </a>
+            </div>
+            <span id="error-dsp" class="txt-right txt-error" style="flex: 1;"></span>
+        </div>
+    </div>
+</main>
+[[ registerScript "auth/login.js" ]]
+

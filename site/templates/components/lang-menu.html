@@ -1,0 +1,11 @@
+<ul id="lang-menu">
+    [[ range $index, $lang := .AllLangs ]]
+       <li class="lang" data-lang="[[$lang.Code]]">
+            <button class="grd pli-c fil-x py-xs" aria-label="[[$lang.SwitchSentence]]">
+                <svg class="icon color" aria-hidden="true">
+                    <use href="/static/assets/iconBundle.svg#[[$lang.Code]]"></use>
+                </svg>
+            </button>
+        </li>
+    [[ end -]]
+</ul>

@@ -8,8 +8,9 @@ services:
       - redis
     volumes:
       - dbsocket:/var/run/postgresql
-      - ../cmd/server/site/i18n:/app/i18n
-      - ../cmd/server/site/templates:/app/templates
+      - ../site/i18n:/app/i18n
+      - ../site/templates:/app/templates
+      - ../site/static:/app/static
     env_file: .env
     environment:
       - REDIS_ADDRESS=redis:6379
@@ -39,12 +40,13 @@ services:
     depends_on:
       - server
   nginx:
-    image: nginx:alpine
+    image: fholzer/nginx-brotli
     ports:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ../cmd/server/site/static:/var/www/static:ro
+      - ./ngnix/access.log:/var/log/nginx/
+      - ../site/static:/var/www/static:ro
     depends_on:
       - server
   mailpit:

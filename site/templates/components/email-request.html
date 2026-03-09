@@ -1,0 +1,24 @@
+<main class="flx ali-c j-center fil">
+    <div class="flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+        <h1 class="txt-2xl mb-sm ls-wide">[[ tr .Data.TitleKey ]]</h1>
+        <form id="form" data-endpoint="[[ .Data.Endpoint ]]" class="flx col ali-s j-left txt-left mb-sm">
+            <label  class="txt-capitl fil-x" for="email-input">[[ tr "email" ]]</label>
+            <input  class="fil-x p-sm mb-md mt-sm txt-lg" name="email" id="email-input" type="email" placeholder="admin@email.com" required/>
+
+            <button class="txt-capitl txt-lg fw-bold fil-x py-sm bg-primary" type="submit" style="--load-color: var(--on-primary)">[[ tr "phrase:next" ]]</button>   
+        </form>
+        <div class="flx gap-lg j-spcBetween">
+            <div class="flx col txt-left w-fit">
+                <a class="txt-capitl keep-next" href="/sign-in">
+                    <span>[[ tr "phrase:sign_in" ]]</span>
+                </a>
+                 <a class="txt-capitl keep-next" href="/sign-up">
+                    <span>[[ tr "phrase:sign_up" ]]</span>
+                </a>
+            </div>
+            <span id="error-dsp" class="txt-right txt-error" style="flex: 1;"></span>
+        </div>
+    </div>
+    [[ import "components/quick-settings.html" . ]]
+</main>
+<script type="module" src="/static/js/auth/reset-req.js"></script>

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -27,10 +28,26 @@ type UserClaims struct {
 	User *UserPrint
 	jwt.RegisteredClaims
 }
+type UserPrintBig struct {
+	UserPrint
+	UserDetail
+}
+type UserDetail struct {
+	UserContact
+	Lang string `json:"lang"`
+}
 type UserPrint struct {
 	ID   uuid.UUID `json:"id"`
 	Role string    `json:"role"`
 }
+type UserContact struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
+const (
+	UserCredentialsPassword = "passkey"
+)
 
 func GenerateRandomToken() (string, error) {
 	b := make([]byte, 48)
@@ -40,15 +57,15 @@ func GenerateRandomToken() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
-func HashToken(token string) string {
+func HashString(token string) string {
 	hashed := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hashed[:])
 }
 
 const (
-	argonPasses  = 1
+	argonPasses  = 3
 	argonThreads = 2
-	argonMemory  = 32 * 1024
+	argonMemory  = 1024 * 64 // 64 MB
 )
 
 func HashPassword(password string) (string, error) {
@@ -71,10 +88,8 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		return false, errors.New("invalid hash format")
 	}
 
-	var (
-		passes, memory uint32
-		threads        uint8
-	)
+	var memory, passes, threads int
+
 	_, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &passes, &threads)
 	if err != nil {
 		return false, errors.New("invalid argon2 parameters in hash")
@@ -93,9 +108,9 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	comparisonHash := argon2.IDKey(
 		[]byte(password),
 		salt,
-		passes,
-		memory,
-		threads,
+		uint32(passes),
+		uint32(memory),
+		uint8(threads),
 		uint32(len(decodedHash)),
 	)
 
@@ -130,22 +145,20 @@ func (s *accessSecretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) 
 	return token.Claims.(*UserClaims), nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint) {
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint) error {
 	var refresh string
 
 	access, exp, err := h.secret.GenerateAccess(user)
 	if err != nil {
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	refresh, err = GenerateRandomToken()
 	if err != nil {
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	refreshHash := HashToken(refresh)
+	refreshHash := HashString(refresh)
 	ip := util.GetClientIP(r)
 	rawUA := r.UserAgent()
 	ua := useragent.Parse(rawUA)
@@ -155,19 +168,28 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		var email string
+		var usrDetail email.UserDetail
 		const q = `
-        SELECT email FROM users 
+        SELECT email, username, preferred_lang FROM users 
         WHERE id = $1 
-          AND NOT EXISTS (
-              SELECT 1 FROM refresh_sessions 
-              WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
-          )`
+		AND NOT EXISTS (
+			SELECT 1 FROM refresh_sessions
+			WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
+		)`
 
-		err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(&email)
+		err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(
+			&usrDetail.Email,
+			&usrDetail.Username,
+			&usrDetail.Lang,
+		)
 
 		if err == nil {
-			sendNewLoginEmail(email, ip, deviceName)
+			h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
+				Device:     deviceName,
+				IP:         ip,
+				Time:       time.Now().String(),
+				SecureLink: "not implemented yet",
+			}, usrDetail)
 		}
 	}()
 
@@ -195,7 +217,9 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
 		HttpOnly: true,
 		Secure:   true,
-		Path:     "/api/auth/refresh",
+		Path:     "/api/auth/",
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	return nil
 }

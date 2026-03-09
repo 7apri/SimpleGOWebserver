@@ -1,7 +1,6 @@
 package server
 
 import (
-	"io/fs"
 	"sync"
 
 	"github.com/7apri/SimpleGOWebserver/internal/analytics"
@@ -22,10 +21,20 @@ type Server struct {
 	database         *database.Database
 	redis            *redis.Client
 	userLimiters     sync.Map
-	templateMgr      *templates.Manager
+	templateMgr      *templates.TemplateManager
+	i18Mgr           *i18n.I18nManager
 }
 
-func NewServer(locationSr *location.LocationService, weatherSr *weather.WeatherService, authHl *auth.AuthHandler, db *database.Database, templateFs fs.FS, rdb *redis.Client, i18nMgr *i18n.Manager, templateMgr *templates.Manager, analyticsSr *analytics.Service) *Server {
+func NewServer(
+	locationSr *location.LocationService,
+	weatherSr *weather.WeatherService,
+	authHl *auth.AuthHandler,
+	db *database.Database,
+	rdb *redis.Client,
+	i18nMgr *i18n.I18nManager,
+	templateMgr *templates.TemplateManager,
+	analyticsSr *analytics.Service,
+) *Server {
 	srv := &Server{
 		locationService:  locationSr,
 		weatherService:   weatherSr,
@@ -33,6 +42,7 @@ func NewServer(locationSr *location.LocationService, weatherSr *weather.WeatherS
 		authHandler:      authHl,
 		database:         db,
 		templateMgr:      templateMgr,
+		i18Mgr:           i18nMgr,
 		redis:            rdb,
 	}
 

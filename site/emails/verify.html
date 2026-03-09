@@ -1,0 +1,22 @@
+{{ define "email_subject" }}{{   tr "verify_your_email" }}{{ end }}
+{{ define "email_preheader" }}{{ tr "your_code_is" }} {{ .Code }}{{ end }}
+
+{{ define "email_content" }}
+<h1 style="margin-top: 0; font-size: 24px;">{{ tr "hello" }} {{ .Username }},</h1>
+
+<p>{{ tr "verify_instructions" }}</p>
+
+<div style="text-align: center;">
+    <a href="{{ .ActionLink }}" class="btn">{{ tr "verify_email_btn" }}</a>
+</div>
+
+<p style="text-align: center; margin-bottom: 0;">{{ tr "or_enter_code" }}:</p>
+
+<div class="code-box">
+    <span>{{ .Code }}</span>
+</div>
+
+<p style="font-size: 14px; color: #71717a;">
+    {{ tr "code_expires_in" }} 15 {{ tr "minutes" }}.
+</p>
+{{ end }}

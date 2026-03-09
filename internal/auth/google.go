@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type GoogleOAuth struct {
@@ -111,26 +109,4 @@ func (g *GoogleOAuth) fetchUser(ctx context.Context, token string) (*ExternalUse
 		Username: res.Name,
 		Email:    strings.ToLower(res.Email),
 	}, nil
-}
-
-func (g *GoogleOAuth) getUserPrint(ctx context.Context, extUser *ExternalUser, lang string, dbPool *pgxpool.Pool) (*UserPrint, error) {
-	var user UserPrint
-	err := dbPool.QueryRow(ctx, "SELECT id, role FROM users WHERE google_id=$1", extUser.ID).Scan(&user.ID, &user.Role)
-
-	if err == pgx.ErrNoRows {
-		const linkQuery = `
-        INSERT INTO users (username, email, google_id, preferred_lang, is_verified)
-        VALUES ($1, $2, $3, $4, true)
-        ON CONFLICT (email) DO UPDATE 
-        SET google_id = EXCLUDED.google_id
-        RETURNING id, role`
-
-		err = dbPool.QueryRow(ctx, linkQuery,
-			extUser.Username,
-			extUser.Email,
-			extUser.ID,
-			lang,
-		).Scan(&user.ID, &user.Role)
-	}
-	return &user, err
 }

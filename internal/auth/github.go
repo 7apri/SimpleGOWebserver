@@ -10,17 +10,14 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type GithubOAuth struct {
 	clientId     string
 	clientSecret string
 	baseValues   url.Values
+	handlr       *AuthHandler
 }
-
-func (g *GithubOAuth) Name() string { return "github" }
 
 const (
 	githubLoginUrl     = "https://github.com/login/oauth/authorize" + "?"
@@ -28,7 +25,10 @@ const (
 	githubUserUrl      = "https://api.github.com/user"
 	githubUserEmailUrl = githubUserUrl + "/emails"
 	githubScope        = "read:user user:email"
+	githubName         = "github"
 )
+
+func (g *GithubOAuth) Name() string { return githubName }
 
 func NewGithubOAuth(clientId string, clientSecret string, baseRedirectUrl string) *GithubOAuth {
 	v := url.Values{}
@@ -147,34 +147,4 @@ func (g *GithubOAuth) mapToExternalUser(u *githubUserResp) *ExternalUser {
 		Username: u.Login,
 		Email:    strings.ToLower(u.Email),
 	}
-}
-
-func (g *GithubOAuth) getUserPrint(ctx context.Context, extUser *ExternalUser, lang string, dbPool *pgxpool.Pool) (*UserPrint, error) {
-	var user UserPrint
-	err := dbPool.QueryRow(ctx, "SELECT id, role FROM users WHERE github_id=$1", extUser.ID).Scan(&user.ID, &user.Role)
-
-	if err == pgx.ErrNoRows {
-		const linkQuery = `
-        INSERT INTO users (username, email, github_id, preferred_lang, is_verified)
-        VALUES ($1, $2, $3, $4, true)
-        ON CONFLICT (email) DO UPDATE 
-        SET github_id = EXCLUDED.github_id
-        RETURNING id, role`
-
-		err = dbPool.QueryRow(ctx, linkQuery,
-			extUser.Username, // $1 username
-			extUser.Email,    // $2 email
-			extUser.ID,       // $3 id
-			lang,             // $4 preferred_lang
-		).Scan(&user.ID, &user.Role)
-		if err == nil {
-			go sendWelcomeEmail(&userInfo{
-				username: extUser.Username,
-				email:    extUser.Email,
-				lang:     lang,
-			})
-		}
-	}
-
-	return &user, err
 }

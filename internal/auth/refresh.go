@@ -25,15 +25,16 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const q = `
-        DELETE FROM refresh_sessions rs
-        USING users u
-        WHERE rs.user_id = u.id 
-          AND rs.token_hash = $1 
-          AND rs.expires_at > NOW()
-        RETURNING u.id, u.role`
+		DELETE FROM refresh_sessions rs
+		USING users u
+		WHERE rs.user_id = u.id 
+		AND rs.token_hash = $1 
+		AND rs.expires_at > NOW()
+		AND u.is_verified = true
+		RETURNING u.id, u.role`
 
 	var user UserPrint
-	err = h.db.Pool.QueryRow(r.Context(), q, HashToken(cookie.Value)).Scan(
+	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
 		&user.ID,
 		&user.Role,
 	)
