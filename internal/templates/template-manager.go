@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,17 +41,23 @@ func (t *TemplateWrapper) ExecuteTemplate(w io.Writer, name string, data any) er
 type templatesSnapshot struct {
 	templates map[string]map[TemplateKey]*TemplateWrapper
 }
+
+type AssetInfo struct {
+	Hash string
+	Deps []string
+}
+
 type TemplateManager struct {
-	RefreshChan    chan rune
-	Templatefs     fs.FS
-	Staticfs       fs.FS
-	i18nManager    *i18n.I18nManager
-	bufferPool     *BufferPool
-	snapshot       atomic.Pointer[templatesSnapshot]
-	assetHashes    atomic.Pointer[util.ReadOnlyMap[string, string]]
-	staticRoot     string
-	lastStaticScan time.Time
-	lastHighestMod time.Time
+	RefreshChan             chan rune
+	Templatefs              fs.FS
+	Staticfs                fs.FS
+	i18nManager             *i18n.I18nManager
+	bufferPool              *BufferPool
+	snapshot                atomic.Pointer[templatesSnapshot]
+	assetInfo               atomic.Pointer[util.ReadOnlyMap[string, AssetInfo]]
+	staticRoot              string
+	lastHighestModAssets    time.Time
+	lastHighestModTemplates time.Time
 }
 
 func NewManager(templateFS, staticFS fs.FS, staticRoot string, i18nManager *i18n.I18nManager) (*TemplateManager, error) {
@@ -63,24 +70,26 @@ func NewManager(templateFS, staticFS fs.FS, staticRoot string, i18nManager *i18n
 		staticRoot:  staticRoot,
 	}
 	mgr.syncStaticAndCheck()
+
 	if err := mgr.Refresh(); err != nil {
-		return nil, err
+		slog.Error("initial template refresh failed", "err", err)
 	}
-	mgr.lastHighestMod = time.Now()
-	mgr.Watcher(time.Millisecond * 100)
+	mgr.lastHighestModTemplates = time.Now()
+
+	mgr.Watcher(time.Millisecond * 300)
+
 	return mgr, nil
 }
 
 const (
 	SignalReload = 'r'
 	SignalCSS    = 'c'
+	maxSmallFile = 2 * 1024 * 1024
 )
 
 var hashBufferPool = sync.Pool{
 	New: func() any { b := make([]byte, 32*1024); return &b },
 }
-
-const maxSmallFile = 2 * 1024 * 1024
 
 var crcTable = crc32.MakeTable(crc32.IEEE)
 
@@ -90,54 +99,107 @@ func generateETag(content []byte) string {
 }
 
 func calcHashPath(path string, size int64) (string, error) {
-	var checksum uint32
+	var hash string
 
 	if size <= maxSmallFile {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return "", err
 		}
-		checksum = crc32.Checksum(data, crcTable)
+		hash = calcHashBytes(data)
 	} else {
 		f, err := os.Open(path)
 		if err != nil {
 			return "", err
 		}
 		defer f.Close()
-
-		bufPtr := hashBufferPool.Get().(*[]byte)
-		defer hashBufferPool.Put(bufPtr)
-
-		h := crc32.New(crcTable)
-		if _, err := io.CopyBuffer(h, f, *bufPtr); err != nil {
+		hash, err = calcHashFile(f)
+		if err != nil {
 			return "", err
 		}
-		checksum = h.Sum32()
 	}
 
-	return strconv.FormatUint(uint64(checksum), 16), nil
+	return hash, nil
 }
+func calcHashBytes(content []byte) string {
+	return strconv.FormatUint(uint64(crc32.Checksum(content, crcTable)), 16)
+}
+func calcHashFile(f *os.File) (string, error) {
+	bufPtr := hashBufferPool.Get().(*[]byte)
+	defer hashBufferPool.Put(bufPtr)
+
+	h := crc32.New(crcTable)
+	if _, err := io.CopyBuffer(h, f, *bufPtr); err != nil {
+		return "", err
+	}
+	return strconv.FormatUint(uint64(h.Sum32()), 16), nil
+}
+
+var importRegex = regexp.MustCompile(`(?m)\b(?:import|export)\b(?:[^'"]*from)?\s*['"](\.\.?\/[^'"]+)['"]`)
+
+func getDeps(content []byte) []string {
+	matches := importRegex.FindAllSubmatch(content, -1)
+	var deps []string
+	for _, m := range matches {
+		deps = append(deps, string(m[1]))
+	}
+	return deps
+}
+
 func (mgr *TemplateManager) getAsset(path string) string {
-	hashes := mgr.assetHashes.Load()
-	if hashes == nil {
+	assetInfo := mgr.assetInfo.Load()
+	if assetInfo == nil {
 		return path
 	}
-	target, hash := getTargetPath(path, "/static/", "", *hashes)
+	target, info := getTargetPath(path, "/static/", "", *assetInfo)
 	if target != "" {
-		return target + "?v=" + hash
+		return target + "?v=" + info.Hash
 	}
 	return path
 }
 
+func (mgr *TemplateManager) processFile(path string, fileSize int64) (AssetInfo, bool, error) {
+	var info AssetInfo
+	var err error
+	isJs := strings.HasSuffix(path, ".js")
+
+	if isJs {
+		content, err := fs.ReadFile(mgr.Staticfs, path)
+		if err != nil {
+			return AssetInfo{}, isJs, err
+		}
+		info.Hash = calcHashBytes(content)
+		rawDeps := getDeps(content)
+
+		baseDir := filepath.Dir(path)
+		for _, d := range rawDeps {
+			resolved := filepath.Join(baseDir, d)
+
+			relToJs, err := filepath.Rel("js", resolved)
+			if err == nil {
+				info.Deps = append(info.Deps, filepath.ToSlash(relToJs))
+			}
+		}
+	} else {
+		fullPath := filepath.Join(mgr.staticRoot, path)
+		info.Hash, err = calcHashPath(fullPath, fileSize)
+		if err != nil {
+			return AssetInfo{}, isJs, err
+		}
+	}
+	return info, isJs, nil
+}
+
 func (mgr *TemplateManager) syncStaticAndCheck() string {
-	ptr := mgr.assetHashes.Load()
-	var currentHashes util.ReadOnlyMap[string, string]
+	ptr := mgr.assetInfo.Load()
+	var currentInfo util.ReadOnlyMap[string, AssetInfo]
 	if ptr != nil {
-		currentHashes = *ptr
+		currentInfo = *ptr
 	}
 
 	changeFound := ""
-	newHashes := make(map[string]string, currentHashes.Len())
+	highestMod := mgr.lastHighestModAssets
+	newInfo := make(map[string]AssetInfo, currentInfo.Len())
 
 	err := fs.WalkDir(mgr.Staticfs, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -146,24 +208,35 @@ func (mgr *TemplateManager) syncStaticAndCheck() string {
 
 		urlPath := "/static/" + filepath.ToSlash(path)
 		info, _ := d.Info()
+		modTime := info.ModTime()
 
-		if info.ModTime().After(mgr.lastStaticScan) {
-			fullPath := filepath.Join(mgr.staticRoot, path)
-			newHash, _ := calcHashPath(fullPath, info.Size())
-			newHashes[urlPath] = newHash
+		if modTime.After(highestMod) {
+			highestMod = modTime
+		}
 
-			if strings.HasSuffix(path, ".js") {
+		if modTime.After(mgr.lastHighestModAssets) {
+			new, isJs, err := mgr.processFile(path, info.Size())
+			if err != nil {
+				return err
+			}
+
+			newInfo[urlPath] = new
+
+			if isJs {
 				changeFound = "hard"
 			} else if changeFound != "hard" {
+
 				changeFound = "soft"
 			}
 		} else {
-			if h, ok := currentHashes.Lookup(urlPath); ok {
-				newHashes[urlPath] = h
+			if h, ok := currentInfo.Lookup(urlPath); ok {
+				newInfo[urlPath] = h
 			} else {
-				fullPath := filepath.Join(mgr.staticRoot, path)
-				newHash, _ := calcHashPath(fullPath, info.Size())
-				newHashes[urlPath] = newHash
+				new, _, err := mgr.processFile(path, info.Size())
+				if err != nil {
+					return err
+				}
+				newInfo[urlPath] = new
 				if changeFound == "" {
 					changeFound = "soft"
 				}
@@ -177,10 +250,10 @@ func (mgr *TemplateManager) syncStaticAndCheck() string {
 		return ""
 	}
 
-	if changeFound != "" || len(newHashes) != currentHashes.Len() {
-		mgr.lastStaticScan = time.Now()
-		m := util.NewReadOnlyMap(newHashes)
-		mgr.assetHashes.Store(&m)
+	if changeFound != "" || len(newInfo) != currentInfo.Len() {
+		mgr.lastHighestModAssets = highestMod
+		m := util.NewReadOnlyMap(newInfo)
+		mgr.assetInfo.Store(&m)
 	}
 
 	return changeFound
@@ -194,8 +267,8 @@ func (mgr *TemplateManager) checkTemplates() bool {
 		}
 
 		info, _ := d.Info()
-		if info.ModTime().After(mgr.lastHighestMod) {
-			mgr.lastHighestMod = info.ModTime()
+		if info.ModTime().After(mgr.lastHighestModTemplates) {
+			mgr.lastHighestModTemplates = info.ModTime()
 			changed = true
 		}
 		return nil
@@ -212,46 +285,51 @@ func (mgr *TemplateManager) Watcher(delay time.Duration) {
 		ticker := time.NewTicker(delay)
 		defer ticker.Stop()
 
-		var debounceTimer *time.Timer
 		refreshTrigger := make(chan struct{}, 1)
 
 		go func() {
-			for range refreshTrigger {
-				if debounceTimer != nil {
-					debounceTimer.Stop()
-				}
-				debounceTimer = time.AfterFunc(time.Millisecond*500, func() {
-					slog.Info("refresh signal recieved, refreshing...")
-					err := mgr.Refresh()
-					if err == nil {
+			var debounce <-chan time.Time
+
+			for {
+				select {
+				case <-refreshTrigger:
+					debounce = time.After(600 * time.Millisecond)
+
+				case <-debounce:
+					debounce = nil
+
+					slog.Info("refresh signal received, refreshing...")
+					if err := mgr.Refresh(); err == nil {
 						select {
 						case mgr.RefreshChan <- SignalReload:
 						default:
-							slog.Debug("refreshChan full, skipping signal")
 						}
 					} else {
 						slog.Error("error refreshing", "err", err)
 					}
-				})
+				}
 			}
 		}()
 		for {
 			select {
 			case <-ticker.C:
+				refresh := mgr.checkTemplates()
+
 				changeType := mgr.syncStaticAndCheck()
 				if changeType != "" {
-					sig := SignalCSS
-					if changeType == "hard" {
-						sig = SignalReload
-					}
+					if changeType != "hard" {
+						sig := SignalCSS
 
-					select {
-					case mgr.RefreshChan <- sig:
-					default:
+						select {
+						case mgr.RefreshChan <- sig:
+						default:
+						}
+					} else {
+						refresh = true
 					}
 				}
 
-				if mgr.checkTemplates() {
+				if refresh {
 					select {
 					case refreshTrigger <- struct{}{}:
 					default:

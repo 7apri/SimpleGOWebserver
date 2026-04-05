@@ -1,0 +1,30 @@
+[[ registerScript "auth/components/code-input.js" ]]
+[[ $length := 6 ]]
+[[ if .Data.Length ]][[ $length = .Data.Length ]][[ end ]]
+
+<label class="sr-only" for="code-input">[[ tr "phrase:code" ]]</label>
+<div 
+id="code-wrapper"
+class="pos-rel fil-x my-md [[ if .Data.Classes ]] [[ .Data.Classes ]][[ end ]]" 
+[[ if .Data.Styles ]]style="[[ .Data.Styles ]]"[[ end ]]
+>
+    <input 
+        id="code-input"
+        class="pos-abs fil crs-text txt-center"
+        style="letter-spacing: 1em;z-index: 2;opacity: 0;"
+        name="code" 
+        type="text" 
+        inputmode="numeric" 
+        pattern="\d+"
+        maxlength="[[ $length ]]" 
+        autocomplete="one-time-code"
+        [[ if .Data.Attribute ]][[ .Data.Attribute ]][[ end ]]
+        required
+    />
+    
+    <div id="code" class="flx gap-sm fil" aria-hidden="true">
+        [[ range seq  $length]]
+        <span class="auth-code-box"></span>
+        [[ end ]]
+    </div>
+</div>

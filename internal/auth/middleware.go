@@ -30,7 +30,34 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 
 		claims, err := h.secret.ValidateAccess(cookie.Value)
 		if err != nil {
+			http.Redirect(w, r, fmt.Sprintf("/api/auth/refresh?next=%s", url.QueryEscape(r.URL.RequestURI())), http.StatusTemporaryRedirect)
+			return
+		}
+
+		if claims.Pending2FA {
+			http.Redirect(w, r, fmt.Sprintf("/2fa?next=%s", url.QueryEscape(r.URL.RequestURI())), http.StatusTemporaryRedirect)
+			return
+		}
+
+		ctx := SetUserContext(r.Context(), claims.User)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+func (h *AuthHandler) MiddlewareTwoFA(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("access_token")
+		if err != nil {
 			http.Error(w, "Token expired", http.StatusUnauthorized)
+			return
+		}
+
+		claims, err := h.secret.ValidateAccess(cookie.Value)
+		if err != nil {
+			http.Error(w, "Token expired", http.StatusUnauthorized)
+			return
+		}
+		if !claims.Pending2FA {
+			http.Error(w, "Not in 2FA state", http.StatusBadRequest)
 			return
 		}
 
@@ -47,7 +74,7 @@ func (h *AuthHandler) MiddlewareSoft(next http.Handler) http.Handler {
 		}
 
 		claims, err := h.secret.ValidateAccess(cookie.Value)
-		if err != nil {
+		if err != nil || claims.Pending2FA {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -56,15 +83,18 @@ func (h *AuthHandler) MiddlewareSoft(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
-func (h *AuthHandler) MiddlewareGuestOnly(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("access_token")
-		if err == nil {
-			if _, err := h.secret.ValidateAccess(cookie.Value); err == nil {
-				http.Redirect(w, r, "/", http.StatusFound)
-				return
+
+/*
+	func (h *AuthHandler) MiddlewareGuestOnly(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie("access_token")
+			if err == nil {
+				if _, err := h.secret.ValidateAccess(cookie.Value); err == nil {
+					http.Redirect(w, r, "/", http.StatusFound)
+					return
+				}
 			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
+			next.ServeHTTP(w, r)
+		})
+	}
+*/

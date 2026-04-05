@@ -48,6 +48,7 @@ var resolveInPool = sync.Pool{
 func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
+	w.Header().Set("Cache-Control", "public")
 
 	var (
 		coords    []exApi.Coordinates

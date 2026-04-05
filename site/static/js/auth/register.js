@@ -1,14 +1,14 @@
-import InitOauth from "./oauthBtn.js";
-import InitLang  from "./langSelect.js";
-import InitForm  from "./form.js";
-import InitPasswordInput from "./password-input.js";
-import InitKeepNext from "./keep-next.js";
+import setupForm  from "./components/form.js";
+import InitKeepNext from "./components/keep-next.js";
 
 const urlParams = new URLSearchParams(window.location.search);
-const nextUri = urlParams.get('next') || "/";
+let nextUrl = urlParams.get('next');
 
-InitOauth(nextUri);
-InitKeepNext(nextUri);
-InitPasswordInput();
-InitForm(() => window.location.href = `/account-verify` + (nextUri ===  "/" ? '' : `?next=${nextUri}`));
-InitLang();
+if(nextUrl === null){
+    nextUrl = '/'
+} else {
+    InitKeepNext(nextUrl);
+}
+const form = document.getElementById("form");
+
+setupForm(form,null,() => window.location.href = `/account-verify` + (nextUrl ===  "/" ? '' : `?next=${encodeURIComponent(nextUrl)}`));

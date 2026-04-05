@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/7apri/SimpleGOWebserver/internal/templates"
 )
 
 func redirectToLogin(w http.ResponseWriter, r *http.Request, next string) {
@@ -27,16 +29,18 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	const q = `
 		DELETE FROM refresh_sessions rs
 		USING users u
-		WHERE rs.user_id = u.id 
-		AND rs.token_hash = $1 
-		AND rs.expires_at > NOW()
-		AND u.is_verified = true
-		RETURNING u.id, u.role`
+			WHERE rs.user_id = u.id 
+			AND rs.token_hash = $1 
+			AND rs.expires_at > NOW()
+			AND u.is_verified = true
+		RETURNING u.id, u.role, u.username, u.avatar_url`
 
 	var user UserPrint
 	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
 		&user.ID,
 		&user.Role,
+		&user.Username,
+		&user.AvatarURL,
 	)
 
 	if err != nil {
@@ -44,11 +48,17 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.issueTokens(w, r, &user)
+	err = h.issueTokens(w, r, &user, false)
+	if err != nil {
+		redirectToLogin(w, r, next)
+		return
+	}
 
 	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
 		next = "/"
 	}
+
+	templates.SetETag(w, r, "refresh")
 
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }

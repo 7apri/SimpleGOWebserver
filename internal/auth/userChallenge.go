@@ -14,11 +14,13 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 func GenerateChallenge() (*email.GeneratedChallenge, error) {
-	rawToken, err := GenerateRandomToken()
+	rawToken, err := GenerateRandomString(32)
 	if err != nil {
 		return nil, err
 	}
@@ -40,52 +42,106 @@ func GenerateChallenge() (*email.GeneratedChallenge, error) {
 		},
 	}, nil
 }
-func (h *AuthHandler) CheckChallengeCode(cookieName string, challengeType email.ChallengeType) func(w http.ResponseWriter, r *http.Request) *web.WebError {
-	return func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		cookie, err := r.Cookie(cookieName)
-		if err != nil {
-			return web.NewError(http.StatusUnauthorized, "err:session_expired", nil, nil)
-		}
 
-		var req struct {
-			Code string `json:"code"`
-		}
-		if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
-			return web.NewError(http.StatusBadRequest, "err:invalid_json", nil, nil)
-		}
+type challengeResult struct {
+	User     *UserPrint
+	Correct  bool
+	Attempts int
+	Has2FA   bool
+}
 
-		const q = `
-		WITH increment_on_fail AS (
-			UPDATE user_challenges
-			SET attempts = attempts + 1, updated_at = NOW()
-			WHERE token_hash = $1 
-			AND challenge_type = $2
-			AND code_hash != $3
-			AND expires_at > NOW() 
-			AND attempts < 5
-			RETURNING attempts
-		)
-		SELECT 1 FROM user_challenges 
-		WHERE token_hash = $1 AND challenge_type = $2 AND code_hash = $3 
-		AND expires_at > NOW() AND attempts < 5;`
-
-		var exists int
-		err = h.db.Pool.QueryRow(r.Context(), q,
-			HashString(cookie.Value), // $1
-			challengeType,            // $2
-			HashString(req.Code),     // $3
-		).Scan(&exists)
-
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return web.NewError(http.StatusUnauthorized, "err:invalid_code", nil, nil)
-			}
-			return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		return nil
+func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType, tName, codeRaw string) (*challengeResult, *web.WebError) {
+	cookieT, errT := r.Cookie(tName)
+	if errT != nil || cookieT.Value == "" {
+		return nil, web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
+
+	res := &challengeResult{
+		User: &UserPrint{},
+	}
+
+	var (
+		uid      uuid.UUID
+		role     *string
+		username *string
+		avatar   *string
+	)
+
+	const q = `
+		WITH challenge_lookup AS (
+			SELECT user_id, code_hash, attempts
+			FROM user_challenges
+			WHERE challenge_type = $1
+				AND token_hash = $2
+				AND expires_at > NOW()
+				AND attempts < 5
+			FOR UPDATE
+		),
+		challenge_failure AS (
+			UPDATE user_challenges
+			SET attempts = attempts + 1, 
+				updated_at = NOW()
+			WHERE challenge_type = $1
+				AND token_hash = $2
+				AND EXISTS (SELECT 1 FROM challenge_lookup)
+				AND (SELECT code_hash FROM challenge_lookup) != $3
+			RETURNING attempts
+		),
+		user_info AS (
+			SELECT id, role, username, avatar_url
+			FROM users 
+			WHERE id = (SELECT user_id FROM challenge_lookup)
+		)
+		SELECT 
+			COALESCE((SELECT code_hash FROM challenge_lookup) = $3, FALSE) AS is_correct,
+			COALESCE(
+				(SELECT attempts FROM challenge_failure),
+				(SELECT attempts FROM challenge_lookup),
+				0
+			) AS current_attempts,
+			COALESCE(
+				EXISTS (
+					SELECT 1 FROM user_credentials
+					WHERE user_id = (SELECT user_id FROM challenge_lookup) 
+					AND kind = 'totp'
+				), 
+				FALSE
+			) AS has_2fa,
+    	u.id, u.role, u.username, u.avatar_url
+		FROM (SELECT 1) AS dummy
+		LEFT JOIN user_info u ON TRUE;`
+	err := h.db.Pool.QueryRow(r.Context(), q,
+		cType,
+		HashString(cookieT.Value),
+		HashString(codeRaw),
+	).Scan(
+		&res.Correct,
+		&res.Attempts,
+		&res.Has2FA,
+		&uid,
+		&role,
+		&username,
+		&avatar,
+	)
+
+	if err != nil {
+		return nil, web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+
+	if uid != uuid.Nil {
+		res.User.ID = uid
+		if role != nil {
+			res.User.Role = *role
+		}
+		if username != nil {
+			res.User.Username = *username
+		}
+		if avatar != nil {
+			res.User.AvatarURL = *avatar
+		}
+	}
+
+	return res, nil
 }
 
 func (h *AuthHandler) tryLock(ctx context.Context, challengeType email.ChallengeType, key string, ttl time.Duration) (int, bool) {
@@ -103,6 +159,33 @@ func (h *AuthHandler) tryLock(ctx context.Context, challengeType email.Challenge
 
 	return 0, false
 }
+
+func (h *AuthHandler) GetValueWithTTL(ctx context.Context, key string) (string, time.Duration, error) {
+	pipe := h.redis.Pipeline()
+
+	getCmd := pipe.Get(ctx, key)
+	ttlCmd := pipe.TTL(ctx, key)
+
+	_, err := pipe.Exec(ctx)
+	if errors.Is(err, redis.Nil) {
+		return "0", 0, nil
+	}
+	if err != nil && err != redis.Nil {
+		return "", 0, err
+	}
+
+	val, err := getCmd.Result()
+	if err != nil {
+		return "", 0, err
+	}
+	ttl, err := ttlCmd.Result()
+	if err != nil {
+		return "", 0, err
+	}
+
+	return val, ttl, nil
+}
+
 func (h *AuthHandler) isLimited(ctx context.Context, challengeType email.ChallengeType, keys ...string) (int, bool) {
 	for _, key := range keys {
 		if key == "" {
@@ -168,7 +251,10 @@ func (h *AuthHandler) InitEmailChallenge(
 		var req struct {
 			Email string `json:"email"`
 		}
-		_ = sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
+		err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
 
 		ctx := r.Context()
 		user := email.UserDetail{
@@ -185,12 +271,12 @@ func (h *AuthHandler) InitEmailChallenge(
 		}
 
 		if retryAfter, limited := h.isLimited(ctx, challengeType, user.Email, tokenHashReq.String); limited {
-			return web.NewError(http.StatusTooManyRequests, "err:too_many_requests_email", nil, map[string]any{"retry_after": retryAfter})
+			return web.NewError(http.StatusTooManyRequests, "too_many_requests_email", nil, map[string]int{"retry_after": retryAfter})
 		}
 
 		challenge, err := GenerateChallenge()
 		if err != nil {
-			return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
 
 		const q = `
@@ -245,20 +331,24 @@ func (h *AuthHandler) InitEmailChallenge(
 				w.WriteHeader(http.StatusAccepted)
 				return nil
 			}
-			return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
+
 		if requireUnverified && isVerified {
+			h.setTokenCookie(ctx, w, challenge, challengeType, rateLimit, expSec, user.Email, cookieName)
 			h.setRateLimitsEmail(ctx, challengeType, user.Email, challenge.TokenHash, rateLimit)
-			return web.NewError(http.StatusUnauthorized, "err:already_verified", nil, nil)
+			w.WriteHeader(http.StatusAccepted)
+			return nil
 		}
 
 		if !wasUpdated {
-			return web.NewError(http.StatusTooManyRequests, "err:too_many_requests_email", nil, map[string]any{
+			return web.NewError(http.StatusTooManyRequests, "too_many_requests_email", nil, map[string]any{
 				"retry_after": max(60-secondsSinceUpdate, 1),
 			})
 		}
 
 		h.setTokenCookie(ctx, w, challenge, challengeType, rateLimit, expSec, user.Email, cookieName)
+		h.setRateLimitsEmail(ctx, challengeType, user.Email, challenge.TokenHash, rateLimit)
 
 		go sender(challenge.ChallengeRaw, user)
 

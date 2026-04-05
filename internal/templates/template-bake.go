@@ -2,6 +2,8 @@ package templates
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	htmlTmpl "html/template"
 	"strings"
 	"sync"
@@ -52,6 +54,7 @@ type BakeContext struct {
 	Name     string
 	Layout   string
 	Scripts  map[string]struct{}
+	Defines  map[string]string
 	Body     htmlTmpl.HTML
 	Depth    uint8
 	Data     any
@@ -71,9 +74,23 @@ func (c *BakeContext) InsertMeta(incoming metadata) {
 			c.Meta[k] = v
 		}
 	}
+	if c.Name == "" {
+		if path, ok := c.Meta["path"]; ok {
+			c.Name = strings.TrimSuffix(path, templateSuffix)
+		}
+	}
 }
 func (c *BakeContext) Reset() {
-	clear(c.Meta)
+	if c.Meta == nil {
+		c.Meta = make(metadata)
+	} else {
+		clear(c.Meta)
+	}
+	if c.Defines == nil {
+		c.Defines = make(map[string]string)
+	} else {
+		clear(c.Defines)
+	}
 	c.Scripts = nil
 	c.Lang = i18n.Lang{}
 	c.AllLangs = nil
@@ -85,6 +102,7 @@ func (c *BakeContext) Reset() {
 func (c *BakeContext) NewSubContext() *BakeContext {
 	return &BakeContext{
 		Lang:     c.Lang,
+		Name:     c.Name,
 		AllLangs: c.AllLangs,
 		Depth:    c.Depth + 1,
 		Scripts:  c.Scripts,
@@ -93,12 +111,17 @@ func (c *BakeContext) NewSubContext() *BakeContext {
 }
 func (c *BakeContext) SubContextInto(dest *BakeContext) {
 	dest.Lang = c.Lang
-	dest.Name = ""
+	dest.Name = c.Name
 	dest.Layout = ""
 	dest.AllLangs = c.AllLangs
 	dest.Body = c.Body
 	dest.Depth = c.Depth + 1
 	dest.Scripts = c.Scripts
+	if dest.Defines == nil {
+		dest.Defines = make(map[string]string)
+	} else {
+		dest.Defines = c.Defines
+	}
 	if dest.Meta == nil {
 		dest.Meta = make(metadata)
 	} else {
@@ -149,6 +172,24 @@ func getTargetPath[V any](base, folder, suffix string, files util.ReadOnlyMap[st
 	var zero V
 	return "", zero
 }
+
+func (mgr *TemplateManager) importTemplate(template *RawTemplate, e *bakeEnv, data any) (string, error) {
+	childCtx := bakeContextPool.Get().(*BakeContext)
+	defer bakeContextPool.Put(childCtx)
+	childCtx.Reset()
+
+	e.ctx.SubContextInto(childCtx)
+	childCtx.InsertMeta(template.Meta)
+
+	if data != nil {
+		childCtx.Data = data
+	} else {
+		childCtx.Data = make(map[string]any)
+	}
+
+	return mgr.bake(template, e.withCtx(childCtx))
+}
+
 func (mgr *TemplateManager) executeTemplate(t *textTmpl.Template, e *bakeEnv, b *bytes.Buffer) error {
 	tmpl, _ := t.Clone()
 	tmpl.Funcs(mgr.funcMapBake(e))
@@ -163,9 +204,15 @@ func (mgr *TemplateManager) bake(
 	c *RawTemplate,
 	e *bakeEnv,
 ) (string, error) {
+	if e == nil {
+		return "", fmt.Errorf("bake env cant be nil")
+	}
+	if c == nil {
+		return "", errors.New("template cant be nil")
+	}
+
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
-	b.Reset()
 
 	err := mgr.executeTemplate(c.Content, e, b)
 	if err != nil {
@@ -175,16 +222,22 @@ func (mgr *TemplateManager) bake(
 	b.Reset()
 
 	if e.ctx.Layout != "" {
+
 		targetPath, l := e.getTargetPath(e.ctx.Layout, "layouts/")
+		if e.ctx.Meta["path"] == targetPath {
+			return "", fmt.Errorf("cant import itself: %s", targetPath)
+		}
+		if e.ctx.Depth > 10 {
+			return "", fmt.Errorf("max import depth exceeded at %s", targetPath)
+		}
 
 		if targetPath != "" {
 			e.ctx.Body = htmlTmpl.HTML(p)
-			err := mgr.executeTemplate(l.Content, e, b)
-			if err != nil {
-				return "", err
-			}
-			return b.String(), nil
+			return mgr.importTemplate(l, e, e.ctx.Data)
+		} else {
+			return "", fmt.Errorf("layout %s not found", e.ctx.Layout)
 		}
+
 	}
 
 	return p, nil

@@ -1,0 +1,32 @@
+---
+ layout : page
+ name   : test
+---
+[[ registerScript "test.js" ]]
+<main class="flx ali-c j-center fil">
+     <form class="flx col ali-s j-left txt-left mb-sm gap-md" data-doScript>
+            <label class="fil-x" for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
+            <div class="pos-rel fil-x mt-sm">
+                <input  
+                    class="fil-x p-sm txt-lg"
+                    name="username"
+                    id="username-input"
+                    type="text"
+                    placeholder="[[ tr "plh:user" ]]"
+                    required
+                />
+                <div class="pos-abs top right fil-y flx ali-c j-center" style="width: 2.5em;">
+                    <svg class="icon" id="username-status" style="color: red;">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#cross"></use>
+                    </svg>
+                </div>
+            </div>
+            <button 
+                class="txt-lg fw-bold fil-x py-sm bg-primary" 
+                type="submit"
+                data-endpoint="/api/verify-username"
+                style="--load-color: var(--on-primary)">
+                [[ capitalize (tr "phrase:sign_up") ]]
+            </button>   
+        </form>
+</main>

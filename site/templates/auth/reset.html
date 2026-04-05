@@ -1,0 +1,44 @@
+---
+ layout: page
+ name:   auth/reset
+ ---
+<main class="flx ali-c j-center fil">
+    <div class="flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+        <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
+        <form class="flx col ali-s j-left txt-left mb-sm">
+            [[ import "components/auth/password-input-rules.html" nil ]]
+            <button 
+            class="txt-capitl txt-lg fw-bold fil-x py-sm bg-primary" 
+            type="submit"
+            style="--load-color: var(--on-primary)"
+            data-endpoint="/api/auth/reset/confirm"
+            >[[ tr "phrase:confirm" ]]</button>   
+        </form>
+        <div class="flx gap-lg j-spcBetween">
+            <div class="flx col txt-left w-fit">
+                <a class="txt-capitl keep-next" href="/sign-in" id="login-link">
+                    <span>[[ tr "phrase:sign_in" ]]</span>
+                </a>
+                 <a class="txt-capitl keep-next" href="/sign-up" id="login-link">
+                    <span>[[ tr "phrase:sign_up" ]]</span>
+                </a>
+            </div>
+            <span id="error-dsp" class="txt-right txt-error" style="flex: 1;"></span>
+        </div>
+        [[ import "components/auth/challenge/email-request.html" (
+            dict 
+            "Endpoint" "/api/auth/reset/init" 
+            "TitleKey" "title:reset/email-request"
+            "FormID"   "id"
+            )
+         ]]
+         [[ import "components/auth/challenge/enter-code.html" (
+            dict 
+            "Endpoint"          "/api/auth/reset/check" 
+            "ResendEndpoint"    "/api/auth/reset/init" 
+            "TitleKey"          "title:reset/enter-code"
+            "FormID"   "id2"
+            )
+        ]]
+    </div>
+</main>

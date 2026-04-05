@@ -4,20 +4,19 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
+	"github.com/bytedance/sonic"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const callbackPath = "/api/auth/e/callback"
@@ -29,9 +28,21 @@ type OAuthProvider interface {
 	fetchUser(ctx context.Context, token string) (*ExternalUser, error)
 }
 type ExternalUser struct {
-	ID       string
-	Username string
-	Email    string
+	ID        string
+	Username  string
+	Email     string
+	AvatarURL string
+}
+
+type PendingAuthProviderClaims struct {
+	Email      string `json:"email"`
+	Username   string `json:"username,omitempty"`
+	ExternalID string `json:"ext_id"`
+	Provider   string `json:"provider"`
+	AvatarURL  string `json:"avatar_url,omitempty"`
+	Action     string `json:"action"`
+	UserID     string `json:"user_id,omitempty"`
+	jwt.RegisteredClaims
 }
 
 var ErrExtUserNoEmail = errors.New("external user has no email")
@@ -56,33 +67,31 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) *web.We
 
 	p, ok := h.providers[pQ]
 	if !ok {
-		return web.NewError(http.StatusBadRequest, "err:unsupported_provider", nil, map[string]string{"provider": pQ})
+		return web.NewError(http.StatusBadRequest, "unsupported_provider", nil, map[string]string{"provider": pQ})
 	}
 
-	state, err := GenerateRandomToken()
+	state, err := GenerateRandomString(32)
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
 	verifier, challenge, err := GeneratePKCE()
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
 	next := q.Get("next")
-	if next == "" {
-		next = "/"
+	if next != "" && next != "/" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oauth_next",
+			Value:    next,
+			Path:     "/",
+			MaxAge:   300,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_next",
-		Value:    next,
-		Path:     callbackPath,
-		MaxAge:   300,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
@@ -121,51 +130,16 @@ func clearCookies(w http.ResponseWriter, path string, names ...string) {
 		})
 	}
 }
-func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web.WebError {
-	q := r.URL.Query()
-	pQ := q.Get("provider")
 
-	p, ok := h.providers[pQ]
-	if !ok {
-		return web.NewError(http.StatusBadRequest, "err:unsupported_provider", nil, map[string]string{"provider": pQ})
-	}
-
-	verifierCookie, err := r.Cookie("oauth_verifier")
-	if err != nil {
-		return web.NewError(http.StatusBadRequest, "err:no_cookie", err, nil)
-
-	}
-	stateCookie, err := r.Cookie("oauth_state")
-	if err != nil || q.Get("state") != stateCookie.Value {
-		return web.NewError(http.StatusBadRequest, "err:invalid_state", err, nil)
-	}
-
-	ctx := r.Context()
-	code := q.Get("code")
-	token, err := p.exchangeCode(ctx, code, verifierCookie.Value)
-	if err != nil {
-		return web.NewError(http.StatusBadGateway, "err:oauth_failed", err, nil)
-	}
-
-	extUser, err := p.fetchUser(ctx, token)
-	if err != nil {
-		return web.NewError(http.StatusBadGateway, "err:oauth_failed", err, nil)
-	}
-
-	user, wErr := h.getUserPrint(ctx, extUser, i18n.GetLangFromReq(r), h.db.Pool, p)
-	if wErr != nil {
-		return wErr
-	}
-
-	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier", "oauth_next")
-
-	if err := h.issueTokens(w, r, user); err != nil {
-		return web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+func (h *AuthHandler) finishLogin(w http.ResponseWriter, r *http.Request, user *UserPrint) *web.WebError {
+	if err := h.issueTokens(w, r, user, true); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
 	next := "/"
 	if cookie, err := r.Cookie("oauth_next"); err == nil {
 		next = cookie.Value
+		clearCookies(w, "/", "oauth_next")
 	}
 
 	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
@@ -176,104 +150,227 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 	return nil
 }
 
-func (h *AuthHandler) getUserPrint(ctx context.Context, extUser *ExternalUser, lang string, dbPool *pgxpool.Pool, prv OAuthProvider) (*UserPrint, *web.WebError) {
+func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web.WebError {
+	q := r.URL.Query()
+	pQ := q.Get("provider")
+
+	p, ok := h.providers[pQ]
+	if !ok {
+		return web.NewError(http.StatusBadRequest, "unsupported_provider", nil, map[string]string{"provider": pQ})
+	}
+
+	verifierCookie, err := r.Cookie("oauth_verifier")
+	if err != nil {
+		return web.NewError(http.StatusBadRequest, "no_cookie", err, nil)
+
+	}
+	stateCookie, err := r.Cookie("oauth_state")
+	if err != nil || q.Get("state") != stateCookie.Value {
+		return web.NewError(http.StatusBadRequest, "invalid_state", err, nil)
+	}
+
+	ctx := r.Context()
+	code := q.Get("code")
+	token, err := p.exchangeCode(ctx, code, verifierCookie.Value)
+	if err != nil {
+		return web.NewError(http.StatusBadGateway, "oauth_failed", err, nil)
+	}
+
+	extUser, err := p.fetchUser(ctx, token)
+	if err != nil {
+		return web.NewError(http.StatusBadGateway, "oauth_failed", err, nil)
+	}
+
 	var user UserPrint
+	var avatarUrl sql.NullString
+	providerName := p.Name()
 
 	const qFind = `
 		SELECT 
 			u.id, 
-			u.role
+			u.role,
+			u.username,
+			u.avatar_url
 		FROM users u
 		JOIN user_credentials uc ON uc.user_id = u.id
-		WHERE uc.kind = $1
+		WHERE 
+		    uc.kind = $1
 			AND uc.secret = $2
-			AND u.deleted_at IS NULL
 		LIMIT 1;
 	`
+	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier")
 
-	err := dbPool.QueryRow(ctx, qFind, prv.Name(), extUser.ID).Scan(&user.ID, &user.Role)
-
+	err = h.db.Pool.QueryRow(ctx, qFind, providerName, extUser.ID).Scan(&user.ID, &user.Role, &user.Username, &avatarUrl)
 	if err == nil {
-		return &user, nil
+		if avatarUrl.Valid {
+			user.AvatarURL = avatarUrl.String
+		}
+		return h.finishLogin(w, r, &user)
 	}
 
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
 	}
 
-	const qLink = `
-		WITH existing_user AS (
-			SELECT id, role, false as is_new FROM users WHERE email = $1 AND deleted_at IS NULL
-		),
-		target_user AS (
-			INSERT INTO users (email, username, preferred_lang, is_verified)
-			SELECT $1, $2, $3, TRUE
-			WHERE NOT EXISTS (SELECT 1 FROM existing_user)
-			ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-			RETURNING id, role, true as is_new
-		),
-		final_user AS (
-			SELECT id, role, is_new FROM target_user
-			UNION ALL
-			SELECT id, role, is_new FROM existing_user
-			LIMIT 1
+	var accountID uuid.UUID
+	var existingUsername string
+	var action = "register"
+
+	err = h.db.Pool.QueryRow(ctx,
+		"SELECT id, username FROM users WHERE email = $1",
+		extUser.Email,
+	).Scan(&accountID, &existingUsername)
+
+	if err == nil {
+		action = "link"
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
+	}
+
+	if action == "register" {
+		existingUsername = extUser.Username
+	}
+
+	expiry := time.Now().Add(15 * time.Minute)
+
+	claims := PendingAuthProviderClaims{
+		Email:      extUser.Email,
+		Username:   existingUsername,
+		ExternalID: extUser.ID,
+		Provider:   p.Name(),
+		AvatarURL:  extUser.AvatarURL,
+		Action:     action,
+		UserID:     accountID.String(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiry),
+		},
+	}
+
+	pending, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(h.secret.provider)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "jwt_error", err, nil)
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_pending",
+		Value:    pending,
+		Expires:  expiry,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	nextCookie, err := r.Cookie("oauth_next")
+	if err == nil && nextCookie.Value != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oauth_next",
+			Value:    nextCookie.Value,
+			Expires:  expiry,
+			HttpOnly: true,
+			Secure:   true,
+			Path:     "/",
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+
+	http.Redirect(w, r, "/sign-up", http.StatusSeeOther)
+	return nil
+}
+
+func (h *AuthHandler) GetPendingAuthProviderClaims(tokenString string) (*PendingAuthProviderClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &PendingAuthProviderClaims{}, func(t *jwt.Token) (any, error) {
+		return h.secret.provider, nil
+	})
+
+	if err == nil && token.Valid {
+		return token.Claims.(*PendingAuthProviderClaims), nil
+	}
+
+	return nil, err
+}
+func (h *AuthHandler) CancelPendingAuth(w http.ResponseWriter, r *http.Request) *web.WebError {
+	next := "/"
+	if cookie, err := r.Cookie("oauth_next"); err == nil {
+		next = cookie.Value
+	}
+
+	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
+		next = "/"
+	}
+
+	clearCookies(w, "/", "oauth_pending", "oauth_next")
+	http.Redirect(w, r, next, http.StatusSeeOther)
+	return nil
+}
+
+func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *web.WebError {
+	cookie, err := r.Cookie("oauth_pending")
+	if err != nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", err, nil)
+	}
+
+	claims, err := h.GetPendingAuthProviderClaims(cookie.Value)
+	if err != nil || claims == nil {
+		return web.NewError(http.StatusUnauthorized, "invalid_token", err, nil)
+	}
+
+	ctx := r.Context()
+	var user UserPrint
+	var avatar sql.NullString
+
+	if claims.Action == "link" {
+		const qLink = `
+            WITH linked AS (
+                INSERT INTO user_credentials (user_id, kind, secret)
+                VALUES ($1, $2, $3)
+                RETURNING user_id
+            )
+            SELECT u.id, u.role, u.username, u.avatar_url
+            FROM users u
+            JOIN linked l ON u.id = l.user_id;`
+
+		err = h.db.Pool.QueryRow(ctx, qLink, claims.UserID, claims.Provider, claims.ExternalID).Scan(
+			&user.ID, &user.Role, &user.Username, &avatar,
 		)
-		INSERT INTO user_credentials (user_id, kind, secret)
-		SELECT id, $4, $5 FROM final_user
-		ON CONFLICT (user_id, kind) DO UPDATE SET 
-			secret = EXCLUDED.secret,
-			updated_at = NOW()
-		RETURNING user_id, (SELECT role FROM final_user), (SELECT is_new FROM final_user);
-	`
-	isNewUser := false
-
-	chosenUsername := extUser.Username
-
-	const maxAttempts = 5
-
-	for i := range maxAttempts {
-		err = dbPool.QueryRow(ctx, qLink,
-			extUser.Email,
-			chosenUsername,
-			lang,
-			prv.Name(),
-			extUser.ID,
-		).Scan(&user.ID, &user.Role, &isNewUser)
-
-		if err == nil {
-			if isNewUser {
-				go h.EmailManager.SendWelcomeEmail(email.UserDetail{
-					Lang: lang,
-					UserContact: email.UserContact{
-						Username: extUser.Username,
-						Email:    extUser.Email,
-					},
-				})
-			}
-			return &user, nil
+	} else {
+		var req struct {
+			Username string `json:"username"`
+		}
+		if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
+			return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 		}
 
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+		lang, _ := i18n.GetLangFromContext(ctx)
 
-			if strings.Contains(pgErr.ConstraintName, "secret") {
-				return nil, web.NewError(http.StatusConflict, "err:account_taken", SocialAccountTaken, nil)
-			}
+		const qReg = `
+            WITH new_user AS (
+                INSERT INTO users (email, username, avatar_url, preferred_lang, is_verified)
+                VALUES ($1, $2, $3, $4, true)
+                RETURNING id, role, username, avatar_url
+            ),
+            new_cred AS (
+                INSERT INTO user_credentials (user_id, kind, secret)
+                SELECT id, $5, $6 FROM new_user
+            )
+            SELECT id, role, username, avatar_url FROM new_user;`
 
-			if strings.Contains(pgErr.ConstraintName, "username") {
-				switch i {
-				case 0, 1:
-					chosenUsername = fmt.Sprintf("%s%d", extUser.Username, i+1)
-				case 2:
-					chosenUsername = fmt.Sprintf("%s-%s", extUser.Username, util.RandomInt(99))
-				default:
-					chosenUsername = fmt.Sprintf("%s-%d", extUser.Username, time.Now().Unix()%1000)
-				}
-				continue
-			}
-		}
-
-		return nil, web.NewError(http.StatusInternalServerError, "err:internal", err, nil)
+		err = h.db.Pool.QueryRow(ctx, qReg,
+			claims.Email, req.Username, claims.AvatarURL, lang, claims.Provider, claims.ExternalID,
+		).Scan(&user.ID, &user.Role, &user.Username, &avatar)
 	}
 
-	return nil, web.NewError(http.StatusConflict, "err:username_unavailable", nil, nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "users_username_key") {
+			return web.NewError(http.StatusConflict, "username_taken", nil, nil)
+		}
+		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
+	}
+
+	if avatar.Valid {
+		user.AvatarURL = avatar.String
+	}
+
+	clearCookies(w, "/", "oauth_pending")
+	return h.finishLogin(w, r, &user)
 }

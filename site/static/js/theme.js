@@ -21,7 +21,7 @@ class Theme {
     this.cssName = cssName;
     this.metaColor = metaColor;
   }
-
+  
   applyTheme(metaEl) {
     root.setAttribute('data-theme', this.cssName);
     localStorage.setItem(THEME_KEY, this.cssName);
@@ -31,13 +31,13 @@ class Theme {
 
 const themes = [
   new Theme({
-    ariaLabel: window.tr("switch_dark"),
+    ariaLabel: window.tr("switch_light"),
     iconId:    "lightMode",
     cssName:   "light",
     metaColor: "#fff",
   }),
   new Theme({
-    ariaLabel: window.tr("switch_light"),
+    ariaLabel: window.tr("switch_dark"),
     iconId:    "darkMode",
     cssName:   "dark",
     metaColor: "#000",
@@ -45,14 +45,14 @@ const themes = [
 ];
 let currentThemeIndex = 0;
 
-function updateTheme(themeSwitchBtn, btnImg, metaEl) {
+function updateTheme(themeSwitchBtn, btnImg, metaEl, iconBaseUrl) {
   const theme = themes[currentThemeIndex];
   const nextTheme = themes[(currentThemeIndex + 1) % themes.length];
 
   theme.applyTheme(metaEl);
 
   if (btnImg) {
-    btnImg.setAttribute('href', `/static/assets/iconBundle.svg#${theme.iconId}`);
+    btnImg.setAttribute('href', `${iconBaseUrl}#${nextTheme.iconId}`);
   }
   if (themeSwitchBtn) {
     themeSwitchBtn.setAttribute('aria-label', nextTheme.ariaLabel);
@@ -67,17 +67,21 @@ function setupTheme() {
   const savedTheme = localStorage.getItem(THEME_KEY) || root.getAttribute('data-theme');
   currentThemeIndex = Math.max(0, themes.findIndex(t => t.cssName === savedTheme));
 
-  updateTheme(themeSwitchBtn, btnImg, metaEl);
-
-  themeSwitchBtn?.addEventListener('click', () => {
+  const nextTheme = () =>{
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-    updateTheme(themeSwitchBtn, btnImg, metaEl);
-  });
+    updateTheme(themeSwitchBtn, btnImg, metaEl, iconBaseUrl);
+  }
 
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-    updateTheme(themeSwitchBtn, btnImg, metaEl);
-  });
+  let iconBaseUrl; 
+  if(btnImg){
+    iconBaseUrl = btnImg.getAttribute('href')
+  }
+
+  updateTheme(themeSwitchBtn, btnImg, metaEl, iconBaseUrl);
+
+  themeSwitchBtn?.addEventListener('click', nextTheme);
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', nextTheme);
 }
 
 if (document.readyState === 'loading') {

@@ -1,0 +1,56 @@
+---
+ layout: page
+ name:   auth/verify
+ ---
+[[ registerScript "auth/verify.js" ]]
+<main class="flx ali-c j-center fil">
+    <div class="flx col gap-sm j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+        <div id="states-wrapper" data-state="{{ . }}">
+            <div data-state="email" {{ if ne . "email" }}class="hidden"{{ end }}>
+                [[ import "components/auth/challenge/email-request.html" (
+                    dict 
+                    "Endpoint" "/api/auth/verify/init" 
+                    "TitleKey" "title:verify/email-request"
+                    "FormID"   "form-email"
+                    )
+                ]]
+            </div>
+            <div data-state="code" class="txt-center{{ if ne . "code" }} hidden{{ end }}">
+                [[ import "components/auth/challenge/enter-code.html" (
+                    dict 
+                    "Endpoint"       "/api/auth/verify/check"
+                    "ResendEndpoint" "/api/auth/verify/init" 
+                    "TitleKey"       "title:verify/enter-code"
+                    "FormID"         "form-code"
+                    )
+                ]]
+            </div>
+            <div data-state="success" {{ if ne . "success" }}class="hidden"{{ end }}>
+                <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
+                <form class="flx col ali-s j-left txt-left mb-sm" id="form-confirm">
+                    <button
+                    class="txt-lg fw-bold py-md bg-primary fil-x"
+                    type="submit"
+                    data-endpoint="/api/auth/verify/confirm"
+                    style="--load-color: var(--on-primary); flex: 1;"
+                    >[[ tr "phrase:next" ]]</button>
+                </form>
+            </div>
+        </div>
+        <div class="flx gap-lg j-spcBetween">
+            <div class="flx col txt-left w-fit">
+                <button class="bg-none fil-x mb-xs txt-left{{ if ne . "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
+                <a href="/sign-in">
+                    <span>[[ tr "phrase:sign_in" ]]</span>
+                </a>
+                <a href="/sign-up">
+                    <span>[[ tr "phrase:sign_up" ]]</span>
+                </a>
+            </div>
+            <div class="flx col txt-left">
+                <span id="error-dsp"  class="txt-right txt-error" style="flex: 1;"></span>
+                <span id="error-dsp2" class="txt-right txt-error" style="flex: 1;"></span>
+            </div>
+        </div>
+    </div>
+</main>

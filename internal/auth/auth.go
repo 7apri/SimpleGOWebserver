@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -9,23 +11,27 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/email"
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
+	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/mileusna/useragent"
 	"golang.org/x/crypto/argon2"
 )
 
-type accessSecretWrap struct {
-	accessSecret []byte
+type secretWrap struct {
+	access    []byte
+	provider  []byte
+	twoFactor []byte
 }
 type UserClaims struct {
-	User *UserPrint
+	User       *UserPrint `json:"user"`
+	Pending2FA bool       `json:"p2fa,omitempty"`
 	jwt.RegisteredClaims
 }
 type UserPrintBig struct {
@@ -33,33 +39,67 @@ type UserPrintBig struct {
 	UserDetail
 }
 type UserDetail struct {
-	UserContact
-	Lang string `json:"lang"`
+	Email string `json:"email"`
+	Lang  string `json:"lang"`
 }
 type UserPrint struct {
-	ID   uuid.UUID `json:"id"`
-	Role string    `json:"role"`
-}
-type UserContact struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	ID        uuid.UUID `json:"id"`
+	Role      string    `json:"role"`
+	Username  string    `json:"username"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
 }
 
 const (
 	UserCredentialsPassword = "passkey"
 )
 
-func GenerateRandomToken() (string, error) {
-	b := make([]byte, 48)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
+func GenerateRandomString(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
 	}
 	return hex.EncodeToString(b), nil
 }
 func HashString(token string) string {
 	hashed := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hashed[:])
+}
+func Encrypt(plainText []byte, masterKey []byte) ([]byte, error) {
+	block, err := aes.NewCipher(masterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	return gcm.Seal(nonce, nonce, plainText, nil), nil
+}
+func Decrypt(cipherText []byte, masterKey []byte) ([]byte, error) {
+	block, err := aes.NewCipher(masterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(cipherText) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, actualCipherText := cipherText[:nonceSize], cipherText[nonceSize:]
+	return gcm.Open(nil, nonce, actualCipherText, nil)
 }
 
 const (
@@ -68,13 +108,13 @@ const (
 	argonMemory  = 1024 * 64 // 64 MB
 )
 
-func HashPassword(password string) (string, error) {
+func HashCredential(credential string) (string, error) {
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, argonPasses, argonMemory, argonThreads, 32)
+	hash := argon2.IDKey([]byte(credential), salt, argonPasses, argonMemory, argonThreads, 32)
 
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
@@ -82,7 +122,7 @@ func HashPassword(password string) (string, error) {
 	return fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
 		argonMemory, argonPasses, argonThreads, b64Salt, b64Hash), nil
 }
-func VerifyPassword(password, encodedHash string) (bool, error) {
+func VerifyCredential(credential, encodedHash string) (bool, error) {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
 		return false, errors.New("invalid hash format")
@@ -106,7 +146,7 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	}
 
 	comparisonHash := argon2.IDKey(
-		[]byte(password),
+		[]byte(credential),
 		salt,
 		uint32(passes),
 		uint32(memory),
@@ -117,10 +157,15 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
 
-func (s *accessSecretWrap) GenerateAccess(user *UserPrint) (string, time.Time, error) {
-	expiry := time.Now().Add(15 * time.Minute)
+func (s *secretWrap) GenerateAccess(user *UserPrint, pending bool) (string, time.Time, error) {
+	duration := 15 * time.Minute
+	if pending {
+		duration = 5 * time.Minute
+	}
+	expiry := time.Now().Add(duration)
 	claims := UserClaims{
-		User: user,
+		User:       user,
+		Pending2FA: pending,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -128,16 +173,16 @@ func (s *accessSecretWrap) GenerateAccess(user *UserPrint) (string, time.Time, e
 			Issuer:    "panels",
 		},
 	}
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.accessSecret)
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.access)
 	return token, expiry, err
 }
 
-func (s *accessSecretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
+func (s *secretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
-		return s.accessSecret, nil
+		return s.access, nil
 	})
 	if err != nil || !token.Valid {
 		return nil, errors.New("invalid token")
@@ -145,21 +190,27 @@ func (s *accessSecretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) 
 	return token.Claims.(*UserClaims), nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint) error {
-	var refresh string
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, rotateCSRF bool) error {
+	if rotateCSRF {
+		setCSRFCookie(w)
+	}
 
-	access, exp, err := h.secret.GenerateAccess(user)
+	if user.AvatarURL == "" {
+		user.AvatarURL = "/static/assets/avatars/default.jpg"
+	}
+
+	access, exp, err := h.secret.GenerateAccess(user, false)
 	if err != nil {
 		return err
 	}
 
-	refresh, err = GenerateRandomToken()
+	refresh, err := GenerateRandomString(32)
 	if err != nil {
 		return err
 	}
 
 	refreshHash := HashString(refresh)
-	ip := util.GetClientIP(r)
+	ip := web.GetClientIP(r)
 	rawUA := r.UserAgent()
 	ua := useragent.Parse(rawUA)
 	deviceName := fmt.Sprintf("%s on %s", ua.Name, ua.OS)

@@ -1,35 +1,51 @@
 package server
 
 import (
-	"log/slog"
 	"net/http"
-	"sync"
-	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
-	"github.com/gorilla/websocket"
 )
 
 func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.WebError {
 	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		return server.templateMgr.RenderPage(w, r, templates.TemplateKey{Kind: "page", Name: "err/404"}, nil)
+		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
-	_, loggedIn := auth.GetUserFromContext(r.Context())
+	user, loggedIn := auth.GetUserFromContext(r.Context())
 
 	if !loggedIn {
 		http.Redirect(w, r, "/api/auth/refresh", http.StatusTemporaryRedirect)
 		return nil
 	}
 
-	return server.templateMgr.RenderPage(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, nil)
+	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, user)
 }
 
-type pageTemplateData struct {
-	key  templates.TemplateKey
-	data any
+func (server *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
+	cookie, err := r.Cookie("oauth_pending")
+
+	if err == nil && cookie.Value != "" {
+		claims, err := server.authHandler.GetPendingAuthProviderClaims(cookie.Value)
+		if err == nil && claims != nil {
+			return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims)
+		}
+	}
+
+	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, nil)
+}
+
+func (server *Server) serveHtml(name string) http.Handler {
+	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, nil)
+	})
+}
+func (server *Server) serveHtmlUser(name string) http.Handler {
+	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		user, _ := auth.GetUserFromContext(r.Context())
+		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, user)
+	})
 }
 
 type challengeUIConfig struct {
@@ -37,7 +53,7 @@ type challengeUIConfig struct {
 	codeName    string
 	codeMaxAge  int
 	tokenMaxAge int
-	basePage    pageTemplateData
+	pageKey     templates.TemplateKey
 }
 
 func setChallengeCookie(w http.ResponseWriter, cookieName, val string, cookieMaxAge int) {
@@ -47,18 +63,14 @@ func setChallengeCookie(w http.ResponseWriter, cookieName, val string, cookieMax
 		Path:  "/", MaxAge: cookieMaxAge, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
 	})
 }
-func cookieExists(r *http.Request, cookieName string) bool {
-	if _, err := r.Cookie(cookieName); err == nil {
-		return true
+func cookieExists(r *http.Request, cookieName string) (bool, *http.Cookie) {
+	if c, err := r.Cookie(cookieName); err == nil {
+		return true, c
 	}
-	return false
+	return false, nil
 }
 
-func (server *Server) handleChallengeUI(
-	cfg challengeUIConfig,
-	onSuccess func(w http.ResponseWriter, r *http.Request) *web.WebError,
-	onPending func(w http.ResponseWriter, r *http.Request) *web.WebError,
-) func(w http.ResponseWriter, r *http.Request) *web.WebError {
+func (server *Server) handleChallengeUI(cfg challengeUIConfig) func(w http.ResponseWriter, r *http.Request) *web.WebError {
 	return func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		q := r.URL.Query()
 		t, c := q.Get("t"), q.Get("c")
@@ -70,6 +82,7 @@ func (server *Server) handleChallengeUI(
 			if c != "" {
 				setChallengeCookie(w, cfg.codeName, c, cfg.codeMaxAge)
 			}
+
 			q.Del("t")
 			q.Del("c")
 			target := r.URL.Path
@@ -80,101 +93,29 @@ func (server *Server) handleChallengeUI(
 			return nil
 		}
 
-		hasToken := cookieExists(r, cfg.tokenName)
-		hasCode := cookieExists(r, cfg.codeName)
+		hasToken, _ := cookieExists(r, cfg.tokenName)
+		hasCode, _ := cookieExists(r, cfg.codeName)
 
-		if hasToken && hasCode {
-			return onSuccess(w, r)
-		}
+		state := "email"
 		if hasToken {
-			return onPending(w, r)
-		}
-
-		return server.templateMgr.RenderPage(w, r, cfg.basePage.key, cfg.basePage.data)
-	}
-}
-
-func (server *Server) serveHtml(name string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.templateMgr.RenderPage(w, r, templates.TemplateKey{Kind: "page", Name: name}, nil)
-	})
-}
-
-func refreshWebsocket(refresh chan rune) func(w http.ResponseWriter, r *http.Request) *web.WebError {
-	var (
-		clients  = make(map[*websocket.Conn]bool)
-		mu       sync.Mutex
-		upgrader = websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		}
-	)
-
-	go func() {
-		ticker := time.NewTicker(45 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case t, ok := <-refresh:
-				if !ok {
-					return
-				}
-				msg := []byte(string(t))
-
-				mu.Lock()
-				activeClients := make([]*websocket.Conn, 0, len(clients))
-				for c := range clients {
-					activeClients = append(activeClients, c)
-				}
-				mu.Unlock()
-
-				for _, client := range activeClients {
-					client.SetWriteDeadline(time.Now().Add(time.Second * 2))
-
-					err := client.WriteMessage(websocket.TextMessage, msg)
-					if err != nil {
-						slog.Warn("failed to notify client, cleaning up", "err", err)
-						client.Close()
-
-						mu.Lock()
-						delete(clients, client)
-						mu.Unlock()
-					}
-				}
-			case <-ticker.C:
-				mu.Lock()
-				for client := range clients {
-					err := client.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second*5))
-					if err != nil {
-						client.Close()
-						delete(clients, client)
-					}
-				}
-				mu.Unlock()
+			if hasCode {
+				state = "success"
+			} else {
+				state = "code"
 			}
 		}
-	}()
-	return func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return web.NewError(http.StatusInternalServerError, "err:websocket_upgrade_fail", err, nil)
+
+		lang := i18n.GetLangFromReq(r)
+
+		tmpl := server.templateMgr.Get(lang, cfg.pageKey)
+		if tmpl == nil {
+			return web.NewError(http.StatusNotFound, "err_not_found", nil, cfg.pageKey)
 		}
 
-		mu.Lock()
-		clients[conn] = true
-		mu.Unlock()
-
-		defer func() {
-			mu.Lock()
-			delete(clients, conn)
-			mu.Unlock()
-			conn.Close()
-		}()
-
-		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
-				break
-			}
+		if templates.SetETag(w, r, tmpl.Etag+state) {
+			return nil
 		}
-		return nil
+
+		return server.templateMgr.WriteTemplateSpecific(w, tmpl, state)
 	}
 }

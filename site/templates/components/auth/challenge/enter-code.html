@@ -1,0 +1,19 @@
+<h1 class="txt-2xl mb-sm ls-wide">[[ tr .Data.TitleKey ]]</h1>
+<form class="flx col ali-s j-left txt-left mb-sm" id="[[ .Data.FormID ]]">
+    [[ import "components/auth/code-input.html" nil ]]
+    <div class="flx fil-x gap-md">
+        <button 
+            class="txt-lg fw-bold py-sm bg-primary"
+            type="submit"
+            data-endpoint="[[ .Data.Endpoint ]]" 
+            style="--load-color: var(--on-primary); flex: 1;"
+        >[[ capitalize (tr "phrase:next") ]]</button>
+        <button 
+            class="txt-lg fw-bold p-sm  bg-primary"
+            type="button"
+            data-endpoint="[[ .Data.ResendEndpoint  ]]" 
+            style="--load-color: var(--on-primary);"
+            id="resend-btn"
+           >[[ capitalize (tr "btn:resend") ]]</button>
+    </div>
+</form>

@@ -1,10 +1,27 @@
-import InitOauth from "./oauthBtn.js";
-import InitForm  from "./form.js";
-import InitKeepNext from "./keep-next.js";
+import setupForm  from "./components/form.js";
+import InitKeepNext from "./components/keep-next.js";
 
 const urlParams = new URLSearchParams(window.location.search);
-const nextUri = urlParams.get('next') || "/";
+let nextUrl = urlParams.get('next');
 
-InitOauth(nextUri);
-InitKeepNext(nextUri);
-InitForm(() => window.location.href = nextUri);
+if(nextUrl === null){
+    nextUrl = '/'
+} else {
+    InitKeepNext(nextUrl);
+}
+
+const form = document.getElementById("form");
+setupForm(form,null,async (r) => {
+    const data = await r.json();
+    switch (data.status){
+        case "pending":
+            let next = "/2fa"
+            if (nextUrl != '/'){
+                next += `?next=${nextUrl}`
+            }
+            window.location.href = next;
+            break;
+        default:
+            window.location.href = nextUrl;
+    }
+});

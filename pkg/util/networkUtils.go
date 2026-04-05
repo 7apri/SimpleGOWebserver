@@ -3,7 +3,6 @@ package util
 import (
 	"encoding/json"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 	"unicode"
@@ -13,23 +12,6 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
-
-func GetClientIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		part := strings.Split(xff, ",")[0]
-		return strings.TrimSpace(part)
-	}
-
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return ip
-}
 
 func SendJson(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")

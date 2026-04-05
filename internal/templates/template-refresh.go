@@ -1,15 +1,20 @@
 package templates
 
 import (
+	"cmp"
+	"context"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	textTmpl "text/template"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"golang.org/x/sync/errgroup"
 )
@@ -61,9 +66,13 @@ func (mgr *TemplateManager) Refresh() error {
 		make(map[string]map[TemplateKey]*TemplateWrapper),
 	}
 	langs := mgr.i18nManager.GetAvailableLangsWhole()
+	slices.SortFunc(langs, func(a, b i18n.Lang) int {
+		return cmp.Compare(a.Code, b.Code)
+	})
 
 	var mu sync.Mutex
-	g := new(errgroup.Group)
+	g, groupCtx := errgroup.WithContext(context.Background())
+	g.SetLimit(runtime.GOMAXPROCS(0))
 
 	for _, lang := range langs {
 		slog.Info("proccessing templates", "lang", lang.Code)
@@ -79,15 +88,16 @@ func (mgr *TemplateManager) Refresh() error {
 			lang := lang
 
 			g.Go(func() error {
+				if groupCtx.Err() != nil {
+					return nil
+				}
+
 				ctx := bakeContextPool.Get().(*BakeContext)
 				ctx.Reset()
 				defer bakeContextPool.Put(ctx)
 
 				ctx.InsertMeta(file.Meta)
 
-				if ctx.Name == "" {
-					ctx.Name = strings.TrimSuffix(path, templateSuffix)
-				}
 				if ctx.Scripts == nil {
 					ctx.Scripts = make(map[string]struct{})
 				}
@@ -129,7 +139,6 @@ func (mgr *TemplateManager) Refresh() error {
 		}
 	}
 	if err := g.Wait(); err != nil {
-		slog.Error("template refresh failed", "details", err)
 		return err
 	}
 	mgr.snapshot.Store(&newSnapshot)
@@ -138,7 +147,7 @@ func (mgr *TemplateManager) Refresh() error {
 	for _, l := range newSnapshot.templates {
 		total += len(l)
 	}
-	englishKeys := make([]string, 0, total/len(langs))
+	englishKeys := make([]string, 0, total/max(len(langs), 1))
 
 	for k := range newSnapshot.templates["en"] {
 		englishKeys = append(englishKeys, fmt.Sprintf("%s@%s", k.Name, k.Kind))

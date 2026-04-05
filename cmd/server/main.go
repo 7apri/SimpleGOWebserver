@@ -71,6 +71,8 @@ func main() {
 
 	weatherApiKey := util.TryGetEnvFatal("WEATHER_API_KEY")
 	accessSecret := util.TryGetEnvFatal("ACCESS_SECRET_AUTH")
+	twoFactorSecret := util.TryGetEnvFatal("TWO_FACTOR_SECRET_AUTH")
+	providerSecret := util.TryGetEnvFatal("PROVIDER_SECRET_AUTH")
 
 	githubClientID := util.TryGetEnvFatal("GITHUB_CLIENT_ID_AUTH")
 	githubRedirectUrl := util.TryGetEnvFatal("GITHUB_REDIRECT_URL_AUTH")
@@ -139,7 +141,11 @@ func main() {
 	}
 
 	em := email.NewEmailManager(smtpHost, smtpFrom, smtpPassword, smtpUser, tmplMgr)
-	ah := auth.NewAuthHandler(db, rdb, em, accessSecret)
+	ah, err := auth.NewAuthHandler(db, rdb, em, i18nMgr, accessSecret, twoFactorSecret, providerSecret)
+	if err != nil {
+		slog.Error("There was an error creating the auth handeler", "error", err)
+		os.Exit(1)
+	}
 
 	githubProv := auth.NewGithubOAuth(githubClientID, githubClientSecret, githubRedirectUrl)
 	googleProv := auth.NewGoogleOAuth(googleClientID, googleClientSecret, googleRedirectUrl)

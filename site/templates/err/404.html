@@ -1,20 +1,18 @@
 ---
     layout: page
 ---
-<main class="grd pli-c fil">
-        <div class="flx col j-spcAround bg-surface-container p-2xl bdr-rad-md w-var h-var" style="--w: 600px; --h: 400px">
-            <div>
-                <h1>404</h1>
-                <h2>[[ tr "header:err/404" ]]</h2>
-            </div>
-            <p class="txt-wrap txt-lg">[[  tr "text:err/404"   ]]</p>
-            <div class="flx j-spcBetween">
-                <a href="/" class="bg-primary bdr-rad-sm p-sm flx ali-center">[[ tr "phrase:back_home" | capitalize ]]</a>
-                <div class="flx gap-md">
-                    [[ import "components/theme-btn.html" (dict "Classes" "px-lg" ) ]]
-                    [[ import "components/lang-btn.html"  (dict "Classes" "px-lg" ) ]]
-                </div>
-            </div>
-            [[ import "components/lang-menu.html" nil ]]
+<main class="grd pli-c fil ovr-none">
+    <div class="flx col j-spcAround bg-surface-container py-lg px-2xl bdr-rad-md w-var h-var" style="--w: 600px; --h: 400px">
+        <div>
+            <h1>404</h1>
+            <h2>[[ tr "header:err/404" ]]</h2>
         </div>
-    </main>
+        <p class="txt-wrap txt-lg">[[  tr "text:err/404"   ]]</p>
+        <div class="flx j-spcBetween wrap gap-sm">
+            <a href="/" class="bg-primary bdr-rad-sm p-sm flx ali-center">[[ tr "phrase:back_home" | capitalize ]]</a>
+            <div class="flx gap-md pos-rel w-var" style="--w:200px">
+                [[ import "components/settings/bundle.html" nil ]]
+            </div>
+        </div>
+    </div>
+</main>

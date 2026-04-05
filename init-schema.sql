@@ -76,6 +76,7 @@ CREATE TABLE users (
     username CITEXT UNIQUE NOT NULL,
     email    CITEXT UNIQUE NOT NULL,
     role TEXT NOT NULL DEFAULT 'basic',
+    avatar_url TEXT,
     preferred_lang VARCHAR(12) NOT NULL DEFAULT 'en',
     units VARCHAR(10) NOT NULL DEFAULT 'metric',
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -84,14 +85,17 @@ CREATE TABLE users (
 );
 
 CREATE TABLE user_credentials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     kind   TEXT NOT NULL,
     secret TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_id, kind),
-    UNIQUE (kind, secret)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX user_kind ON user_credentials (user_id, kind);
+CREATE UNIQUE INDEX idx_user_single_credentials 
+ON user_credentials (user_id, kind) 
+WHERE kind IN ('passkey', 'totp');
 
 CREATE TABLE refresh_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

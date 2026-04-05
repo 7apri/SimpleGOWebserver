@@ -2,9 +2,13 @@ package i18n
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"maps"
+	"math/big"
+	randInsecure "math/rand/v2"
 	"net/http"
+	"strings"
 )
 
 type contextKey string
@@ -16,7 +20,12 @@ func GetLangFromContext(ctx context.Context) (string, bool) {
 	return lang, ok
 }
 func GetLangFromReq(r *http.Request) string {
-	lang := "en"
+	lang, ok := GetLangFromContext(r.Context())
+	if ok {
+		return lang
+	}
+
+	lang = "en"
 
 	if cookie, err := r.Cookie("lang"); err == nil {
 		lang = cookie.Value
@@ -53,6 +62,27 @@ func (m *I18nManager) Translate(lang, key string) (string, error) {
 	return key, ErrorKeyNotFound
 }
 
+func (m *I18nManager) TranslateError(lang, key string) (string, error) {
+	s := m.snapshot.Load()
+	if s == nil {
+		return "", ErrorNoSnapshot
+	}
+	if bucket, ok := s.Buckets[lang]; ok {
+		if val, ok := bucket.Errors[key]; ok {
+			return val, nil
+		}
+	}
+	if lang != "en" {
+		if enBucket, ok := s.Buckets["en"]; ok {
+			if val, ok := enBucket.Errors[key]; ok {
+				return val, nil
+			}
+		}
+	}
+
+	return key, ErrorKeyNotFound
+}
+
 func (mgr *I18nManager) GetClient(lang string, scripts map[string]struct{}) map[string]string {
 	s := mgr.snapshot.Load()
 	if s == nil {
@@ -80,4 +110,74 @@ func (mgr *I18nManager) GetClient(lang string, scripts map[string]struct{}) map[
 	}
 
 	return result
+}
+func (mgr *I18nManager) GetBank(lang string) ([]string, error) {
+	s := mgr.snapshot.Load()
+	if s == nil {
+		return nil, ErrorNoSnapshot
+	}
+
+	bank, ok := s.WordBanks[lang]
+	if !ok && lang != "en" {
+		bank = s.WordBanks["en"]
+	}
+	if bank == nil {
+		return nil, ErrorKeyNotFound
+	}
+
+	return bank, nil
+}
+func (mgr *I18nManager) GetUsernameFormats(lang string) ([]string, error) {
+	s := mgr.snapshot.Load()
+	if s == nil {
+		return nil, ErrorNoSnapshot
+	}
+
+	formats, ok := s.UsernameFormats[lang]
+	if !ok && lang != "en" {
+		formats = s.UsernameFormats["en"]
+	}
+	if formats == nil {
+		return nil, ErrorKeyNotFound
+	}
+
+	return formats, nil
+}
+func (mgr *I18nManager) GetUsernames(lang, base string, count int) ([]string, error) {
+	formats, err := mgr.GetUsernameFormats(lang)
+	if err != nil {
+		return nil, err
+	}
+	if count > len(formats) {
+		count = len(formats)
+	}
+
+	idxs := randInsecure.Perm(len(formats))
+
+	usernames := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		format := formats[idxs[i]]
+		usernames = append(usernames, strings.ReplaceAll(format, "%s", base))
+	}
+
+	return usernames, nil
+}
+func (mgr *I18nManager) PickWords(lang string, count int) ([]string, error) {
+	list, err := mgr.GetBank(lang)
+	if err != nil {
+		return nil, err
+	}
+
+	bigN := big.NewInt(int64(len(list)))
+	selected := make([]string, count)
+
+	for i := range count {
+		idx, err := rand.Int(rand.Reader, bigN)
+		if err != nil {
+			return nil, err
+		}
+		selected[i] = list[idx.Int64()]
+	}
+
+	return selected, nil
 }

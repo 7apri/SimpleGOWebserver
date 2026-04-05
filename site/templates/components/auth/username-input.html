@@ -1,0 +1,31 @@
+<div class="flx col gap-sm fil-x mb-md">
+    <label class="fil-x" for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
+    <div class="pos-rel fil-x">
+        <input  
+            class="fil-x p-sm txt-lg pr-2xl"
+            name="username"
+            id="username-input"
+            type="text"
+            placeholder="[[ tr "plh:user" ]]"
+            [[ if .Data.Value ]]value="[[ .Data.Value ]]"[[ end ]]
+            [[ if .Data.Attribute ]][[ .Data.Attribute ]][[ end ]]
+            required
+        />
+        <div class="pos-abs top right fil-y grd pli-c" id="username-status" style="width: 2.5em;">
+            <svg class="icon color">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]"></use>
+            </svg>
+        </div>
+    </div>
+    <div class="flx col gap-sm j-center hidden" id="username-suggestions">
+        <span>[[ capitalize (tr "phrase:username_try" ) ]]</span>
+        <ul class="gap-sm flx wrap">
+            [[- range seq 3 ]]
+            <li>
+                <button class="px-sm py-xs" type="button"></button>
+            </li>
+            [[ end -]]
+        </ul>
+    </div>
+</div>
+[[ registerScript "auth/components/username-input.js" ]]

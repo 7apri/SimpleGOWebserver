@@ -1,0 +1,12 @@
+<ul id="lang-menu" [[ if .Data.WrapClass ]]class="[[ .Data.WrapClass ]]"[[ end ]] [[ if .Data.WrapStyle ]]style="[[ .Data.WrapStyle ]]"[[ end ]]>
+    [[ range $index, $lang := .AllLangs ]]
+       <li class="lang" data-lang="[[$lang.Code]]">
+            <button type="button" class="grd pli-c fil-x[[ if $.Data.LangClass ]] [[ $.Data.LangClass ]][[end]]" aria-label="[[$lang.SwitchSentence]]">
+                <svg class="icon color" aria-hidden="true">
+                    <use href="[[ asset "/static/assets/iconBundle.svg" ]]#[[$lang.Code]]"></use>
+                </svg>
+            </button>
+        </li>
+    [[ end -]]
+</ul>
+[[ registerScript "langSelect.js" ]]

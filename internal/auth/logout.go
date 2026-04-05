@@ -27,5 +27,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
+	resetCSRFCookie(w)
+
 	http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
 }

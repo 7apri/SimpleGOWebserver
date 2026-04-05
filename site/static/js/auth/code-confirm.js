@@ -1,22 +1,19 @@
-import InitLang from "./langSelect.js";
-import InitForm from "./form.js";
-import InitKeepNext from "./keep-next.js";
-import InitCodeInput from "./code-input.js";
-import { ResetLoadEl,SetLoadingEl } from "./oauthBtn.js";
+import setupForm from "./components/form.js";
+import GetCsrfToken from "./components/csrf.js";
+import InitKeepNext from "./components/keep-next.js";
+import { ResetLoadEl,SetLoadingEl } from "../util/loadingEffect.js";
 
 const url = new URL(window.location);
 const nextUri = url.searchParams.get('next') || "/";
 
-InitKeepNext(nextUri);
-InitCodeInput();
-InitForm((_,data) => {
-    const code = data.get('code');
-        if(code == "" ) return;
+if(nextUri === null){
+    nextUri = '/'
+} else {
+    InitKeepNext(nextUri);
+}
 
-    url.searchParams.set("c", code);
-    window.history.replaceState({}, '', url);
-    window.location.reload()
-});
+const form = document.getElementById("form");
+setupForm(form,null,() => window.location.reload());
 
 const errorDsp = document.getElementById('error-dsp');
 const errorDsp2 = document.getElementById('error-dsp2');
@@ -54,32 +51,36 @@ function startCooldown(seconds) {
     }, 1000);
 }
 
-resendBtn.addEventListener('click', async (e) =>{
-    if (cooldownActive) return;
-
-    SetLoadingEl(resendBtn);
-    errorDsp.textContent = "";
-
-    try {
-        const resp = await fetch(resendEnd, {
-            method: 'POST',
-            headers: { 
-                'Content-Type' : 'application/json',
-                'Accept'       : 'application/json',
-            },
-        });
-        if (!resp.ok) {
-            const respJSON = await resp.json();
-            errorDsp.textContent = respJSON.error;
-            if (resp.status == 429){
-                respJSON.data && startCooldown(respJSON.data.retry_after)
+if (resendEnd){
+    resendBtn.addEventListener('click', async (e) =>{
+        if (cooldownActive) return;
+    
+        SetLoadingEl(resendBtn);
+        errorDsp.textContent = "";
+    
+        try {
+            let token = await GetCsrfToken();
+            const resp = await fetch(resendEnd, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type' : 'application/json',
+                    'Accept'       : 'application/json',
+                    'X-CSRF-Token': token,
+                },
+            });
+            if (!resp.ok) {
+                const respJSON = await resp.json();
+                errorDsp.textContent = respJSON.error;
+                if (resp.status == 429){
+                    respJSON.data && startCooldown(respJSON.data.retry_after)
+                }
             }
+        } catch (err) {
+            errorDsp.textContent = tr("err_network");
         }
-    } catch (err) {
-        errorDsp.textContent = tr("err_network");
-    }
-    ResetLoadEl(resendBtn);
-});
-
-InitLang();
+        ResetLoadEl(resendBtn);
+    });
+} else{
+    resendBtn.disabled = true;
+}
 

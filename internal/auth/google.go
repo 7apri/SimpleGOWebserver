@@ -96,17 +96,19 @@ func (g *GoogleOAuth) fetchUser(ctx context.Context, token string) (*ExternalUse
 	defer resp.Body.Close()
 
 	var res struct {
-		Sub   string `json:"sub"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Sub     string `json:"sub"`
+		Name    string `json:"name"`
+		Email   string `json:"email"`
+		Picture string `json:"picture"`
 	}
 	if err := sonic.ConfigDefault.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return nil, err
 	}
 
 	return &ExternalUser{
-		ID:       res.Sub,
-		Username: res.Name,
-		Email:    strings.ToLower(res.Email),
+		ID:        res.Sub,
+		Username:  res.Name,
+		Email:     strings.ToLower(res.Email),
+		AvatarURL: res.Picture,
 	}, nil
 }

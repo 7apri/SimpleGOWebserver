@@ -58,9 +58,10 @@ type githubTokenResp struct {
 	AccessToken string `json:"access_token"`
 }
 type githubUserResp struct {
-	ID    int    `json:"id"`
-	Login string `json:"login"`
-	Email string `json:"email"`
+	ID        int    `json:"id"`
+	Login     string `json:"login"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url"`
 }
 type githubEmailResp struct {
 	Email    string `json:"email"`
@@ -143,8 +144,9 @@ func (g *GithubOAuth) fetchUser(ctx context.Context, token string) (*ExternalUse
 
 func (g *GithubOAuth) mapToExternalUser(u *githubUserResp) *ExternalUser {
 	return &ExternalUser{
-		ID:       strconv.Itoa(u.ID),
-		Username: u.Login,
-		Email:    strings.ToLower(u.Email),
+		ID:        strconv.Itoa(u.ID),
+		Username:  u.Login,
+		Email:     strings.ToLower(u.Email),
+		AvatarURL: u.AvatarURL,
 	}
 }
