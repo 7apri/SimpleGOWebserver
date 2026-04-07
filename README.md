@@ -1,8 +1,8 @@
 # Panels – Backend
 
 Backendový server aplikace Panels napsaný v jazyce **Go**. Poskytuje REST API, správu uživatelů, autentizaci, data o počasí a poloze, analytiku a emailové notifikace.
-
 copilot byl využit jen při vytváření tohoto readme
+
 ---
 
 ## Obsah
