@@ -13894,3 +13894,9 @@
 {"time": "2026-04-07T06:16:57+00:00","ip": "78.111.125.169","status": "303","rt": "0.002","urt": "0.002","req": "GET /api/auth/logout HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"}
 78.111.125.169 - - [07/Apr/2026:06:16:57 +0000] "GET /sign-in HTTP/1.1" 304 0 "https://de.7apri.cfd/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0" "-"
 {"time": "2026-04-07T06:16:57+00:00","ip": "78.111.125.169","status": "304","rt": "0.000","urt": "0.000","req": "GET /sign-in HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"}
+78.153.140.148 - - [07/Apr/2026:06:21:43 +0000] "GET /.env HTTP/1.1" 301 169 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.140 Safari/537.36" "-"
+{"time": "2026-04-07T06:21:43+00:00","ip": "78.153.140.148","status": "301","rt": "0.000","urt": "","req": "GET /.env HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.140 Safari/537.36"}
+78.153.140.148 - - [07/Apr/2026:06:21:44 +0000] "POST / HTTP/1.1" 301 169 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.140 Safari/537.36" "-"
+{"time": "2026-04-07T06:21:44+00:00","ip": "78.153.140.148","status": "301","rt": "0.018","urt": "","req": "POST / HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.140 Safari/537.36"}
+46.151.178.13 - - [07/Apr/2026:06:21:50 +0000] "PROPFIND / HTTP/1.1" 405 0 "http://130.61.36.108:443/" "-" "-"
+{"time": "2026-04-07T06:21:50+00:00","ip": "46.151.178.13","status": "405","rt": "0.000","urt": "0.000","req": "PROPFIND / HTTP/1.1","ua": "-"}
