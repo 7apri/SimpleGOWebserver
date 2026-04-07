@@ -9,15 +9,21 @@ import (
 
 type contextKey string
 
-const userKey contextKey = "user"
+const ClaimsContextKey contextKey = "auth_claims"
 
-func SetUserContext(ctx context.Context, user *UserPrint) context.Context {
-	return context.WithValue(ctx, userKey, user)
+func SetAuthContext(ctx context.Context, claims *UserClaims) context.Context {
+	return context.WithValue(ctx, ClaimsContextKey, claims)
 }
-
-func GetUserFromContext(ctx context.Context) (*UserPrint, bool) {
-	uid, ok := ctx.Value(userKey).(*UserPrint)
-	return uid, ok
+func GetClaims(ctx context.Context) (*UserClaims, bool) {
+	claims, ok := ctx.Value(ClaimsContextKey).(*UserClaims)
+	return claims, ok
+}
+func GetUser(ctx context.Context) (*UserPrintTimestamp, bool) {
+	claims, ok := GetClaims(ctx)
+	if !ok {
+		return nil, false
+	}
+	return claims.User, true
 }
 
 func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
@@ -39,7 +45,8 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := SetUserContext(r.Context(), claims.User)
+		ctx := SetAuthContext(r.Context(), claims)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -61,7 +68,8 @@ func (h *AuthHandler) MiddlewareTwoFA(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := SetUserContext(r.Context(), claims.User)
+		ctx := SetAuthContext(r.Context(), claims)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -79,7 +87,8 @@ func (h *AuthHandler) MiddlewareSoft(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := SetUserContext(r.Context(), claims.User)
+		ctx := SetAuthContext(r.Context(), claims)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

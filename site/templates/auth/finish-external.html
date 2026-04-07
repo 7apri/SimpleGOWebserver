@@ -11,7 +11,7 @@
 {{end}}
 [[ registerScript "auth/basic-redir-form.js" ]]
 <main class="flx ali-c j-center fil">
-    <div class="txt-left flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+    <div class="txt-left flx col j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
         <h1 class="txt-2xl mb-sm ls-wide">{{ $header }}</h1>
         <div class="flx gap-md j-spcBetween ali-c p-md bdr-rad-lg" style="background-color: var(--primary-container);">
             <img src="{{ .AvatarURL }}" style="border-radius: 50%; width: 67px; aspect-ratio: 1/1;">
@@ -20,13 +20,17 @@
                 <li>[[ capitalize (tr "phrase:provider") ]]: {{ .Provider }}</li>
             </ul>
         </div>
-        <form class="flx col ali-s j-left txt-left" id="form">
+        <form class="flx col ali-s j-left txt-left mt-md" id="form">
             {{ if eq .Action "register" }}
-                [[ import "components/auth/username-input.html" (dict "Value" "{{ .Username }}" "Attribute" `autocomplete="off"` ) ]]
+                [[ import "components/auth/username-input.html" (dict "Value" "{{ .Username }}" "Attribute" `autocomplete="off"` "Class" "mb-sm") ]]
             {{ end }}
-            <div class="flx j-spcBetween gap-md fil-x">
+            <div class="flx col gap-sm ali-e fil-x">
+                <div class="flx ali-c gap-sm">
+                    <label for="remember-input">[[ capitalize ( tr "phrase:remember_me" ) ]]</label>
+                    <input id="remember-input" name="remember" type="checkbox">
+                </div>
                 <button
-                    class="txt-lg fw-bold py-sm px-sm bg-primary deform" 
+                    class="txt-lg fw-bold py-sm px-sm bg-primary deform fil-x" 
                     type="submit"
                     style="flex: 2;"
                     data-endpoint="/api/auth/e/finalize"
@@ -36,7 +40,7 @@
                 </button>
             </div>
         </form>
-        <div class="fil-x flx gap-md j-spcBetween">
+        <div class="fil-x flx gap-md j-spcBetween mt-md">
             <a class="txt-lg txt-center fw-bold py-sm px-sm bg-primary-container bdr-rad-sm" href="/api/auth/e/cancel" style="flex: 3;">
                 [[ capitalize (tr "phrase:cancel") ]]
             </a>

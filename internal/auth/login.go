@@ -14,6 +14,7 @@ import (
 type loginRequest struct {
 	Identifier string `json:"identifier"`
 	Password   string `json:"password"`
+	Remember   bool   `json:"remember"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -23,7 +24,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 	}
 
 	var (
-		user           UserPrint
+		user           UserPrintTimestamp
 		isVerified     bool
 		passHash       sql.NullString
 		has2FA         bool
@@ -35,6 +36,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		u.id, 
 		u.role, 
 		u.username, 
+		u.avatar_url,
+		u.updated_at,
 		u.is_verified,
 		c.secret AS password_hash,
 		EXISTS (SELECT 1 FROM user_credentials WHERE user_id = u.id AND kind = $2) AS has_two_fa,
@@ -56,6 +59,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		&user.ID,
 		&user.Role,
 		&user.Username,
+		&user.AvatarURL,
+		&user.UpdatedAt,
 		&isVerified,
 		&passHash,
 		&has2FA,
@@ -66,7 +71,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return web.NewError(http.StatusUnauthorized, "invalid_credentials", nil, nil)
 		}
-		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
 	if !isVerified {
 		return web.NewError(http.StatusForbidden, "account_not_verified", nil, nil)
@@ -84,22 +89,22 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 
 	var status string
 	if has2FA {
-		access, exp, err := h.secret.GenerateAccess(&user, true)
+		err = h.issueAccessToken(w, &user, AccessTokenOptions{
+			IsPending: true,
+			Remember:  req.Remember,
+		})
 		if err != nil {
 			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name:     "access_token",
-			Value:    access,
-			Expires:  exp,
-			HttpOnly: true,
-			Secure:   true,
-			Path:     "/",
-			SameSite: http.SameSiteLaxMode,
-		})
 		status = "pending"
 	} else {
-		if err := h.issueTokens(w, r, &user, true); err != nil {
+		if err := h.issueTokens(w, r, &user, TokenOptions{
+			RotateCSRF: true,
+			SendEmail:  true,
+			AccessTokenOptions: AccessTokenOptions{
+				Remember: req.Remember,
+			},
+		}); err != nil {
 			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
 		status = "success"

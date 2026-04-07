@@ -3,6 +3,7 @@ package templates
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
@@ -20,54 +21,34 @@ func cleanETag(s string) string {
 }
 
 func SetETag(w http.ResponseWriter, r *http.Request, tag string) bool {
-	cc := r.Header.Get("Cache-Control")
-	cQ := r.URL.Query().Encode()
-	isForceRefresh := strings.Contains(cc, "no-cache") || strings.Contains(cc, "no-store")
+	fullTag := `W/"` + tag + `"`
 
-	if !isForceRefresh {
-		etagClient := r.Header.Get("If-None-Match")
-		if etagClient != "" {
-			if cleanETag(etagClient) == tag {
-				w.WriteHeader(http.StatusNotModified)
-				return true
-			}
-		}
-		var queryClient string
-		if c, err := r.Cookie("X-Version"); err == nil {
-			split := strings.Split(c.Value, "?")
-			etagClient = split[0]
-			queryClient = split[1]
-		}
-		if cleanETag(etagClient) == tag && cQ == queryClient {
-			w.WriteHeader(http.StatusNotModified)
-			return true
-		}
-	}
-
-	w.Header().Set("ETag", `W/"`+tag+`"`)
+	w.Header().Set("ETag", fullTag)
 	w.Header().Set("Cache-Control", "no-cache")
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "X-Version",
-		Value:    tag + "?" + cQ,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	cc := r.Header.Get("Cache-Control")
+	if strings.Contains(cc, "no-cache") || strings.Contains(cc, "no-store") {
+		return false
+	}
+
+	etagClient := r.Header.Get("If-None-Match")
+	if etagClient != "" && cleanETag(etagClient) == tag {
+		w.WriteHeader(http.StatusNotModified)
+		return true
+	}
 
 	return false
 }
 
-func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Request, key TemplateKey, data any) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Request, key TemplateKey, meta string, data any) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 
 	tmpl := mgr.Get(lang, key)
 	if tmpl == nil {
-		return web.NewError(http.StatusNotFound, "err_not_found", nil, key)
+		return web.NewError(http.StatusNotFound, "not_found", nil, key)
 	}
 
-	if SetETag(w, r, tmpl.Etag) {
+	if SetETag(w, r, tmpl.Etag+meta) {
 		return nil
 	}
 
@@ -75,44 +56,52 @@ func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Req
 	defer mgr.bufferPool.Put(b)
 
 	if err := tmpl.Execute(b, data); err != nil {
-		return web.NewError(http.StatusInternalServerError, "err_internal", err, key)
+		return web.NewError(http.StatusInternalServerError, "internal", err, key)
 	}
-	w.Write(b.Bytes())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
+	}
+
 	return nil
 }
 
-func (mgr *TemplateManager) WriteTemplateSpecific(w io.Writer, tmpl *TemplateWrapper, data any) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateSpecific(w http.ResponseWriter, tmpl *TemplateWrapper, data any) *web.WebError {
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
 	if err := tmpl.Execute(b, data); err != nil {
-		return web.NewError(http.StatusInternalServerError, "err_internal", err, nil)
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
 	_, err := w.Write(b.Bytes())
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "err_write_failed", err, nil)
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
 	}
 
 	return nil
 }
 
-func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key TemplateKey, data any) *web.WebError {
+func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key TemplateKey, data any) error {
 	tmpl := mgr.Get(lang, key)
 	if tmpl == nil {
-		return web.NewError(http.StatusNotFound, "err_not_found", nil, key)
+		return i18n.ErrorKeyNotFound
 	}
 
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
 	if err := tmpl.Execute(b, data); err != nil {
-		return web.NewError(http.StatusInternalServerError, "err_internal", err, nil)
+		return err
 	}
 
 	_, err := w.Write(b.Bytes())
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "err_write_failed", err, nil)
+		return err
 	}
 
 	return nil

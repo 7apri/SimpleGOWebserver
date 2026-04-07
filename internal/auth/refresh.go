@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,7 +11,7 @@ import (
 func redirectToLogin(w http.ResponseWriter, r *http.Request, next string) {
 	target := "/sign-in"
 	if next != "" {
-		target = fmt.Sprintf("/sign-in?next=%s", url.QueryEscape(next))
+		target = target + "?next=" + url.QueryEscape(next)
 	}
 	http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 }
@@ -26,6 +25,8 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	remember := false
+
 	const q = `
 		DELETE FROM refresh_sessions rs
 		USING users u
@@ -33,14 +34,16 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			AND rs.token_hash = $1 
 			AND rs.expires_at > NOW()
 			AND u.is_verified = true
-		RETURNING u.id, u.role, u.username, u.avatar_url`
+		RETURNING u.id, u.role, u.username, u.avatar_url, u.updated_at, rs.remember_me`
 
-	var user UserPrint
+	var user UserPrintTimestamp
 	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
 		&user.ID,
 		&user.Role,
 		&user.Username,
 		&user.AvatarURL,
+		&user.UpdatedAt,
+		&remember,
 	)
 
 	if err != nil {
@@ -48,7 +51,11 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.issueTokens(w, r, &user, false)
+	err = h.issueTokens(w, r, &user, TokenOptions{
+		AccessTokenOptions: AccessTokenOptions{
+			Remember: remember,
+		},
+	})
 	if err != nil {
 		redirectToLogin(w, r, next)
 		return

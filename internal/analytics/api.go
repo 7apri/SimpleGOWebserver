@@ -59,7 +59,7 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 		rawUA := r.UserAgent()
 
 		var uid *uuid.UUID
-		if user, ok := auth.GetUserFromContext(r.Context()); ok {
+		if user, ok := auth.GetUser(r.Context()); ok {
 			uid = &user.ID
 		}
 

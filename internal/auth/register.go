@@ -20,9 +20,10 @@ import (
 )
 
 type registerRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Username   string `json:"username"`
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"remember"`
 }
 
 var ErrPasswordShort = errors.New("password_too_short")
@@ -196,6 +197,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 
 	if err == nil {
 		h.setTokenCookie(ctx, w, challenge, email.ChallengeVerify, time.Minute, 900, req.Email, "verify_token")
+		http.SetCookie(w, &http.Cookie{
+			Name:     "verify_remember",
+			Value:    strconv.FormatBool(req.RememberMe),
+			Path:     "/",
+			MaxAge:   900,
+			HttpOnly: true,
+			Secure:   true,
+		})
 
 		go h.EmailManager.SendVerificationEmail(challenge.ChallengeRaw, userDetail)
 		w.WriteHeader(http.StatusAccepted)
@@ -212,6 +221,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 			}
 
 			h.setTokenCookie(ctx, w, challenge, email.ChallengeVerify, time.Minute, 900, req.Email, "verify_token")
+			http.SetCookie(w, &http.Cookie{
+				Name:     "verify_remember",
+				Value:    strconv.FormatBool(req.RememberMe),
+				Path:     "/",
+				MaxAge:   900,
+				HttpOnly: true,
+				Secure:   true,
+			})
+
 			go h.EmailManager.SendAccountExistsEmail(userDetail)
 			w.WriteHeader(http.StatusAccepted)
 			return nil
@@ -219,5 +237,5 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 		return web.NewError(http.StatusConflict, "username_unavailable", nil, nil)
 	}
 
-	return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	return web.NewError(http.StatusInternalServerError, "database", err, nil)
 }

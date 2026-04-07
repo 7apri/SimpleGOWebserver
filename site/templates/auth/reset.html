@@ -2,43 +2,59 @@
  layout: page
  name:   auth/reset
  ---
+[[ registerScript "auth/verify.js" ]]
 <main class="flx ali-c j-center fil">
     <div class="flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
-        <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
-        <form class="flx col ali-s j-left txt-left mb-sm">
-            [[ import "components/auth/password-input-rules.html" nil ]]
-            <button 
-            class="txt-capitl txt-lg fw-bold fil-x py-sm bg-primary" 
-            type="submit"
-            style="--load-color: var(--on-primary)"
-            data-endpoint="/api/auth/reset/confirm"
-            >[[ tr "phrase:confirm" ]]</button>   
-        </form>
-        <div class="flx gap-lg j-spcBetween">
-            <div class="flx col txt-left w-fit">
-                <a class="txt-capitl keep-next" href="/sign-in" id="login-link">
-                    <span>[[ tr "phrase:sign_in" ]]</span>
-                </a>
-                 <a class="txt-capitl keep-next" href="/sign-up" id="login-link">
-                    <span>[[ tr "phrase:sign_up" ]]</span>
-                </a>
+        <div id="states-wrapper" data-state="{{ .State }}" data-logged-in="{{ .LoggedIn }}">
+            <div data-state="email" {{ if ne .State "email" }}class="hidden"{{ end }}>
+                [[ import "components/auth/challenge/email-request.html" (
+                    dict 
+                    "Endpoint" "/api/auth/reset/init" 
+                    "TitleKey" "title:reset/email-request"
+                    "FormID"   "form-email"
+                    )
+                ]]
             </div>
-            <span id="error-dsp" class="txt-right txt-error" style="flex: 1;"></span>
+            <div data-state="code" class="txt-center{{ if ne .State "code" }} hidden{{ end }}">
+                [[ import "components/auth/challenge/enter-code.html" (
+                    dict 
+                    "Endpoint"          "/api/auth/reset/check" 
+                    "ResendEndpoint"    "/api/auth/reset/init" 
+                    "TitleKey"          "title:reset/enter-code"
+                    "FormID"   "form-code"
+                    )
+                ]]
+            </div>
+            <div data-state="success" {{ if ne .State "success" }}class="hidden"{{ end }}>
+                <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
+                <form class="flx col ali-s j-left txt-left mb-sm gap-md" id="form-confirm">
+                    [[ import "components/auth/password-input-rules.html" nil ]]
+                    <button 
+                    class="txt-capitl txt-lg fw-bold fil-x py-sm bg-primary" 
+                    type="submit"
+                    style="--load-color: var(--on-primary)"
+                    data-endpoint="/api/auth/reset/confirm"
+                    >[[ tr "phrase:confirm" ]]</button>   
+                </form>
+            </div>
+         </div>
+        <div class="flx gap-lg j-spcBetween ali-e">
+            <div class="flx col txt-left">
+                <button class="bg-none fil-x txt-left{{ if ne .State "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
+                [[ import "components/keep-next-link.html" (slice
+                    ( dict
+                        "Href" "/sign-in" 
+                        "Text" (capitalize (tr "phrase:sign_in"))
+                    )
+                    ( dict 
+                        "Href" "/sign-up" 
+                        "Text" (capitalize (tr "phrase:sign_up"))
+                    )
+                )]]
+            </div>
+            <div class="flx gap-md w-var h-var pos-rel" style="--w:36%; --h:45px">
+                [[ import "components/settings/bundle.html" nil ]]
+            </div>
         </div>
-        [[ import "components/auth/challenge/email-request.html" (
-            dict 
-            "Endpoint" "/api/auth/reset/init" 
-            "TitleKey" "title:reset/email-request"
-            "FormID"   "id"
-            )
-         ]]
-         [[ import "components/auth/challenge/enter-code.html" (
-            dict 
-            "Endpoint"          "/api/auth/reset/check" 
-            "ResendEndpoint"    "/api/auth/reset/init" 
-            "TitleKey"          "title:reset/enter-code"
-            "FormID"   "id2"
-            )
-        ]]
     </div>
 </main>

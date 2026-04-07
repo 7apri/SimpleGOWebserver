@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -82,15 +81,17 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) *web.We
 
 	next := q.Get("next")
 	if next != "" && next != "/" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     "oauth_next",
-			Value:    next,
-			Path:     "/",
-			MaxAge:   300,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		if err == nil {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "oauth_next",
+				Value:    next,
+				Path:     "/",
+				MaxAge:   300,
+				HttpOnly: true,
+				Secure:   true,
+				SameSite: http.SameSiteLaxMode,
+			})
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -130,13 +131,8 @@ func clearCookies(w http.ResponseWriter, path string, names ...string) {
 		})
 	}
 }
-
-func (h *AuthHandler) finishLogin(w http.ResponseWriter, r *http.Request, user *UserPrint) *web.WebError {
-	if err := h.issueTokens(w, r, user, true); err != nil {
-		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
-	}
-
-	next := "/"
+func (h *AuthHandler) handleOAuthLogin(w http.ResponseWriter, r *http.Request, user *UserPrintTimestamp, has2FA bool) *web.WebError {
+	var next string
 	if cookie, err := r.Cookie("oauth_next"); err == nil {
 		next = cookie.Value
 		clearCookies(w, "/", "oauth_next")
@@ -146,10 +142,34 @@ func (h *AuthHandler) finishLogin(w http.ResponseWriter, r *http.Request, user *
 		next = "/"
 	}
 
+	if has2FA {
+		if next != "/" {
+			next = "/2fa?next=" + url.QueryEscape(next)
+		} else {
+			next = "/2fa"
+		}
+
+		if err := h.issueAccessToken(w, user, AccessTokenOptions{
+			IsPending: true,
+			Remember:  true,
+		}); err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
+	} else {
+		if err := h.issueTokens(w, r, user, TokenOptions{
+			RotateCSRF: true,
+			SendEmail:  true,
+			AccessTokenOptions: AccessTokenOptions{
+				Remember: true,
+			},
+		}); err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
+	}
+
 	http.Redirect(w, r, next, http.StatusSeeOther)
 	return nil
 }
-
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web.WebError {
 	q := r.URL.Query()
 	pQ := q.Get("provider")
@@ -181,66 +201,66 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 		return web.NewError(http.StatusBadGateway, "oauth_failed", err, nil)
 	}
 
-	var user UserPrint
-	var avatarUrl sql.NullString
-	providerName := p.Name()
-
-	const qFind = `
-		SELECT 
-			u.id, 
-			u.role,
-			u.username,
-			u.avatar_url
-		FROM users u
-		JOIN user_credentials uc ON uc.user_id = u.id
-		WHERE 
-		    uc.kind = $1
-			AND uc.secret = $2
-		LIMIT 1;
-	`
 	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier")
 
-	err = h.db.Pool.QueryRow(ctx, qFind, providerName, extUser.ID).Scan(&user.ID, &user.Role, &user.Username, &avatarUrl)
-	if err == nil {
-		if avatarUrl.Valid {
-			user.AvatarURL = avatarUrl.String
-		}
-		return h.finishLogin(w, r, &user)
-	}
+	var user UserPrintTimestamp
+	var has2FA, isLogin bool
 
-	if !errors.Is(err, pgx.ErrNoRows) {
+	const findQ = `
+    WITH oauth_match AS (
+        SELECT u.id, u.role, u.username, u.avatar_url, u.updated_at,
+               EXISTS(SELECT 1 FROM user_credentials WHERE user_id = u.id AND kind = $3) as has_2fa,
+               true as is_login
+        FROM users u
+        JOIN user_credentials uc ON uc.user_id = u.id
+        WHERE uc.kind = $1 AND uc.secret = $2
+		LIMIT 1
+    ),
+    email_match AS (
+        SELECT id, role, username, avatar_url, updated_at,
+				false as has_2fa,
+                false as is_login
+        FROM users
+        WHERE email = $4 AND NOT EXISTS (SELECT 1 FROM oauth_match)
+		LIMIT 1
+    )
+    SELECT id, role, username, avatar_url, updated_at, has_2fa, is_login 
+    FROM oauth_match
+    UNION ALL
+    SELECT id, role, username, avatar_url, updated_at, has_2fa, is_login
+    FROM email_match;`
+
+	err = h.db.Pool.QueryRow(ctx, findQ,
+		p.Name(), extUser.ID, UserCredentials2FA, extUser.Email,
+	).Scan(&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt, &has2FA, &isLogin)
+
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
 	}
 
-	var accountID uuid.UUID
-	var existingUsername string
-	var action = "register"
-
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT id, username FROM users WHERE email = $1",
-		extUser.Email,
-	).Scan(&accountID, &existingUsername)
-
-	if err == nil {
-		action = "link"
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
+	if err == nil && isLogin {
+		return h.handleOAuthLogin(w, r, &user, has2FA)
 	}
 
-	if action == "register" {
-		existingUsername = extUser.Username
+	action := "link"
+	userIDStr := user.ID.String()
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		action = "register"
+		user.Username = extUser.Username
+		userIDStr = ""
 	}
 
 	expiry := time.Now().Add(15 * time.Minute)
 
 	claims := PendingAuthProviderClaims{
 		Email:      extUser.Email,
-		Username:   existingUsername,
+		Username:   user.Username,
 		ExternalID: extUser.ID,
 		Provider:   p.Name(),
 		AvatarURL:  extUser.AvatarURL,
 		Action:     action,
-		UserID:     accountID.String(),
+		UserID:     userIDStr,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiry),
 		},
@@ -261,17 +281,10 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	nextCookie, err := r.Cookie("oauth_next")
-	if err == nil && nextCookie.Value != "" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     "oauth_next",
-			Value:    nextCookie.Value,
-			Expires:  expiry,
-			HttpOnly: true,
-			Secure:   true,
-			Path:     "/",
-			SameSite: http.SameSiteLaxMode,
-		})
+	if cookie, err := r.Cookie("oauth_next"); err == nil {
+		clearCookies(w, "/", "oauth_next")
+		http.Redirect(w, r, "/sign-up?next="+url.QueryEscape(cookie.Value), http.StatusSeeOther)
+		return nil
 	}
 
 	http.Redirect(w, r, "/sign-up", http.StatusSeeOther)
@@ -316,48 +329,65 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 	}
 
 	ctx := r.Context()
-	var user UserPrint
-	var avatar sql.NullString
+
+	var req struct {
+		Username   *string `json:"username"`
+		RememberMe bool    `json:"remember"`
+	}
+
+	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
+		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
+	}
+
+	var user UserPrintTimestamp
+	var has2FA bool
 
 	if claims.Action == "link" {
+		const qCheck2FA = `SELECT EXISTS(SELECT 1 FROM user_credentials WHERE user_id = $1 AND kind = $2)`
+		err = h.db.Pool.QueryRow(ctx, qCheck2FA, claims.UserID, UserCredentials2FA).Scan(&has2FA)
+		if err != nil {
+			return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
+		}
+
 		const qLink = `
             WITH linked AS (
                 INSERT INTO user_credentials (user_id, kind, secret)
                 VALUES ($1, $2, $3)
                 RETURNING user_id
             )
-            SELECT u.id, u.role, u.username, u.avatar_url
+            SELECT u.id, u.role, u.username, u.avatar_url, u.updated_at
             FROM users u
             JOIN linked l ON u.id = l.user_id;`
 
 		err = h.db.Pool.QueryRow(ctx, qLink, claims.UserID, claims.Provider, claims.ExternalID).Scan(
-			&user.ID, &user.Role, &user.Username, &avatar,
+			&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt,
 		)
 	} else {
-		var req struct {
-			Username string `json:"username"`
-		}
-		if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
-			return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
+		if req.Username == nil || *req.Username == "" {
+			return web.NewError(http.StatusBadRequest, "username_required", nil, nil)
 		}
 
-		lang, _ := i18n.GetLangFromContext(ctx)
+		lang, ok := i18n.GetLangFromContext(ctx)
+		if !ok {
+			lang = "en"
+		}
 
 		const qReg = `
             WITH new_user AS (
                 INSERT INTO users (email, username, avatar_url, preferred_lang, is_verified)
                 VALUES ($1, $2, $3, $4, true)
-                RETURNING id, role, username, avatar_url
+                RETURNING id, role, username, avatar_url, updated_at
             ),
             new_cred AS (
                 INSERT INTO user_credentials (user_id, kind, secret)
                 SELECT id, $5, $6 FROM new_user
             )
-            SELECT id, role, username, avatar_url FROM new_user;`
+            SELECT id, role, username, avatar_url, updated_at FROM new_user;`
 
 		err = h.db.Pool.QueryRow(ctx, qReg,
-			claims.Email, req.Username, claims.AvatarURL, lang, claims.Provider, claims.ExternalID,
-		).Scan(&user.ID, &user.Role, &user.Username, &avatar)
+			claims.Email, req.Username, claims.AvatarURL, lang, claims.Provider, claims.ExternalID).Scan(
+			&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt,
+		)
 	}
 
 	if err != nil {
@@ -367,10 +397,38 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
 	}
 
-	if avatar.Valid {
-		user.AvatarURL = avatar.String
+	clearCookies(w, "/", "oauth_pending")
+
+	var status string
+	if has2FA {
+		err = h.issueAccessToken(w, &user, AccessTokenOptions{
+			Remember:  req.RememberMe,
+			IsPending: true,
+		})
+		if err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
+		status = "pending"
+	} else {
+		if err := h.issueTokens(w, r, &user, TokenOptions{
+			RotateCSRF: true,
+			SendEmail:  true,
+			AccessTokenOptions: AccessTokenOptions{
+				Remember: req.RememberMe,
+			},
+		}); err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
+		status = "success"
 	}
 
-	clearCookies(w, "/", "oauth_pending")
-	return h.finishLogin(w, r, &user)
+	w.Header().Set("Content-Type", "application/json")
+	err = sonic.ConfigDefault.NewEncoder(w).Encode(map[string]string{
+		"status": status,
+	})
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+
+	return nil
 }

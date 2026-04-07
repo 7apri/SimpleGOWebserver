@@ -5,8 +5,8 @@
 [[ registerScript "auth/verify.js" ]]
 <main class="flx ali-c j-center fil">
     <div class="flx col gap-sm j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
-        <div id="states-wrapper" data-state="{{ . }}">
-            <div data-state="email" {{ if ne . "email" }}class="hidden"{{ end }}>
+        <div id="states-wrapper" data-state="{{ .State }}">
+            <div data-state="email" {{ if ne .State "email" }}class="hidden"{{ end }}>
                 [[ import "components/auth/challenge/email-request.html" (
                     dict 
                     "Endpoint" "/api/auth/verify/init" 
@@ -15,7 +15,7 @@
                     )
                 ]]
             </div>
-            <div data-state="code" class="txt-center{{ if ne . "code" }} hidden{{ end }}">
+            <div data-state="code" class="txt-center{{ if ne .State "code" }} hidden{{ end }}">
                 [[ import "components/auth/challenge/enter-code.html" (
                     dict 
                     "Endpoint"       "/api/auth/verify/check"
@@ -25,7 +25,7 @@
                     )
                 ]]
             </div>
-            <div data-state="success" {{ if ne . "success" }}class="hidden"{{ end }}>
+            <div data-state="success" {{ if ne .State "success" }}class="hidden"{{ end }}>
                 <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
                 <form class="flx col ali-s j-left txt-left mb-sm" id="form-confirm">
                     <button
@@ -37,19 +37,22 @@
                 </form>
             </div>
         </div>
-        <div class="flx gap-lg j-spcBetween">
-            <div class="flx col txt-left w-fit">
-                <button class="bg-none fil-x mb-xs txt-left{{ if ne . "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
-                <a href="/sign-in">
-                    <span>[[ tr "phrase:sign_in" ]]</span>
-                </a>
-                <a href="/sign-up">
-                    <span>[[ tr "phrase:sign_up" ]]</span>
-                </a>
-            </div>
+        <div class="flx gap-lg j-spcBetween ali-e">
             <div class="flx col txt-left">
-                <span id="error-dsp"  class="txt-right txt-error" style="flex: 1;"></span>
-                <span id="error-dsp2" class="txt-right txt-error" style="flex: 1;"></span>
+                <button class="bg-none fil-x txt-left{{ if ne .State "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
+                [[ import "components/keep-next-link.html" (slice
+                    ( dict
+                        "Href" "/sign-in" 
+                        "Text" (capitalize (tr "phrase:sign_in"))
+                    )
+                    ( dict 
+                        "Href" "/sign-up" 
+                        "Text" (capitalize (tr "phrase:sign_up"))
+                    )
+                )]]
+            </div>
+            <div class="flx gap-md w-var h-var pos-rel" style="--w:35%; --h:40px">
+                [[ import "components/settings/bundle.html" nil ]]
             </div>
         </div>
     </div>

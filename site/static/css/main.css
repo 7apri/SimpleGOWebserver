@@ -419,6 +419,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     align-items: center;
     text-align: center;
     display: flex;
+    margin: var(--s-md) 0;
 }
 .separator::before,
 .separator::after {

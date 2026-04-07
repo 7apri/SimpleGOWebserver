@@ -22,7 +22,7 @@ func (s *Server) onErrHtml(w http.ResponseWriter, r *http.Request, buffer *bytes
 		Name: "err/" + strconv.Itoa(appErr.Status),
 	}, appErr)
 	if err != nil {
-		return err
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (srv *Server) Routes() *http.ServeMux {
 	mux.Handle("GET /2fa/setup", web.Chain(srv.serveHtmlUser("2fa/setup"), protectedStack...))
 
 	mux.Handle("GET /email", srv.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return srv.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "email", Name: "test"}, nil)
+		return srv.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "email", Name: "test"}, "", nil)
 	}, protectedStack...))
 	mux.Handle("GET /page", web.Chain(srv.serveHtmlUser("test"), protectedStack...))
 
@@ -64,7 +64,7 @@ func (srv *Server) Routes() *http.ServeMux {
 				Kind: "page",
 				Name: "auth/reset",
 			},
-		}), baseStack...))
+		}), rootStack...))
 
 	mux.Handle("GET /account-verify", srv.handlerHtml(srv.handleChallengeUI(
 		challengeUIConfig{
@@ -124,7 +124,7 @@ func (srv *Server) Routes() *http.ServeMux {
 	authExtRateLimit := srv.rateLimited("authExt:", rate.Limit(2), 5)
 	authExtApiStack := append([]web.Middleware{authExtRateLimit}, baseStack...)
 
-	authApiStackQuantize := append([]web.Middleware{web.QuantizeDelay(150*time.Millisecond, 20)}, authApiStack...)
+	authApiStackQuantize := append([]web.Middleware{web.QuantizeDelay(300*time.Millisecond, 50)}, authApiStack...)
 
 	mux.Handle("POST /api/auth/register", srv.handlerHtml(srv.authHandler.Register, authApiStackQuantize...))
 
@@ -136,8 +136,7 @@ func (srv *Server) Routes() *http.ServeMux {
 	authApiTwoFAStack := append([]web.Middleware{srv.authHandler.Middleware}, authApiStack...)
 	mux.Handle("POST /api/auth/2fa/init", srv.handlerHtml(srv.authHandler.HandleInit2FA, authApiTwoFAStack...))
 
-	authApiTwoFAStackQuantize := append([]web.Middleware{web.QuantizeDelay(150*time.Millisecond, 20)}, authApiTwoFAStack...)
-	mux.Handle("POST /api/auth/2fa/enable", srv.handlerHtml(srv.authHandler.HandleVerifyAndEnable2FA, authApiTwoFAStackQuantize...))
+	mux.Handle("POST /api/auth/2fa/enable", srv.handlerHtml(srv.authHandler.HandleVerifyAndEnable2FA, authApiTwoFAStack...))
 
 	mux.Handle("POST /api/auth/2fa/recovery/regen", srv.handlerHtml(srv.authHandler.HandleRegenerateRecoveryCodes, authApiTwoFAStack...))
 
@@ -163,7 +162,7 @@ func (srv *Server) Routes() *http.ServeMux {
 	)
 	mux.Handle("POST /api/auth/reset/init", srv.handlerHtml(InitReset, authApiStackQuantize...))
 
-	resetChallengeStack := append([]web.Middleware{srv.authHandler.MiddlewareTwoFA}, authApiStackQuantize...)
+	resetChallengeStack := append([]web.Middleware{srv.authHandler.Middleware}, authApiStackQuantize...)
 	mux.Handle("POST /api/auth/reset/confirm", srv.handlerHtml(srv.authHandler.ConfirmReset, resetChallengeStack...))
 
 	mux.Handle("POST /api/auth/reset/check", srv.handlerHtml(srv.authHandler.CheckCodeReset, authApiStackQuantize...))

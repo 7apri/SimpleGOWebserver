@@ -41,7 +41,7 @@ func (s *Server) rateLimited(key string, limit rate.Limit, b int) web.Middleware
 		return web.MakeHandler(func(w http.ResponseWriter, r *http.Request) *web.WebError {
 			key := key
 
-			user, ok := auth.GetUserFromContext(r.Context())
+			user, ok := auth.GetUser(r.Context())
 			if !ok {
 				key += web.GetClientIP(r)
 			} else if user.Role == "dev" {

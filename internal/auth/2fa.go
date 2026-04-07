@@ -41,7 +41,7 @@ func GenerateQRCodeBase64(otpAuthURL string) (string, error) {
 
 func (h *AuthHandler) HandleInit2FA(w http.ResponseWriter, r *http.Request) *web.WebError {
 	ctx := r.Context()
-	user, ok := GetUserFromContext(ctx)
+	user, ok := GetUser(ctx)
 	if !ok {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
@@ -166,7 +166,7 @@ func (h *AuthHandler) HandleVerifyAndEnable2FA(w http.ResponseWriter, r *http.Re
 	}
 
 	ctx := r.Context()
-	user, ok := GetUserFromContext(ctx)
+	user, ok := GetUser(ctx)
 	if !ok {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
@@ -225,12 +225,14 @@ func (h *AuthHandler) HandleLoginVerify2FA(w http.ResponseWriter, r *http.Reques
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
 		return web.NewError(http.StatusBadRequest, "invalid_json", nil, nil)
 	}
+
 	ctx := r.Context()
-	user, ok := GetUserFromContext(ctx)
+	claims, ok := GetClaims(ctx)
 	if !ok {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
-	redisKey := "2fa_fail:" + user.ID.String()
+
+	redisKey := "2fa_fail:" + claims.User.ID.String()
 
 	failsStr, ttl, err := h.GetValueWithTTL(ctx, redisKey)
 	if err != nil {
@@ -241,7 +243,7 @@ func (h *AuthHandler) HandleLoginVerify2FA(w http.ResponseWriter, r *http.Reques
 	}
 
 	var encryptedHexStr string
-	err = h.db.Pool.QueryRow(ctx, "SELECT secret FROM user_credentials WHERE user_id = $1 AND kind = $2", user.ID, UserCredentials2FA).Scan(&encryptedHexStr)
+	err = h.db.Pool.QueryRow(ctx, "SELECT secret FROM user_credentials WHERE user_id = $1 AND kind = $2", claims.User.ID, UserCredentials2FA).Scan(&encryptedHexStr)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 
@@ -268,7 +270,13 @@ func (h *AuthHandler) HandleLoginVerify2FA(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.redis.Del(ctx, redisKey)
-	if err := h.issueTokens(w, r, user, true); err != nil {
+	if err := h.issueTokens(w, r, claims.User, TokenOptions{
+		RotateCSRF: true,
+		SendEmail:  true,
+		AccessTokenOptions: AccessTokenOptions{
+			Remember: claims.RememberMe,
+		},
+	}); err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 	return nil
@@ -287,11 +295,14 @@ func (h *AuthHandler) VerifyRecoveryCode(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
-	user, _ := GetUserFromContext(ctx)
+	claims, ok := GetClaims(ctx)
+	if !ok {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
 
 	rows, err := h.db.Pool.Query(ctx,
 		`SELECT id, secret FROM user_credentials WHERE user_id = $1 AND kind = $2`,
-		user.ID, UserCredentialsRecovery,
+		claims.User.ID, UserCredentialsRecovery,
 	)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
@@ -331,7 +342,13 @@ func (h *AuthHandler) VerifyRecoveryCode(w http.ResponseWriter, r *http.Request)
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
-	if err := h.issueTokens(w, r, user, true); err != nil {
+	if err := h.issueTokens(w, r, claims.User, TokenOptions{
+		RotateCSRF: true,
+		SendEmail:  true,
+		AccessTokenOptions: AccessTokenOptions{
+			Remember: claims.RememberMe,
+		},
+	}); err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
@@ -347,7 +364,7 @@ func (h *AuthHandler) VerifyRecoveryCode(w http.ResponseWriter, r *http.Request)
 }
 func (h *AuthHandler) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) *web.WebError {
 	ctx := r.Context()
-	user, ok := GetUserFromContext(ctx)
+	user, ok := GetUser(ctx)
 	if !ok {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}

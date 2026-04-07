@@ -1,4 +1,5 @@
 import setUpForm from "./components/form.js";
+import InitKeepNext from "./components/keep-next.js";
 import GetCsrfToken from "./components/csrf.js";
 import { ResetLoadEl,SetLoadingEl } from "../util/loadingEffect.js";
 
@@ -8,6 +9,10 @@ const confirmForm = document.getElementById("form-confirm");
 
 const backBtn = document.getElementById("state-back");
 const statesWrapper = document.getElementById('states-wrapper');
+
+if( statesWrapper.dataset.loggedIn === "false" && statesWrapper.dataset.state === "success"){
+    window.location.href = `/2fa?next=${encodeURIComponent(window.location.href + "?") + window.location.search}`
+}
 
 function setState(newState) {
     statesWrapper.querySelectorAll('[data-state]').forEach(el => {
@@ -24,7 +29,6 @@ function setState(newState) {
 }
 
 backBtn.addEventListener('click', () => {
-    console.log(statesWrapper.dataset.state)
     if (statesWrapper.dataset.state  === 'code') {
         setState('email');
     } 
@@ -40,9 +44,24 @@ if(nextUrl === null){
 }
 
 setUpForm(emailForm, null,  () => setState("code") );
-setUpForm(codeForm, null,   () => setState("success"));
+setUpForm(codeForm,null,async (r) => {
+    if (!r.headers.get("Content-Type") === "application/json") {
+        setState("success");
+        return;
+    }
+    const data = await r.json()
+    switch (data.status){
+        case "pending":
+            window.location.href = `/2fa?next=${encodeURIComponent(window.location.href + "?") + window.location.search}`;
+            break;
+        default:
+            setState("success");
+    }
+});
 
-setUpForm(confirmForm, null,() => window.location.href = nextUrl);
+setUpForm(confirmForm, null,   () => window.location.href = nextUrl);
+
+
 
 let cooldownActive = false;
 const resendBtn = document.getElementById("resend-btn");

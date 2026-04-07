@@ -1,5 +1,5 @@
 const Init = (nextUrl) =>{
-    if (nextUrl !== '/') {
+    if (nextUrl !== '/' || nextUrl != "" ) {
         document.querySelectorAll('a[data-keep-next]').forEach(link => {
             try {
                 const url = new URL(link.href, window.location.origin);

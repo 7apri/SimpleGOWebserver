@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -30,8 +31,9 @@ type secretWrap struct {
 	twoFactor []byte
 }
 type UserClaims struct {
-	User       *UserPrint `json:"user"`
-	Pending2FA bool       `json:"p2fa,omitempty"`
+	User       *UserPrintTimestamp `json:"usr"`
+	Pending2FA bool                `json:"p2fa,omitempty"`
+	RememberMe bool                `json:"rem,omitempty"`
 	jwt.RegisteredClaims
 }
 type UserPrintBig struct {
@@ -47,6 +49,10 @@ type UserPrint struct {
 	Role      string    `json:"role"`
 	Username  string    `json:"username"`
 	AvatarURL string    `json:"avatar_url,omitempty"`
+}
+type UserPrintTimestamp struct {
+	UserPrint
+	UpdatedAt time.Time `json:"u_at"`
 }
 
 const (
@@ -157,15 +163,16 @@ func VerifyCredential(credential, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
 
-func (s *secretWrap) GenerateAccess(user *UserPrint, pending bool) (string, time.Time, error) {
+func (s *secretWrap) GenerateAccess(user *UserPrintTimestamp, opt AccessTokenOptions) (string, time.Time, error) {
 	duration := 15 * time.Minute
-	if pending {
+	if opt.IsPending {
 		duration = 5 * time.Minute
 	}
 	expiry := time.Now().Add(duration)
 	claims := UserClaims{
 		User:       user,
-		Pending2FA: pending,
+		Pending2FA: opt.IsPending,
+		RememberMe: opt.Remember,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -190,16 +197,42 @@ func (s *secretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
 	return token.Claims.(*UserClaims), nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, rotateCSRF bool) error {
-	if rotateCSRF {
+type TokenOptions struct {
+	RotateCSRF bool
+	SendEmail  bool
+	AccessTokenOptions
+}
+
+type AccessTokenOptions struct {
+	Remember  bool
+	IsPending bool
+}
+
+func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrintTimestamp, opt AccessTokenOptions) error {
+	access, exp, err := h.secret.GenerateAccess(user, opt)
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    access,
+		MaxAge:   0,
+		Expires:  exp,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+	return nil
+}
+
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrintTimestamp, options TokenOptions) error {
+	if options.RotateCSRF {
 		setCSRFCookie(w)
 	}
 
-	if user.AvatarURL == "" {
-		user.AvatarURL = "/static/assets/avatars/default.jpg"
-	}
-
-	access, exp, err := h.secret.GenerateAccess(user, false)
+	err := h.issueAccessToken(w, user, options.AccessTokenOptions)
 	if err != nil {
 		return err
 	}
@@ -213,59 +246,68 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 	ip := web.GetClientIP(r)
 	rawUA := r.UserAgent()
 	ua := useragent.Parse(rawUA)
-	deviceName := fmt.Sprintf("%s on %s", ua.Name, ua.OS)
+	deviceName := ua.Name + " on " + ua.OS
 
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	if options.SendEmail {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-		var usrDetail email.UserDetail
-		const q = `
-        SELECT email, username, preferred_lang FROM users 
-        WHERE id = $1 
-		AND NOT EXISTS (
-			SELECT 1 FROM refresh_sessions
-			WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
-		)`
+			var usrDetail email.UserDetail
+			const q = `
+			SELECT email, username, preferred_lang FROM users 
+			WHERE id = $1 
+			AND NOT EXISTS (
+				SELECT 1 FROM refresh_sessions
+				WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
+			)`
 
-		err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(
-			&usrDetail.Email,
-			&usrDetail.Username,
-			&usrDetail.Lang,
-		)
+			err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(
+				&usrDetail.Email,
+				&usrDetail.Username,
+				&usrDetail.Lang,
+			)
 
-		if err == nil {
-			h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
-				Device:     deviceName,
-				IP:         ip,
-				Time:       time.Now().String(),
-				SecureLink: "not implemented yet",
-			}, usrDetail)
-		}
-	}()
+			if err == nil {
+				h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
+					Device:     deviceName,
+					IP:         ip,
+					Time:       time.Now().String(),
+					SecureLink: "not implemented yet",
+				}, usrDetail)
+			}
+		}()
+	}
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelCtx()
 
 	_, err = h.db.Pool.Exec(ctx,
 		`INSERT INTO refresh_sessions 
-        (user_id, token_hash, expires_at, ip_address, user_agent, device_name) 
-        VALUES ($1, $2, $3, $4, $5, $6)`,
-		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, rawUA, deviceName)
+        (user_id, token_hash, expires_at, ip_address, user_agent, device_name, remember_me) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, rawUA, deviceName, options.Remember)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    access,
-		Expires:  exp,
-		HttpOnly: true,
-		Secure:   true,
-		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
-	})
+	const (
+		refreshDuration = 30 * 24 * time.Hour
+	)
+
+	var (
+		maxAge = 0
+		expiry = time.Time{}
+	)
+
+	if options.Remember {
+		maxAge = int(refreshDuration.Seconds())
+		expiry = time.Now().Add(refreshDuration)
+		slog.Info("u alredy know", "maxAge", maxAge, "expiry", expiry, "remember", options.Remember)
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refresh,
-		Expires:  time.Now().Add(30 * 24 * time.Hour),
+		MaxAge:   maxAge,
+		Expires:  expiry,
 		HttpOnly: true,
 		Secure:   true,
 		Path:     "/api/auth/",

@@ -1,4 +1,5 @@
 import setupForm from "../components/form.js";
+import InitKeepNext from "../components/keep-next.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 let nextUrl = urlParams.get('next');
@@ -6,7 +7,7 @@ let nextUrl = urlParams.get('next');
 if(nextUrl === null){
     nextUrl = '/'
 } else {
-    InitKeepNext(nextUrl);
+    InitKeepNext(encodeURIComponent(nextUrl));
 }
 
 const codeFrom = document.getElementById("digit-code-form");

@@ -1,4 +1,5 @@
-<div class="flx col gap-sm fil-x mb-md">
+[[ registerScript "auth/components/username-input.js" ]]
+<div class="flx col gap-sm fil-x [[ if .Data.Class ]][[.Data.Class]][[else]]mb-md[[end]]">
     <label class="fil-x" for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
     <div class="pos-rel fil-x">
         <input  
@@ -28,4 +29,3 @@
         </ul>
     </div>
 </div>
-[[ registerScript "auth/components/username-input.js" ]]

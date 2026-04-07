@@ -1,26 +1,36 @@
 package server
 
 import (
+	"crypto/md5"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
-	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
+
+func generateUserETag(user *auth.UserPrintTimestamp) string {
+	h := md5.New()
+	io.WriteString(h, user.ID.String())
+	io.WriteString(h, strconv.FormatInt(user.UpdatedAt.UnixNano(), 10))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
 
 func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.WebError {
 	if r.URL.Path != "/" {
 		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
-	user, loggedIn := auth.GetUserFromContext(r.Context())
+	user, loggedIn := auth.GetUser(r.Context())
 
 	if !loggedIn {
 		http.Redirect(w, r, "/api/auth/refresh", http.StatusTemporaryRedirect)
 		return nil
 	}
 
-	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, user)
+	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, generateUserETag(user), user)
 }
 
 func (server *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -29,22 +39,22 @@ func (server *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.
 	if err == nil && cookie.Value != "" {
 		claims, err := server.authHandler.GetPendingAuthProviderClaims(cookie.Value)
 		if err == nil && claims != nil {
-			return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims)
+			return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims.AvatarURL, claims)
 		}
 	}
 
-	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, nil)
+	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, "", nil)
 }
 
 func (server *Server) serveHtml(name string) http.Handler {
 	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, nil)
+		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", nil)
 	})
 }
 func (server *Server) serveHtmlUser(name string) http.Handler {
 	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		user, _ := auth.GetUserFromContext(r.Context())
-		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, user)
+		user, _ := auth.GetUser(r.Context())
+		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, generateUserETag(user), user)
 	})
 }
 
@@ -105,17 +115,11 @@ func (server *Server) handleChallengeUI(cfg challengeUIConfig) func(w http.Respo
 			}
 		}
 
-		lang := i18n.GetLangFromReq(r)
+		_, isLoggedIn := auth.GetUser(r.Context())
 
-		tmpl := server.templateMgr.Get(lang, cfg.pageKey)
-		if tmpl == nil {
-			return web.NewError(http.StatusNotFound, "err_not_found", nil, cfg.pageKey)
-		}
-
-		if templates.SetETag(w, r, tmpl.Etag+state) {
-			return nil
-		}
-
-		return server.templateMgr.WriteTemplateSpecific(w, tmpl, state)
+		return server.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state+strconv.FormatBool(isLoggedIn), map[string]any{
+			"State":    state,
+			"LoggedIn": isLoggedIn,
+		})
 	}
 }

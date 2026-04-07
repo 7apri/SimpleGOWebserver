@@ -4,6 +4,14 @@ CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 CREATE TABLE locations (
     id BIGSERIAL PRIMARY KEY,
     city_name TEXT NOT NULL,
@@ -37,14 +45,18 @@ CREATE INDEX idx_local_names_en_trgm ON locations USING GIN
 CREATE UNLOGGED TABLE weather_current_cache (
     location_id BIGINT PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
     full_data JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+CREATE TRIGGER update_weather_cache_modtime
+    BEFORE UPDATE ON weather_current_cache
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TABLE weather_history (
     id BIGSERIAL PRIMARY KEY,
     location_id BIGINT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
     recorded_date DATE NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     update_count INTEGER DEFAULT 1,
     is_forecast BOOLEAN NOT NULL,
     
@@ -68,21 +80,32 @@ CREATE TABLE weather_history (
     raw_data JSONB,                
     UNIQUE(location_id, recorded_date)
 );
-
 CREATE INDEX idx_history_loc_date ON weather_history (location_id, recorded_date DESC);
+CREATE TRIGGER update_weather_history_modtime
+    BEFORE UPDATE ON weather_history
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
 
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username CITEXT UNIQUE NOT NULL,
     email    CITEXT UNIQUE NOT NULL,
     role TEXT NOT NULL DEFAULT 'basic',
-    avatar_url TEXT,
+    avatar_url TEXT NOT NULL DEFAULT '/static/assets/avatars/default.jpg',
     preferred_lang VARCHAR(12) NOT NULL DEFAULT 'en',
     units VARCHAR(10) NOT NULL DEFAULT 'metric',
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
+CREATE INDEX idx_users_active ON users(id) WHERE deleted_at IS NULL;
+CREATE TRIGGER update_user_modtime
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
 
 CREATE TABLE user_credentials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -97,9 +120,16 @@ CREATE UNIQUE INDEX idx_user_single_credentials
 ON user_credentials (user_id, kind) 
 WHERE kind IN ('passkey', 'totp');
 
+CREATE TRIGGER update_user_credentials_modtime
+    BEFORE UPDATE ON user_credentials
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
+
 CREATE TABLE refresh_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    remember_me BOOLEAN NOT NULL DEFAULT FALSE,
     token_hash CHAR(64) NOT NULL,
     device_name TEXT,
     user_agent  TEXT,
@@ -121,9 +151,12 @@ CREATE TABLE user_challenges (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, challenge_type)
 );
-
 CREATE INDEX idx_challenges_token ON user_challenges(token_hash);
 CREATE INDEX idx_challenges_code ON user_challenges(code_hash);
+CREATE TRIGGER update_user_challenges_modtime
+    BEFORE UPDATE ON user_challenges
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TABLE tasks (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -134,8 +167,11 @@ CREATE TABLE tasks (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX idx_tasks_user_id ON tasks(user_id);
+CREATE TRIGGER update_user_tasks_modtime
+    BEFORE UPDATE ON tasks
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TABLE analytics (
     id BIGSERIAL PRIMARY KEY,
@@ -144,7 +180,7 @@ CREATE TABLE analytics (
     method TEXT NOT NULL,
     status INT NOT NULL,
     duration_micro BIGINT NOT NULL,
-    ip TEXT,
+    ip INET,
     user_agent TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

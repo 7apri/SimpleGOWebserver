@@ -41,12 +41,16 @@
         <div class="flx gap-lg j-spcBetween ali-e">
             <div class="flx col txt-left w-fit">
                 <button class="bg-none fil-x txt-left" id="state-toggle">.</button>
-                <a class="keep-next" href="/sign-in">
-                    <span>[[ capitalize (tr "phrase:sign_in") ]]</span>
-                </a>
-                 <a class="keep-next" href="/sign-up">
-                    <span>[[ capitalize (tr "phrase:sign_up") ]]</span>
-                </a>
+                [[ import "components/keep-next-link.html" (slice
+                    ( dict
+                        "Href" "/sign-in" 
+                        "Text" (capitalize (tr "phrase:sign_in"))
+                    )
+                    ( dict 
+                        "Href" "/sign-up" 
+                        "Text" (capitalize (tr "phrase:sign_up"))
+                    )
+                )]]
             </div>
             <div class="flx gap-md w-var h-var pos-rel" style="--w:35%;--h:45px">
                 [[ import "components/settings/bundle.html" nil ]]

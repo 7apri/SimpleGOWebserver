@@ -44,10 +44,17 @@ func GenerateChallenge() (*email.GeneratedChallenge, error) {
 }
 
 type challengeResult struct {
-	User     *UserPrint
+	User     *UserPrintTimestamp
 	Correct  bool
 	Attempts int
 	Has2FA   bool
+}
+
+func coalesce[T any](s *T, def T) T {
+	if s == nil {
+		return def
+	}
+	return *s
 }
 
 func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType, tName, codeRaw string) (*challengeResult, *web.WebError) {
@@ -56,15 +63,14 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 		return nil, web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
 
-	res := &challengeResult{
-		User: &UserPrint{},
-	}
+	res := &challengeResult{}
 
 	var (
-		uid      uuid.UUID
-		role     *string
-		username *string
-		avatar   *string
+		uid        uuid.NullUUID
+		role       *string
+		username   *string
+		avatar     *string
+		updated_at *time.Time
 	)
 
 	const q = `
@@ -88,7 +94,7 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 			RETURNING attempts
 		),
 		user_info AS (
-			SELECT id, role, username, avatar_url
+			SELECT id, role, username, avatar_url, updated_at
 			FROM users 
 			WHERE id = (SELECT user_id FROM challenge_lookup)
 		)
@@ -107,7 +113,7 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 				), 
 				FALSE
 			) AS has_2fa,
-    	u.id, u.role, u.username, u.avatar_url
+    	u.id, u.role, u.username, u.avatar_url, u.updated_at
 		FROM (SELECT 1) AS dummy
 		LEFT JOIN user_info u ON TRUE;`
 	err := h.db.Pool.QueryRow(r.Context(), q,
@@ -122,22 +128,22 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 		&role,
 		&username,
 		&avatar,
+		&updated_at,
 	)
 
 	if err != nil {
 		return nil, web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
-	if uid != uuid.Nil {
-		res.User.ID = uid
-		if role != nil {
-			res.User.Role = *role
-		}
-		if username != nil {
-			res.User.Username = *username
-		}
-		if avatar != nil {
-			res.User.AvatarURL = *avatar
+	if uid.Valid {
+		res.User = &UserPrintTimestamp{
+			UserPrint: UserPrint{
+				ID:        uid.UUID,
+				Role:      coalesce(role, ""),
+				Username:  coalesce(username, ""),
+				AvatarURL: coalesce(avatar, ""),
+			},
+			UpdatedAt: coalesce(updated_at, time.Time{}),
 		}
 	}
 
@@ -251,10 +257,7 @@ func (h *AuthHandler) InitEmailChallenge(
 		var req struct {
 			Email string `json:"email"`
 		}
-		err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
-		}
+		sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 
 		ctx := r.Context()
 		user := email.UserDetail{
@@ -281,7 +284,7 @@ func (h *AuthHandler) InitEmailChallenge(
 
 		const q = `
 		WITH target_user AS (
-			SELECT u.id, u.username, u.email, u.preferred_lang, u.is_verified,uc.updated_at
+			SELECT u.id, u.username, u.email, u.preferred_lang, u.is_verified, uc.updated_at
 			FROM users u
 			LEFT JOIN user_challenges uc ON uc.user_id = u.id AND uc.challenge_type = $2
 			WHERE (u.email = $1 OR uc.token_hash = $5)

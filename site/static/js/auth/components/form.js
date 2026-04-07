@@ -7,6 +7,7 @@ import GetCsrfToken from "./csrf.js";
  * @param {function(Response): void} onRespOK
  */
 const setupForm = (form, errorDsp ,onRespOK = null) =>{
+    var checkboxes = form.querySelectorAll("input[type='checkbox']");
     form.addEventListener("submit", async e => {
         e.preventDefault();
 
@@ -25,6 +26,9 @@ const setupForm = (form, errorDsp ,onRespOK = null) =>{
             return;
         }
         const data = Object.fromEntries(formData.entries());
+        checkboxes.forEach( checkbox =>{
+            data[checkbox.getAttribute("name") || "undefined"] = checkbox.checked;
+        })
         
         try {
             const token = await GetCsrfToken();
