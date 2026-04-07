@@ -1,7 +1,46 @@
 ---
 layout: page
 ---
-<main>
-    <h1>[[ tr "title:main" ]]</h1>
-    <a href="/api/auth/logout"><span class="txt-capitl">[[ tr "phrase:sign_out" ]]</span></a>
+<main class="grd pli-c fil gap-md">
+    <div class="w-var flx col gap-md" style="--w:480px">
+        <h1>[[ getTitle ]]</h1>
+        <h3>[[ tr "phrase:user_info" ]]</h3>
+        <ul>
+            <li>Name:{{ .Username }}</li>
+            <li>Role:{{ .Role     }}</li>
+            <li>Id:{{   .ID       }}</li>
+            <li>
+                <img src="{{ .AvatarURL }}" style="border-radius: 50%; width: 67px; aspect-ratio: 1/1;">
+            </li>
+            <li>Data:{{ .         }}</li>
+        </ul>
+        <ul class="flx col gap-xs txt-left fil-x">
+            <li>
+                <a href="/api/auth/logout">[[capitalize (tr "phrase:sign_out") ]]</a>
+            </li>
+            <li>
+                <a href="/email">[[capitalize (tr "phrase:email_test") ]]</a>
+            </li>
+            <li>
+                <a href="/api/sendEmail">[[capitalize  (tr "phrase:email_test_send") ]]</a>
+            </li>
+            <li>
+                <a href="/page">[[capitalize  (tr "phrase:page_test")  ]]</a>
+            </li>
+            <li>
+                <a href="/2fa/setup">[[capitalize  (tr "phrase:2fa_setup")  ]]</a>
+            </li>
+        </ul>
+        <h3>[[ tr "phrase:word_bank" ]]</h3>
+        <ul class="flx col gap-xs txt-left fil-x h-var" style="--h:100px; overflow-y: scroll;">
+            [[ range $index, $word := getBank ]]
+            <li>
+                [[ $index ]]: [[ $word ]]
+            </li>
+            [[ end ]]
+        </ul>
+        <div class="flx gap-md pos-rel">
+        [[ import "components/settings/bundle.html" nil ]]
+        </div>
+    </div>
 </main>

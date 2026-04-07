@@ -1,36 +1,34 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
-	"os"
+	"strconv"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
+	"golang.org/x/time/rate"
 )
 
-type noDirFS struct {
-	fs http.FileSystem
+func (s *Server) onErrHtml(w http.ResponseWriter, r *http.Request, buffer *bytes.Buffer, appErr *web.WebError) *web.WebError {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	lang := i18n.GetLangFromReq(r)
+	err := s.templateMgr.WriteTemplate(buffer, lang, templates.TemplateKey{
+		Kind: "page",
+		Name: "err/" + strconv.Itoa(appErr.Status),
+	}, appErr)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+	return nil
 }
 
-func (n noDirFS) Open(name string) (http.File, error) {
-	f, err := n.fs.Open(name)
-	if err != nil {
-		return nil, err
-	}
-
-	stat, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	if stat.IsDir() {
-		return nil, os.ErrNotExist
-	}
-
-	return f, nil
+func (s *Server) handlerHtml(h func(w http.ResponseWriter, r *http.Request) *web.WebError, middleware ...web.Middleware) http.Handler {
+	return web.Handler(h).With(s.i18Mgr, s.onErrHtml, middleware...)
 }
 
 func (srv *Server) Routes() *http.ServeMux {
@@ -38,76 +36,79 @@ func (srv *Server) Routes() *http.ServeMux {
 
 	baseStack := []web.Middleware{web.RecoveryM, srv.analyticsService.Middleware, i18n.Middleware}
 
-	protectedStack := append([]web.Middleware{srv.authHandler.Middleware, srv.rateLimited}, baseStack...)
-
-	guestStack := append([]web.Middleware{srv.authHandler.MiddlewareGuestOnly}, baseStack...)
+	// guestStack := append([]web.Middleware{srv.authHandler.MiddlewareGuestOnly}, baseStack...)
+	protectedStack := append([]web.Middleware{srv.authHandler.Middleware}, baseStack...)
 
 	// --- Static Sites ---
 	rootStack := append([]web.Middleware{srv.authHandler.MiddlewareSoft}, baseStack...)
-	mux.Handle("GET /", web.Handler(srv.HandleRoot).With(srv.i18Mgr, rootStack...))
+	mux.Handle("GET /", srv.handlerHtml(srv.HandleRoot, rootStack...))
 
-	mux.Handle("GET /sign-in", srv.serveHtml("auth/login"))
-	mux.Handle("GET /sign-up", web.Chain(srv.serveHtml("auth/register"), guestStack...))
+	mux.Handle("GET /sign-in", web.Chain(srv.serveHtml("auth/login"), baseStack...))
+	mux.Handle("GET /sign-up", srv.handlerHtml(srv.HandleSignUp, baseStack...))
 
-	mux.Handle("GET /password-reset", web.Handler(srv.handleChallengeUI(
+	mux.Handle("GET /2fa", web.Chain(srv.serveHtml("2fa/enter-code"), baseStack...))
+	mux.Handle("GET /2fa/setup", web.Chain(srv.serveHtmlUser("2fa/setup"), protectedStack...))
+
+	mux.Handle("GET /email", srv.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		return srv.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "email", Name: "test"}, "", nil)
+	}, protectedStack...))
+	mux.Handle("GET /page", web.Chain(srv.serveHtmlUser("test"), protectedStack...))
+
+	mux.Handle("GET /password-reset", srv.handlerHtml(srv.handleChallengeUI(
 		challengeUIConfig{
 			tokenName:   "reset_token",
 			codeName:    "reset_code_tmp",
 			codeMaxAge:  300,
 			tokenMaxAge: 900,
-			basePage: pageTemplateData{
-				data: nil,
-				key: templates.TemplateKey{
-					Kind: "page",
-					Name: "reset/email-request",
-				},
+			pageKey: templates.TemplateKey{
+				Kind: "page",
+				Name: "auth/reset",
 			},
-		}, func(w http.ResponseWriter, r *http.Request) *web.WebError {
-			return srv.templateMgr.RenderPage(w, r, templates.TemplateKey{
-				Kind: "page",
-				Name: "reset/new-password",
-			}, nil)
-		}, func(w http.ResponseWriter, r *http.Request) *web.WebError {
-			return srv.templateMgr.RenderPage(w, r, templates.TemplateKey{
-				Kind: "page",
-				Name: "reset/enter-code",
-			}, nil)
-		},
-	)).With(srv.i18Mgr, guestStack...))
+		}), rootStack...))
 
-	mux.Handle("GET /account-verify", web.Handler(srv.handleChallengeUI(
+	mux.Handle("GET /account-verify", srv.handlerHtml(srv.handleChallengeUI(
 		challengeUIConfig{
 			tokenName:   "verify_token",
 			codeName:    "verify_code_tmp",
 			codeMaxAge:  300,
 			tokenMaxAge: 900,
-			basePage: pageTemplateData{
-				data: nil,
-				key: templates.TemplateKey{
-					Kind: "page",
-					Name: "verify/email-request",
-				},
+			pageKey: templates.TemplateKey{
+				Kind: "page",
+				Name: "auth/verify",
 			},
-		}, func(w http.ResponseWriter, r *http.Request) *web.WebError {
-			return srv.templateMgr.RenderPage(w, r, templates.TemplateKey{
-				Kind: "page",
-				Name: "verify/confirm-challenge",
-			}, nil)
-		},
-		func(w http.ResponseWriter, r *http.Request) *web.WebError {
-			return srv.templateMgr.RenderPage(w, r, templates.TemplateKey{
-				Kind: "page",
-				Name: "verify/enter-code",
-			}, nil)
-		},
-	)).With(srv.i18Mgr, guestStack...))
+		}), baseStack...))
 
 	// --- Public API ---
 	mux.Handle("GET /api/health", http.HandlerFunc(srv.HandleHealth))
 
+	baseRateLimit := srv.rateLimited("", rate.Every(time.Second), 5)
+
+	protectedApiStack := append([]web.Middleware{srv.authHandler.Middleware, baseRateLimit}, baseStack...)
+
 	// --- Protected API ---
-	mux.Handle("GET /api/weather", web.Chain(http.HandlerFunc(srv.HandleWeather), protectedStack...))
-	mux.Handle("GET /api/location", web.Chain(http.HandlerFunc(srv.HandleLocation), protectedStack...))
+	mux.Handle("GET /api/weather", web.Chain(http.HandlerFunc(srv.HandleWeather), protectedApiStack...))
+	mux.Handle("GET /api/location", web.Chain(http.HandlerFunc(srv.HandleLocation), protectedApiStack...))
+	mux.Handle("GET /api/sendEmail", web.Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.authHandler.EmailManager.SendEmail(&email.EmailCtx{
+			Reciever: "test@panels.com",
+			EmailTemplateIdentifier: email.EmailTemplateIdentifier{
+				Lang: i18n.GetLangFromReq(r),
+				Name: "verify",
+				Data: email.EmailDataSecurity{
+					Username:   "dev",
+					Email:      "test@panels.com",
+					Code:       []string{"123", "456"},
+					Token:      "test",
+					SecureLink: "verify first",
+				},
+			},
+		})
+		next := r.URL.Query().Get("next")
+		if next == "" {
+			next = "/"
+		}
+		http.Redirect(w, r, next, http.StatusPermanentRedirect)
+	}), protectedApiStack...))
 
 	// --- Auth API ---
 	mux.Handle("GET /api/auth/logout", web.Chain(
@@ -116,11 +117,32 @@ func (srv *Server) Routes() *http.ServeMux {
 		srv.authHandler.Middleware,
 	))
 
-	authApiStack := append([]web.Middleware{srv.authRateLimited}, guestStack...)
-	authApiStackQuantize := append([]web.Middleware{web.QuantizeDelay(150*time.Millisecond, 20)}, authApiStack...)
+	authRateLimit := srv.rateLimited("auth:", rate.Limit(1), 5)
 
-	mux.Handle("POST /api/auth/register", web.Handler(srv.authHandler.Register).With(srv.i18Mgr, authApiStackQuantize...))
-	mux.Handle("POST /api/auth/login", web.Handler(srv.authHandler.Login).With(srv.i18Mgr, authApiStackQuantize...))
+	authApiStack := append([]web.Middleware{auth.CSRFMiddleware(srv.i18Mgr), authRateLimit}, baseStack...)
+
+	authExtRateLimit := srv.rateLimited("authExt:", rate.Limit(2), 5)
+	authExtApiStack := append([]web.Middleware{authExtRateLimit}, baseStack...)
+
+	authApiStackQuantize := append([]web.Middleware{web.QuantizeDelay(300*time.Millisecond, 50)}, authApiStack...)
+
+	mux.Handle("POST /api/auth/register", srv.handlerHtml(srv.authHandler.Register, authApiStackQuantize...))
+
+	verifyUsernameStack := append([]web.Middleware{auth.CSRFMiddleware(srv.i18Mgr), srv.rateLimited("user:", rate.Every(time.Second), 15)}, baseStack...)
+	mux.Handle("POST /api/verify-username", srv.handlerHtml(srv.authHandler.VerifyUsername, verifyUsernameStack...))
+
+	mux.Handle("POST /api/auth/login", srv.handlerHtml(srv.authHandler.Login, authApiStackQuantize...))
+
+	authApiTwoFAStack := append([]web.Middleware{srv.authHandler.Middleware}, authApiStack...)
+	mux.Handle("POST /api/auth/2fa/init", srv.handlerHtml(srv.authHandler.HandleInit2FA, authApiTwoFAStack...))
+
+	mux.Handle("POST /api/auth/2fa/enable", srv.handlerHtml(srv.authHandler.HandleVerifyAndEnable2FA, authApiTwoFAStack...))
+
+	mux.Handle("POST /api/auth/2fa/recovery/regen", srv.handlerHtml(srv.authHandler.HandleRegenerateRecoveryCodes, authApiTwoFAStack...))
+
+	authApiTwoFALoginStack := append([]web.Middleware{srv.authHandler.MiddlewareTwoFA}, authApiStackQuantize...)
+	mux.Handle("POST /api/auth/2fa/recovery/verify", srv.handlerHtml(srv.authHandler.VerifyRecoveryCode, authApiTwoFALoginStack...))
+	mux.Handle("POST /api/auth/2fa/login", srv.handlerHtml(srv.authHandler.HandleLoginVerify2FA, authApiTwoFALoginStack...))
 
 	InitReset := srv.authHandler.InitEmailChallenge(
 		email.ChallengeReset,
@@ -138,23 +160,28 @@ func (srv *Server) Routes() *http.ServeMux {
 		true,
 		srv.authHandler.EmailManager.SendVerificationEmail,
 	)
-	mux.Handle("POST /api/auth/reset/init", web.Handler(InitReset).With(srv.i18Mgr, authApiStackQuantize...))
-	mux.Handle("POST /api/auth/reset/confirm", web.Handler(srv.authHandler.ConfirmReset).With(srv.i18Mgr, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/reset/init", srv.handlerHtml(InitReset, authApiStackQuantize...))
 
-	mux.Handle("POST /api/auth/reset/check", web.Handler(srv.authHandler.CheckChallengeCode("reset_token", email.ChallengeReset)).With(srv.i18Mgr, authApiStackQuantize...))
-	mux.Handle("POST /api/auth/verify/check", web.Handler(srv.authHandler.CheckChallengeCode("verify_token", email.ChallengeVerify)).With(srv.i18Mgr, authApiStackQuantize...))
+	resetChallengeStack := append([]web.Middleware{srv.authHandler.Middleware}, authApiStackQuantize...)
+	mux.Handle("POST /api/auth/reset/confirm", srv.handlerHtml(srv.authHandler.ConfirmReset, resetChallengeStack...))
 
-	mux.Handle("POST /api/auth/verify/init", web.Handler(InitVerify).With(srv.i18Mgr, authApiStackQuantize...))
-	mux.Handle("POST /api/auth/verify/confirm", web.Handler(srv.authHandler.ConfirmVerify).With(srv.i18Mgr, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/reset/check", srv.handlerHtml(srv.authHandler.CheckCodeReset, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/verify/check", srv.handlerHtml(srv.authHandler.CheckCodeVerify, authApiStackQuantize...))
 
-	refreshStack := append([]web.Middleware{srv.authHandler.MiddlewareSoft, srv.rateLimited}, baseStack...)
+	mux.Handle("POST /api/auth/verify/init", srv.handlerHtml(InitVerify, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/verify/confirm", srv.handlerHtml(srv.authHandler.ConfirmVerify, authApiStackQuantize...))
+
+	crsfStack := append([]web.Middleware{baseRateLimit}, baseStack...)
+	mux.Handle("GET /api/csrf", srv.handlerHtml(auth.CSRFEndpoint, crsfStack...))
+
+	refreshStack := append([]web.Middleware{srv.authHandler.MiddlewareSoft}, crsfStack...)
 	mux.Handle("GET /api/auth/refresh", web.Chain(http.HandlerFunc(srv.authHandler.Refresh), refreshStack...))
 
-	mux.Handle("GET /api/auth/e/login", web.Handler(srv.authHandler.OAuthLogin).With(srv.i18Mgr, authApiStack...))
-	mux.Handle("GET /api/auth/e/callback", web.Handler(srv.authHandler.OAuthCallback).With(srv.i18Mgr, authApiStack...))
+	mux.Handle("GET  /api/auth/e/login", srv.handlerHtml(srv.authHandler.OAuthLogin, authExtApiStack...))
+	mux.Handle("GET  /api/auth/e/callback", srv.handlerHtml(srv.authHandler.OAuthCallback, authExtApiStack...))
+	mux.Handle("POST /api/auth/e/finalize", srv.handlerHtml(srv.authHandler.FinalizeExternal, authExtApiStack...))
+	mux.Handle("GET  /api/auth/e/cancel", srv.handlerHtml(srv.authHandler.CancelPendingAuth, authExtApiStack...))
 
-	mux.Handle("POST /api/setLang", web.Chain(http.HandlerFunc(i18n.HandleSetLang), web.RecoveryM))
-
-	mux.Handle("GET /ws-reload", web.Handler(refreshWebsocket(srv.templateMgr.RefreshChan)).With(srv.i18Mgr))
+	mux.Handle("GET /ws-reload", srv.handlerHtml(refreshWebsocket(srv.templateMgr.RefreshChan), web.RecoveryM))
 	return mux
 }

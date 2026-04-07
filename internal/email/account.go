@@ -1,14 +1,14 @@
 package email
 
 import (
-	"fmt"
 	"log/slog"
 )
 
 type EmailDataSecurity struct {
 	Username   string
-	Code       string
-	ActionLink string
+	Email      string
+	Code       []string
+	Token      string
 	SecureLink string
 }
 
@@ -20,14 +20,15 @@ func (mgr *EmailManager) SendVerificationEmail(challange ChallengeRaw, user User
 			Name: "verify",
 			Data: EmailDataSecurity{
 				Username:   user.Username,
-				Code:       challange.RawCode,
-				ActionLink: fmt.Sprintf("%s?token=%s", verifyUrlBase, challange.RawToken),
-				SecureLink: "verify first",
+				Email:      user.Email,
+				Code:       []string{challange.RawCode[:3], challange.RawCode[3:]},
+				Token:      challange.RawToken,
+				SecureLink: "not implemented yet",
 			},
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "verification")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "verify")
 	}
 }
 
@@ -39,14 +40,14 @@ func (mgr *EmailManager) SendPasswordResetEmail(challange ChallengeRaw, user Use
 			Name: "reset",
 			Data: EmailDataSecurity{
 				Username:   user.Username,
-				Code:       challange.RawCode,
-				ActionLink: fmt.Sprintf("%s/reset?token=%s", baseUrl, challange.RawToken),
+				Code:       []string{challange.RawCode[:3], challange.RawCode[3:]},
+				Token:      challange.RawToken,
 				SecureLink: "not implemented yet",
 			},
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "password reset")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "reset")
 	}
 }
 
@@ -67,7 +68,7 @@ func (mgr *EmailManager) SendNewLoginEmail(info *NewLoginInfo, user UserDetail) 
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "new login")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "new-login")
 	}
 }
 
@@ -81,7 +82,7 @@ func (mgr *EmailManager) SendAccountExistsEmail(user UserDetail) {
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "welcome")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "account-exists")
 	}
 }
 

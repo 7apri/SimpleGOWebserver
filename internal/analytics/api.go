@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
+	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/mileusna/useragent"
@@ -38,7 +38,7 @@ func (rw *responseWriter) WriteHeader(status int) {
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
 	if rw.status == 0 {
-		rw.status = 200
+		rw.status = http.StatusOK
 	}
 	n, err := rw.ResponseWriter.Write(b)
 	rw.size += n
@@ -49,17 +49,17 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		rw := &responseWriter{ResponseWriter: w}
 		next.ServeHTTP(rw, r)
 
 		duration := time.Since(start).Microseconds()
 		path := r.URL.Path
 		method := r.Method
-		ip := util.GetClientIP(r)
+		ip := web.GetClientIP(r)
 		rawUA := r.UserAgent()
 
 		var uid *uuid.UUID
-		if user, ok := auth.GetUserFromContext(r.Context()); ok {
+		if user, ok := auth.GetUser(r.Context()); ok {
 			uid = &user.ID
 		}
 

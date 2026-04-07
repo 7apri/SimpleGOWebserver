@@ -1,0 +1,30 @@
+---
+ layout: page
+ name:   2fa/setup
+---
+<main class="grd pli-c fil gap-md">
+    <div id="2fa-enrollment-container">
+        <div id="step-init">
+            <button id="btn-start-2fa">Enable Two-Factor Authentication</button>
+        </div>
+
+        <div id="step-scan" class="hidden">
+            <h3>Scan this QR Code</h3>
+            <div style="background-color: #f8f9fa;"> <img id="qr-image" src="" alt="Scan Me" class="fil">
+            </div>
+            <p>Or enter manually: <code id="manual-secret"></code></p>
+            
+            <input type="text" id="verify-code" placeholder="Enter 6-digit code">
+            <button id="btn-verify-2fa">Verify and Enable</button>
+        </div>
+
+        <div id="step-recovery" class="hidden">
+            <h3>Save your Recovery Codes</h3>
+            <p>If you lose your phone, these are the ONLY way back in.</p>
+            <div id="recovery-list" class="recovery-grid"></div>
+            <button id="btn-download-codes">Download as .txt</button>
+            <button id="btn-finish-2fa">I have saved these codes</button>
+        </div>
+    </div>
+</main>
+[[ registerScript "auth/2fa.js" ]]

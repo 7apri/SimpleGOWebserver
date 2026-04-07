@@ -1,0 +1,108 @@
+package templates
+
+import (
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/7apri/SimpleGOWebserver/internal/i18n"
+	"github.com/7apri/SimpleGOWebserver/internal/web"
+)
+
+func cleanETag(s string) string {
+	if len(s) >= 2 && s[0:2] == "W/" {
+		s = s[2:]
+	}
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	return s
+}
+
+func SetETag(w http.ResponseWriter, r *http.Request, tag string) bool {
+	fullTag := `W/"` + tag + `"`
+
+	w.Header().Set("ETag", fullTag)
+	w.Header().Set("Cache-Control", "no-cache")
+
+	cc := r.Header.Get("Cache-Control")
+	if strings.Contains(cc, "no-cache") || strings.Contains(cc, "no-store") {
+		return false
+	}
+
+	etagClient := r.Header.Get("If-None-Match")
+	if etagClient != "" && cleanETag(etagClient) == tag {
+		w.WriteHeader(http.StatusNotModified)
+		return true
+	}
+
+	return false
+}
+
+func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Request, key TemplateKey, meta string, data any) *web.WebError {
+	lang := i18n.GetLangFromReq(r)
+
+	tmpl := mgr.Get(lang, key)
+	if tmpl == nil {
+		return web.NewError(http.StatusNotFound, "not_found", nil, key)
+	}
+
+	if SetETag(w, r, tmpl.Etag+meta) {
+		return nil
+	}
+
+	b := mgr.bufferPool.Get()
+	defer mgr.bufferPool.Put(b)
+
+	if err := tmpl.Execute(b, data); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, key)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
+	}
+
+	return nil
+}
+
+func (mgr *TemplateManager) WriteTemplateSpecific(w http.ResponseWriter, tmpl *TemplateWrapper, data any) *web.WebError {
+	b := mgr.bufferPool.Get()
+	defer mgr.bufferPool.Put(b)
+
+	if err := tmpl.Execute(b, data); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
+	}
+
+	return nil
+}
+
+func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key TemplateKey, data any) error {
+	tmpl := mgr.Get(lang, key)
+	if tmpl == nil {
+		return i18n.ErrorKeyNotFound
+	}
+
+	b := mgr.bufferPool.Get()
+	defer mgr.bufferPool.Put(b)
+
+	if err := tmpl.Execute(b, data); err != nil {
+		return err
+	}
+
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

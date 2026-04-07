@@ -1,0 +1,22 @@
+---
+    layout: page
+---
+<main class="grd pli-c fil ovr-none">
+    <div class="flx col j-spcAround bg-surface-container py-lg px-2xl bdr-rad-md w-var h-var" style="--w: 600px; --h: 400px">
+        <div>
+            <h1>{{ .Status }}</h1>
+            <h2>[[ tr "header:err/generic" ]]</h2>
+        </div>
+        <p class="txt-wrap txt-lg">[[  tr "text:err/generic"   ]]</p>
+        <div class="flx j-spcBetween wrap gap-sm">
+            <a href="/" class="bg-primary bdr-rad-sm p-sm flx ali-center">[[ tr "phrase:back_home" | capitalize ]]</a>
+            <div class="flx gap-md pos-rel h-var" style="--h:2.5em;">
+                <div class="pos-abs fil-x" style="bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);">
+                    [[ import "components/settings/lang-menu.html" (dict "Classes" "flx col gap-sm" ) ]]
+                </div>
+                [[ import "components/settings/theme-btn.html" (dict "Classes" "px-lg" ) ]]
+                [[ import "components/settings/lang-btn.html"  (dict "Classes" "px-lg" ) ]]
+            </div>
+        </div>
+    </div>
+</main>

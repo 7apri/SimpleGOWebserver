@@ -32,10 +32,8 @@
     <link rel="icon" type="image/x-icon" href="[[ asset "/static/assets/favicon.svg" ]]">
     
     [[ $trans := getTranslations ]]
-    [[- if ne $trans "{}" -]][[ import "scripts/i18n-cache" $trans ]][[- end -]]
-    [[ range $name, $_ := .Scripts ]]
-    <script src="[[ asset (concat "/static/js/" $name) ]]" type="module"></script>
-    [[- end ]]
+    [[- if ne $trans "{}" -]][[ import "scripts/i18n-cache" $trans ]][[- end ]]
+    [[ getScriptImports ]]
 </head>
 <body>
     [[ .Body ]]

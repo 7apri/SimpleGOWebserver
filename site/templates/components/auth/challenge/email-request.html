@@ -1,0 +1,12 @@
+<h1 class="txt-2xl mb-sm ls-wide">[[ tr .Data.TitleKey ]]</h1>
+<form class="flx col ali-s j-left txt-left mb-sm" id="[[ .Data.FormID ]]">
+    <label  class="fil-x" for="email-input">[[ capitalize (tr "phrase:email") ]]</label>
+    <input  class="fil-x p-sm mb-md mt-sm txt-lg" name="email" id="email-input" type="email" placeholder="admin@email.com" required/>
+
+    <button 
+    class="txt-lg fw-bold fil-x py-sm bg-primary"
+    type="submit"
+    style="--load-color: var(--on-primary)"
+    data-endpoint="[[ .Data.Endpoint ]]"
+    >[[ capitalize (tr "phrase:next") ]]</button>   
+</form>

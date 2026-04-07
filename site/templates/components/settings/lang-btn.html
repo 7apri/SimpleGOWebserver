@@ -1,0 +1,6 @@
+<button type="button" id="langSwitch-btn" aria-label="" class="icon-container deform[[ if .Data ]][[ with .Data.Class ]] [[ . ]][[ end ]][[ end ]]" [[ if .Data.Style ]]style="[[.Data.Style]]"[[ end ]]>
+    <svg class="icon" aria-hidden="true">
+        <use href="[[asset "/static/assets/iconBundle.svg" ]]#globe"></use>
+    </svg>
+</button>
+[[ registerScript "langSelect.js" ]]

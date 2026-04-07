@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 )
@@ -48,6 +50,7 @@ var resolveInPool = sync.Pool{
 func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
+	w.Header().Set("Cache-Control", "public")
 
 	var (
 		coords    []exApi.Coordinates
@@ -78,7 +81,21 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ipParam := query.Get("ip"); ipParam != "" {
-		ips = strings.Split(ipParam, ",")
+		rawIps := strings.Split(ipParam, ",")
+		ips = make([]string, 0, len(rawIps))
+		clientIp := web.GetClientIP(r)
+
+		for _, val := range rawIps {
+			val = strings.TrimSpace(val)
+			if val == "" {
+				continue
+			}
+			if val == "auto" {
+				ips = append(ips, clientIp)
+			} else {
+				ips = append(ips, val)
+			}
+		}
 	}
 
 	totalExpected := len(coords) + len(addresses) + len(ips)
@@ -227,10 +244,25 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ipParam := query.Get("ip"); ipParam != "" {
-		ips = strings.Split(ipParam, ",")
+		rawIps := strings.Split(ipParam, ",")
+		ips = make([]string, 0, len(rawIps))
+		clientIp := web.GetClientIP(r)
+
+		for _, val := range rawIps {
+			val = strings.TrimSpace(val)
+			if val == "" {
+				continue
+			}
+			if val == "auto" {
+				ips = append(ips, clientIp)
+			} else {
+				ips = append(ips, val)
+			}
+		}
 	}
 
 	totalExpected := len(coords) + len(addresses) + len(ips)
+
 	finalData := make([]json.RawMessage, totalExpected)
 
 	type job struct {
@@ -241,7 +273,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	jobs := make(chan job, totalExpected)
 	var wg sync.WaitGroup
 
-	workerCount := min(totalExpected, 8)
+	workerCount := min(totalExpected, runtime.GOMAXPROCS(0))
 
 	for range workerCount {
 		go func() {

@@ -1,0 +1,152 @@
+{
+    "meta" :{
+        "switch" : "Přepnout na češtinu",
+        "code"   : "cs"
+    },
+    "static": {
+        "phrase:or"       : "nebo",
+        "phrase:next"     : "další",
+        "phrase:confirm"  : "potvrdit",
+        
+        "phrase:code"     : "kód",
+        
+        "phrase:forgot_password" : "zapomněli jste heslo?",
+        "phrase:back_home"    : "zpět na hlavní stránku",
+        
+        "phrase:or_use_local"    : "nebo použijte lokální účet",
+        "phrase:continue_with"   : "pokračovat přes",
+        
+        "phrase:password" : "heslo",
+        "phrase:email"    : "email",
+        "phrase:username" : "uživatelské jméno",
+        "phrase:new_password" : "nové heslo",
+        "phrase:remember_me" : "zapamatovat si mě",
+        
+        "phrase:sign_in"  : "přihlásit se",
+        "phrase:sign_up"  : "registrovat se",
+        "phrase:sign_out" : "odhlásit se",
+
+        "phrase:username_try" : "Zkuste:",
+        
+        "lbl:login_identifier" : "uživatelské jméno nebo email",
+        "btn:resend"   : "poslat znovu",
+        
+        "plh:email" : "jan.novak@seznam.cz",
+        "plh:user"  : "JanNovak_real",
+        "plh:recovery_code"  : "slovo-slovo-slovo",
+
+        "title:err/404"  : "Stránka nenalezena",
+        "title:main" : "Vítejte v Panels",
+        
+        "title:auth/login"        : "Přihlášení",
+        "title:auth/register"     : "Vytvořit účet",
+        "title:auth/new-password" : "Nastavit nové heslo",
+        "title:auth/enter-code"   : "Zadejte ověřovací kód",
+        "title:auth/email-request"    : "Ověření e-mailu",
+        
+        "title:reset/enter-code"  : "Obnova hesla",
+        "title:verify/enter-code" : "Aktivace účtu",
+        "title:reset/email-request"   : "Žádost o obnovu hesla",
+        "title:verify/email-request"  : "Zaslat ověřovací e-mail",
+
+        "title:auth/finish-external/link"       : "link",
+        "title:auth/finish-external/register"  : "register",
+
+        
+        "desc:err/404"  : "Omlouváme se, ale tato stránka neexistuje.",
+        "desc:main" : "Váš prostor pro kreativitu a organizaci.",
+
+        "desc:auth/login"    : "Přihlaste se ke svému účtu Panels.",
+        "desc:auth/register" : "Zaregistrujte se a začněte tvořit.",
+        "desc:auth/new-password" : "Zadejte své nové bezpečné heslo.",
+        "desc:auth/enter-code"   : "Zadejte kód, který jsme vám zaslali.",
+        "desc:auth/email-request"    : "Zadejte svůj e-mail pro pokračování.",
+        
+        "desc:reset/enter-code"  : "Zadejte kód pro obnovu přístupu k účtu.",
+        "desc:verify/enter-code" : "Zadejte kód z e-mailu pro dokončení registrace.",
+        "desc:reset/email-request"   : "Pošleme vám odkaz pro obnovu hesla.",
+        "desc:verify/email-request"  : "Zadejte e-mail pro zaslání nového ověřovacího kódu.",
+        
+        "header:err/404" : "Ups! Tudy cesta nevede.",
+        "text:err/404"   : "Stránka, kterou hledáte, byla pravděpodobně přesunuta nebo smazána."
+    },
+    "client": {
+        "theme.js" : {
+            "switch_light": "Přepnout na světlý režim",
+            "switch_dark": "Přepnout na tmavý režim"
+        },
+        "auth/components/password-input.js": {
+            "hide_password" : "Schovat heslo.",
+            "show_password" : "Zobrazit heslo."
+        },
+        "auth/components/username-input.js": {
+            "username_invalid" : "Toto uživatelské jméno je obsazené nebo neplatné."
+        },
+        "auth/2fa/enter-code.js": {
+            "switch_code"     : "Použít kód",
+            "switch_recovery" : "Použít obnovovací kód",
+            "recovery_code_length" : "Obnovovací kód musí mít přesně 3 slova."
+        }
+    },
+    "errors" : {
+        "too_many_requests" : "Nepřeháníš to trošku",
+        "use_oauth" : "Nemas u nas učet brasko"
+    },
+    "weather": {
+        "thunderstorm_light_rain": "Bouřka s mírným deštěm",
+        "thunderstorm_rain": "Bouřka s deštěm",
+        "thunderstorm_heavy_rain": "Bouřka se silným deštěm",
+        "light_thunderstorm": "Slabá bouřka",
+        "thunderstorm": "Bouřka",
+        "heavy_thunderstorm": "Silná bouřka",
+        "ragged_thunderstorm": "Nepravidelná bouřka",
+        "thunderstorm_light_drizzle": "Bouřka s mírným mrholením",
+        "thunderstorm_drizzle": "Bouřka s mrholením",
+        "thunderstorm_heavy_drizzle": "Bouřka se silným mrholením",
+        "light_drizzle": "Mírné mrholení",
+        "drizzle": "Mrholení",
+        "heavy_drizzle": "Silné mrholení",
+        "light_drizzle_rain": "Mírné mrholení s deštěm",
+        "drizzle_rain": "Mrholení s deštěm",
+        "heavy_drizzle_rain": "Silné mrholení s deštěm",
+        "shower_rain_drizzle": "Přeháňky s mrholením",
+        "heavy_shower_rain_drizzle": "Silné přeháňky s mrholením",
+        "shower_drizzle": "Přeháňky, mrholení",
+        "light_rain": "Mírný déšť",
+        "moderate_rain": "Déšť",
+        "heavy_rain": "Silný déšť",
+        "very_heavy_rain": "Velmi silný déšť",
+        "extreme_rain": "Extrémní déšť",
+        "freezing_rain": "Mrznoucí déšť",
+        "light_shower_rain": "Mírné dešťové přeháňky",
+        "shower_rain": "Dešťové přeháňky",
+        "heavy_shower_rain": "Silné dešťové přeháňky",
+        "ragged_shower_rain": "Nepravidelné dešťové přeháňky",
+        "light_snow": "Mírné sněžení",
+        "snow": "Sněžení",
+        "heavy_snow": "Silné sněžení",
+        "sleet": "Déšť se sněhem",
+        "light_shower_sleet": "Mírné přeháňky deště se sněhem",
+        "shower_sleet": "Přeháňky deště se sněhem",
+        "light_rain_snow": "Mírný déšť se sněhem",
+        "rain_snow": "Déšť se sněhem",
+        "light_shower_snow": "Mírné sněhové přeháňky",
+        "shower_snow": "Sněhové přeháňky",
+        "heavy_shower_snow": "Silné sněhové přeháňky",
+        "mist": "Opar",
+        "smoke": "Kouř",
+        "haze": "Zákal",
+        "sand_dust_whirls": "Písečné/prachové víry",
+        "fog": "Mlha",
+        "sand": "Písek",
+        "dust": "Prach",
+        "volcanic_ash": "Sopečný popel",
+        "squalls": "Húlava",
+        "tornado": "Tornádo",
+        "clear_sky": "Jasno",
+        "few_clouds": "Skoro jasno",
+        "scattered_clouds": "Polojasno",
+        "broken_clouds": "Oblačno",
+        "overcast_clouds": "Zataženo"
+    }
+}   

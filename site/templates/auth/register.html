@@ -1,0 +1,57 @@
+---
+ layout : page
+ name   : auth/register
+---
+[[ registerScript "auth/register.js" ]]
+<main class="flx ali-c j-center fil">
+    <div class="txt-center flx col gap-md j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
+    <div class="pos-rel">
+            <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
+            [[ import "components/auth/oauth-btns.html" nil ]]
+            <div class="separator">[[ capitalize (tr "phrase:or_use_local") ]]</div>
+            <form class="flx col ali-s j-left txt-left" id="form">
+                [[ import "components/auth/username-input.html" (dict "Attribute" `autocomplete="username"` ) ]]
+                <label class="fil-x" for="email-input">[[ capitalize (tr "phrase:email") ]]</label>
+                <input  
+                    class="fil-x p-sm mb-md mt-sm txt-lg" 
+                    name="email"
+                    id="email-input"
+                    type="email"
+                    autocomplete="email"
+                    placeholder="[[ tr "plh:email" ]]"
+                    required
+                />
+                [[ import "components/auth/password-input-rules.html" (dict "Attribute" `autocomplete="new-password"` ) ]]
+                <button 
+                class="txt-lg fw-bold fil-x py-sm bg-primary mt-lg"
+                type="submit"
+                data-endpoint="/api/auth/register"
+                style="--load-color: var(--on-primary)"
+                >[[ capitalize (tr "phrase:sign_up") ]]</button>   
+                <div class="flx mt-md ali-c gap-sm">
+                    <label for="remember-input">[[ capitalize ( tr "phrase:remember_me" ) ]]</label>
+                    <input id="remember-input" name="remember" type="checkbox">
+                </div>
+            </form>
+            <div class="flx j-spcBetween">
+                <div class="flx col txt-left">
+                    [[ import "components/keep-next-link.html" (slice
+                        ( dict 
+                            "Href" "/sign-in" 
+                            "Text" (capitalize (tr "phrase:sign_in"))
+                        )
+                        ( dict
+                            "Href" "/account-verify" 
+                            "Text" (capitalize (tr "title:verify/enter-code"))
+                        )
+                    )]]
+                </div>
+            </div>
+            <div class="pos-abs bottom right w-var h-var" style="--w:36%;--h:45px">
+                <div class="flx gap-md pos-rel fil">
+                    [[ import "components/settings/bundle.html" nil ]]
+                </div>
+            </div>
+        </div>
+    </div>
+</main>

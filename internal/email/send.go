@@ -2,6 +2,8 @@ package email
 
 import (
 	"bytes"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/smtp"
@@ -21,6 +23,8 @@ type EmailTemplateIdentifier struct {
 	Data any
 }
 
+var ErrTemplateNotFound = errors.New("template was not found")
+
 func (mgr *EmailManager) SendEmail(ctx *EmailCtx) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -38,33 +42,42 @@ func (mgr *EmailManager) SendEmail(ctx *EmailCtx) error {
 	}()
 
 	tmpl := mgr.tmplMgr.Get(ctx.Lang, templates.TemplateKey{Kind: "email", Name: ctx.Name})
+	if tmpl == nil {
+		return ErrTemplateNotFound
+	}
 	if err := tmpl.ExecuteTemplate(buf, "email_subject", ctx); err != nil {
 		return err
 	}
-	subject := buf.String()
+	subject := strings.ReplaceAll(strings.TrimSpace(buf.String()), "\n", "")
+	subject = strings.ReplaceAll(subject, "\r", "")
 	buf.Reset()
 
 	err := tmpl.Execute(buf, ctx.Data)
 	if err != nil {
 		return err
 	}
-	htmlBody := buf.String()
+	htmlBody := make([]byte, buf.Len())
+	copy(htmlBody, buf.Bytes())
+	buf.Reset()
 
-	var message strings.Builder
-	fmt.Fprintf(&message, "From: %s\r\n", mgr.from)
-	fmt.Fprintf(&message, "To: %s\r\n", ctx.Reciever)
-	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
-	message.WriteString("MIME-Version: 1.0\r\n")
-	message.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
-	message.WriteString("\r\n")
-	message.WriteString(htmlBody)
+	fmt.Fprintf(buf, "From: %s\r\n", mgr.from)
+	fmt.Fprintf(buf, "To: %s\r\n", ctx.Reciever)
+	fmt.Fprintf(buf, "Subject: %s\r\n", subject)
+	buf.WriteString("MIME-Version: 1.0\r\n")
+	buf.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
+	buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+	buf.WriteString("\r\n")
+
+	encoder := base64.NewEncoder(base64.StdEncoding, buf)
+	encoder.Write(htmlBody)
+	encoder.Close()
 
 	return smtp.SendMail(
 		mgr.host,
 		mgr.auth,
 		mgr.from,
 		[]string{ctx.Reciever},
-		[]byte(message.String()),
+		buf.Bytes(),
 	)
 }
 
@@ -72,7 +85,8 @@ const (
 	baseUrl = "https://local.7apri.cfd"
 
 	secureUrlBase = baseUrl + "/secure"
-	verifyUrlBase = baseUrl + "/verify"
+	resetUrlBase  = baseUrl + "/password-reset"
+	verifyUrlBase = baseUrl + "/account-verify"
 )
 
 type UserDetail struct {
