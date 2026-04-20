@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/bytedance/sonic"
 )
 
@@ -19,12 +20,7 @@ type GoogleOAuth struct {
 
 func (g *GoogleOAuth) Name() string { return "google" }
 
-const (
-	googleAuthURL  = "https://accounts.google.com/o/oauth2/v2/auth" + "?"
-	googleTokenURL = "https://oauth2.googleapis.com/token"
-	googleUserURL  = "https://www.googleapis.com/oauth2/v3/userinfo"
-	googleScope    = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-)
+const ()
 
 func NewGoogleOAuth(clientId, clientSecret, baseRedirectUrl string) *GoogleOAuth {
 	redirectUri := baseRedirectUrl + "?provider=google"
@@ -32,7 +28,7 @@ func NewGoogleOAuth(clientId, clientSecret, baseRedirectUrl string) *GoogleOAuth
 	vA := url.Values{}
 	vA.Set("client_id", clientId)
 	vA.Set("redirect_uri", redirectUri)
-	vA.Set("scope", googleScope)
+	vA.Set("scope", consts.GoogleProviderScope)
 	vA.Set("response_type", "code")
 	vA.Set("code_challenge_method", "S256")
 
@@ -57,7 +53,7 @@ func (g *GoogleOAuth) getAuthURL(state, challenge string) string {
 	v.Set("state", state)
 	v.Set("code_challenge", challenge)
 
-	return googleAuthURL + v.Encode()
+	return consts.GoogleProviderAuthURL + v.Encode()
 }
 
 func (g *GoogleOAuth) exchangeCode(ctx context.Context, code, verifier string) (string, error) {
@@ -66,7 +62,7 @@ func (g *GoogleOAuth) exchangeCode(ctx context.Context, code, verifier string) (
 	data.Set("code", code)
 	data.Set("code_verifier", verifier)
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", googleTokenURL, strings.NewReader(data.Encode()))
+	req, _ := http.NewRequestWithContext(ctx, "POST", consts.GoogleProviderTokenURL, strings.NewReader(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -86,7 +82,7 @@ func (g *GoogleOAuth) exchangeCode(ctx context.Context, code, verifier string) (
 }
 
 func (g *GoogleOAuth) fetchUser(ctx context.Context, token string) (*ExternalUser, error) {
-	req, _ := http.NewRequestWithContext(ctx, "GET", googleUserURL, nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", consts.GoogleProviderUserURL, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := http.DefaultClient.Do(req)

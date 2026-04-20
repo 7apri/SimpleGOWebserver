@@ -1,11 +1,11 @@
 <div class="flx col gap-sm">
     [[- range $provider := slice "google" "github" -]]
-    <button class="oauth-btn flx j-center ali-c gap-xs py-sm fil-x" data-provider="[[$provider]]" style="--load-color: var(--on-primary-container)">
+    <a class="oauth-btn" data-provider="[[$provider]]" style="--load-color: var(--on-primary-container)">
         <svg class="icon" aria-hidden="true">
             <use href="[[ asset "/static/assets/iconBundle.svg" ]]#[[$provider]]"></use>
         </svg>
         [[ capitalize (tr "phrase:continue_with") ]] [[ capitalize $provider]]
-    </button>
+    </a>
     [[- end ]]
 </div>
 [[ registerScript "auth/components/oauthBtn.js" ]]

@@ -10,9 +10,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func refreshWebsocket(refresh chan rune) func(w http.ResponseWriter, r *http.Request) *web.WebError {
+func refreshWebsocket(refresh chan rune, shutdown chan struct{}) func(w http.ResponseWriter, r *http.Request) *web.WebError {
 	var (
-		clients  = make(map[*websocket.Conn]bool)
+		clients  = make(map[*websocket.Conn]struct{})
 		mu       sync.Mutex
 		upgrader = websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
@@ -50,6 +50,27 @@ func refreshWebsocket(refresh chan rune) func(w http.ResponseWriter, r *http.Req
 						mu.Unlock()
 					}
 				}
+			case <-shutdown:
+				mu.Lock()
+
+				closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "shutting down")
+
+				for client := range clients {
+					deadline := time.Now().Add(time.Second)
+
+					err := client.WriteControl(websocket.CloseMessage, closeMsg, deadline)
+					if err != nil {
+						slog.Warn("failed to send close message", "err", err)
+					}
+
+					client.Close()
+				}
+
+				clients = make(map[*websocket.Conn]struct{})
+
+				mu.Unlock()
+
+				return
 			case <-ticker.C:
 				mu.Lock()
 				for client := range clients {
@@ -70,7 +91,7 @@ func refreshWebsocket(refresh chan rune) func(w http.ResponseWriter, r *http.Req
 		}
 
 		mu.Lock()
-		clients[conn] = true
+		clients[conn] = struct{}{}
 		mu.Unlock()
 
 		defer func() {

@@ -1,13 +1,16 @@
 package auth
 
 import (
-	"database/sql"
+	"errors"
 	"net/http"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (h *AuthHandler) CheckCodeReset(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -17,193 +20,133 @@ func (h *AuthHandler) CheckCodeReset(w http.ResponseWriter, r *http.Request) *we
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
 		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 	}
+	c, err := r.Cookie("reset_token")
+	if err != nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
 
-	res, WebErr := h.verifyChallenge(r, email.ChallengeReset, "reset_token", req.Code)
+	res, WebErr := h.verifyChallenge(r, consts.UserChallengeReset, c.Value, req.Code)
 	if WebErr != nil {
 		return WebErr
+	}
+	if res.UserID == uuid.Nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
 	if !res.Correct {
 		if res.Attempts >= 5 {
 			return web.NewError(http.StatusUnauthorized, "too_many_attempts", nil, nil)
 		}
-		return web.NewError(http.StatusUnauthorized, "invalid_code", nil, nil)
+		return web.NewError(http.StatusUnauthorized, "invalid_code", nil, map[string]int{
+			"remaining_attempts": res.Attempts - 5,
+		})
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:  "reset_code_tmp",
-		Value: req.Code,
-		Path:  "/", MaxAge: 300, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
-	})
+	err = h.secret.issueChallengeClaims(w, res.UserID, res.Has2FA, "reset")
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
 
-	var status string
+	status := "success"
 	if res.Has2FA {
-		err := h.issueAccessToken(w, res.User, AccessTokenOptions{
-			IsPending: true,
-			Remember:  false,
-		})
-		if err != nil {
-			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
-		}
 		status = "pending"
-	} else {
-		if err := h.issueTokens(w, r, res.User, TokenOptions{
-			RotateCSRF: true,
-			SendEmail:  true,
-			AccessTokenOptions: AccessTokenOptions{
-				Remember: false,
-			},
-		}); err != nil {
-			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
-		}
-		status = "success"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := sonic.ConfigDefault.NewEncoder(w).Encode(map[string]string{
+	err = sonic.ConfigDefault.NewEncoder(w).Encode(map[string]string{
 		"status": status,
 	})
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
+	http.SetCookie(w, &http.Cookie{Name: "reset_token", MaxAge: -1, Path: "/"})
 	return nil
 }
 
 func (h *AuthHandler) ConfirmReset(w http.ResponseWriter, r *http.Request) *web.WebError {
-	cookieT, errT := r.Cookie("reset_token")
-	cookieC, errC := r.Cookie("reset_code_tmp")
-
-	if errT != nil || errC != nil {
+	cookieT, err := r.Cookie("reset_claims")
+	if err != nil {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
+
+	claims, err := h.GetChallengeClaims(cookieT.Value)
+	if err != nil || claims.Action != "reset" {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
+
+	if claims.MfaPending {
+		return web.NewError(http.StatusUnauthorized, "pending_2fa", nil, nil)
 	}
 
 	var req struct {
 		NewPassword string `json:"password"`
 	}
-
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
 		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 	}
 
 	if err := validatePassword(req.NewPassword); err != nil {
-		return web.NewError(http.StatusBadRequest, "", err, nil)
+		return web.NewError(http.StatusBadRequest, "password_invalid", err, nil)
 	}
 
-	newHash, err := HashCredential(req.NewPassword)
-
+	newHash, err := crypto.HashCredential(req.NewPassword)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
 	const q = `
-    WITH challenge_target AS (
-        SELECT user_id, code_hash, attempts
-        FROM user_challenges
-        WHERE challenge_type = $1
-            AND token_hash = $2
-            AND expires_at > NOW()
-        FOR UPDATE
+    WITH updated_user AS (
+        UPDATE users
+        SET is_verified = TRUE, updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id, role, username, email, preferred_lang, avatar_url, updated_at
     ),
-    challenge_success AS (
-        DELETE FROM user_challenges
-        WHERE user_id IN (SELECT user_id FROM challenge_target WHERE code_hash = $3)
-            AND challenge_type = $1
+    update_password AS (
+        INSERT INTO user_credentials (user_id, kind, secret)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, kind) WHERE kind = $2
+        DO UPDATE SET
+            secret = EXCLUDED.secret,
+            updated_at = NOW()
         RETURNING user_id
     ),
-    challenge_failure AS (
-        UPDATE user_challenges
-        SET attempts = attempts + 1,
-            updated_at = NOW()
-        WHERE user_id IN (SELECT user_id FROM challenge_target WHERE code_hash != $3)
-        AND challenge_type = $1
-        RETURNING attempts
-    ),
-    updated_user AS (
-        UPDATE users
-        SET is_verified = TRUE
-        WHERE id IN (SELECT user_id FROM challenge_success)
-        RETURNING id, role, username, avatar_url, updated_at
-    ),
-	insert_cred AS (
-		INSERT INTO user_credentials (user_id, kind, secret)
-    	SELECT id, $4, $5 FROM updated_user
-		ON CONFLICT (user_id, kind) WHERE kind = $4
-		DO UPDATE SET
-			secret = EXCLUDED.secret
-	)
+    delete_sessions AS (
+        DELETE FROM refresh_sessions 
+        WHERE user_id = $1
+        AND EXISTS (SELECT 1 FROM update_password)
+    )   
     SELECT 
-        EXISTS(SELECT 1 FROM challenge_target) AS found,
-        COALESCE(
-            (SELECT attempts FROM challenge_failure LIMIT 1),
-            (SELECT attempts FROM challenge_target  LIMIT 1),
-            0
-        ) AS current_attempts,
-        u.id, 
-        u.role, 
-        u.username,
-        u.avatar_url,
-        u.updated_at
-    FROM (SELECT 1) AS dummy  
-    LEFT JOIN updated_user u ON TRUE;`
+        u.id, u.role, u.username, u.email, u.preferred_lang, u.avatar_url, u.updated_at
+    FROM updated_user u
+    WHERE EXISTS (SELECT 1 FROM update_password);`
 
 	var (
-		found           bool
-		currentAttempts int
-		u               UserPrintTimestamp
-	)
-
-	var (
-		nullID        uuid.NullUUID
-		nullRole      sql.NullString
-		nullName      sql.NullString
-		nullAvatar    sql.NullString
-		nullUpdatedAt sql.NullTime
+		u            UserPrintTimestamp
+		uEmail, lang string
 	)
 
 	err = h.db.Pool.QueryRow(r.Context(), q,
-		email.ChallengeReset,
-		HashString(cookieT.Value),
-		HashString(cookieC.Value),
-		UserCredentialsPassword,
+		claims.UserID,
+		consts.UserCredentialsPassword,
 		newHash,
-	).Scan(
-		&found,
-		&currentAttempts,
-		&nullID,
-		&nullRole,
-		&nullName,
-		&nullAvatar,
-		&nullUpdatedAt,
-	)
+	).Scan(&u.ID, &u.Role, &u.Username, &uEmail, &lang, &u.AvatarURL, &u.UpdatedAt)
 
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+		}
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
 
-	if !found {
-		return web.NewError(http.StatusGone, "session_expired", nil, nil)
-	}
+	web.ClearCookies(w, "/", "reset_claims", "reset_token")
 
-	if currentAttempts >= 5 {
-		return web.NewError(http.StatusUnauthorized, "too_many_attempts", nil, map[string]int{
-			"remaining_attempts": 0,
-		})
-	}
-
-	if !nullID.Valid {
-		return web.NewError(http.StatusUnauthorized, "invalid_code", nil, map[string]int{
-			"remaining_attempts": max(0, 5-currentAttempts),
-		})
-	}
-
-	u.ID = nullID.UUID
-	u.Role = nullRole.String
-	u.Username = nullName.String
-	u.AvatarURL = nullAvatar.String
-	u.UpdatedAt = nullUpdatedAt.Time
-
-	http.SetCookie(w, &http.Cookie{Name: "reset_token", MaxAge: -1, Path: "/"})
-	http.SetCookie(w, &http.Cookie{Name: "reset_code_tmp", MaxAge: -1, Path: "/"})
+	go h.EmailManager.SendSecurityPasswordReset(email.UserDetail{
+		UserContact: email.UserContact{
+			Username: u.Username,
+			Email:    uEmail,
+		},
+		Lang: lang,
+	})
 
 	if err := h.issueTokens(w, r, &u, TokenOptions{
 		RotateCSRF: true,
@@ -212,6 +155,5 @@ func (h *AuthHandler) ConfirmReset(w http.ResponseWriter, r *http.Request) *web.
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
-	w.WriteHeader(http.StatusOK)
 	return nil
 }

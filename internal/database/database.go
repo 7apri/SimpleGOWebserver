@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,20 +15,16 @@ type Database struct {
 	Pool *pgxpool.Pool
 }
 
-const maxRetries = 5
-const baseDelay = 1 * time.Second
-
-func Init(ctx context.Context) *Database {
-
+func Init(ctx context.Context, user, password, databaseName string) *Database {
 	config, err := pgxpool.ParseConfig("")
 	if err != nil {
 		panic(err)
 	}
 
-	config.ConnConfig.User = util.TryGetEnvFatal("DB_USER")
-	config.ConnConfig.Password = util.TryGetEnvFatal("DB_PASSWORD")
+	config.ConnConfig.User = user
+	config.ConnConfig.Password = password
 	config.ConnConfig.Host = "/var/run/postgresql"
-	config.ConnConfig.Database = util.TryGetEnvFatal("DB_NAME")
+	config.ConnConfig.Database = databaseName
 	config.ConnConfig.Port = uint16(5432)
 	config.ConnConfig.SSLNegotiation = "disable"
 
@@ -36,26 +32,26 @@ func Init(ctx context.Context) *Database {
 	config.MinConns = 5
 	config.MaxConnIdleTime = 5 * time.Minute
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= consts.DatabaseMaxConnectRetries; attempt++ {
 		pool, err := pgxpool.NewWithConfig(ctx, config)
 		if err != nil {
-			slog.Warn("DB connect failed", "attempt", attempt, "of", maxRetries, "error", err)
-			if attempt == maxRetries {
-				fmt.Fprintf(os.Stderr, "Failed to connect after %d attempts: %v\n", maxRetries, err)
+			slog.Warn("DB connect failed", "attempt", attempt, "of", consts.DatabaseMaxConnectRetries, "error", err)
+			if attempt == consts.DatabaseMaxConnectRetries {
+				fmt.Fprintf(os.Stderr, "Failed to connect after %d attempts: %v\n", consts.DatabaseMaxConnectRetries, err)
 				os.Exit(1)
 			}
-			time.Sleep(baseDelay * time.Duration(1<<attempt))
+			time.Sleep(consts.DatabaseConnectBaseDelay * time.Duration(1<<attempt))
 			continue
 		}
 
 		if err := pool.Ping(ctx); err != nil {
 			slog.Warn("DB ping failed", "attempt", attempt, "error", err)
 			pool.Close()
-			if attempt == maxRetries {
+			if attempt == consts.DatabaseMaxConnectRetries {
 				fmt.Fprintf(os.Stderr, "DB ping failed after connect: %v\n", err)
 				os.Exit(1)
 			}
-			time.Sleep(baseDelay * time.Duration(1<<attempt))
+			time.Sleep(consts.DatabaseConnectBaseDelay * time.Duration(1<<attempt))
 			continue
 		}
 

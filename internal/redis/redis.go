@@ -6,20 +6,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/redis/go-redis/v9"
 )
 
-const maxRetries = 5
-const baseDelay = 1 * time.Second
-
-func Init(ctx context.Context) *redis.Client {
-	redisAddr := util.TryGetEnvFatal("REDIS_ADDRESS")
-	redisPassword := util.TryGetEnvFatal("REDIS_PASSWORD")
-
+func Init(ctx context.Context, redisAddr, redisPassword string) *redis.Client {
 	var rdb *redis.Client
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= consts.DatabaseMaxConnectRetries; attempt++ {
 		rdb = redis.NewClient(&redis.Options{
 			Addr:     redisAddr,
 			Password: redisPassword,
@@ -30,12 +24,12 @@ func Init(ctx context.Context) *redis.Client {
 			slog.Info("Successfully connected to redis!", "attempt", attempt)
 			break
 		}
-		if attempt == maxRetries {
+		if attempt == consts.DatabaseMaxConnectRetries {
 			slog.Error("redis connection failed", "err", err, "addr", redisAddr, "pass", redisPassword)
 			os.Exit(1)
 		}
 		slog.Warn("redis connection failed", "err", err, "attempt", attempt)
-		time.Sleep(baseDelay * time.Duration(1<<attempt))
+		time.Sleep(consts.DatabaseConnectBaseDelay * time.Duration(1<<attempt))
 	}
 	return rdb
 }

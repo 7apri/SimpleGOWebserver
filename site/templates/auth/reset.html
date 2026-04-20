@@ -25,6 +25,43 @@
                     )
                 ]]
             </div>
+            <div data-state="2fa" {{ if ne .State "2fa" }}class="hidden"{{ end }}>
+                <h1 class="txt-2xl mb-sm ls-wide">[[ capitalize (tr "title:2fa/enter-code") ]]</h1>
+                <form id="form-2fa" class="flx col ali-s j-left txt-left">
+                    [[ import "components/auth/code-input.html" ( dict
+                        "Classes"   "txt-2xl h-var"
+                        "Attribute" "autofocus"
+                        "Styles"    "--h:2em"
+                        "InputID"   "code-input-2fa"
+                        "CodeID"    "code-2fa"
+                    )]]
+                    <button 
+                    class="txt-lg fw-bold py-sm px-sm bg-primary fil-x"
+                    type="submit" 
+                    data-endpoint="/api/auth/reset/2fa"
+                    style="--load-color: var(--on-primary);"
+                    >[[ capitalize (tr "phrase:next") ]]</button>
+                </form>
+                <form id="recovery-code-form" class="flx col ali-s j-left txt-left hidden">
+                    <label for="recovery-code-input">[[ capitalize ( tr "phrase:recovery_code" )]]</label>
+                    <input 
+                    type="text"
+                    name="code"
+                    autocomplete="one-time-code"
+                    spellcheck="false"
+                    placeholder="[[ tr "plh:recovery_code" ]]"
+                    id="recovery-code-input"
+                    class="fil p-sm mb-md mt-sm txt-lg"
+                    style="word-spacing: 2em;"
+                    >
+                    <button 
+                    class="txt-lg fw-bold py-sm px-sm bg-primary fil-x"
+                    type="submit"
+                    data-endpoint="/api/auth/reset/2fa/recovery"
+                    style="--load-color: var(--on-primary);"
+                    >[[ capitalize (tr "phrase:sign_in") ]]</button>
+                </form>
+            </div>
             <div data-state="success" {{ if ne .State "success" }}class="hidden"{{ end }}>
                 <h1 class="txt-2xl mb-sm ls-wide">[[ getTitle ]]</h1>
                 <form class="flx col ali-s j-left txt-left mb-sm gap-md" id="form-confirm">
@@ -40,7 +77,7 @@
          </div>
         <div class="flx gap-lg j-spcBetween ali-e">
             <div class="flx col txt-left">
-                <button class="bg-none fil-x txt-left{{ if ne .State "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
+                <button class="bg-none fil-x txt-left{{ if and (ne .State "code") (ne .State "2fa") }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
                 [[ import "components/keep-next-link.html" (slice
                     ( dict
                         "Href" "/sign-in" 
@@ -52,8 +89,11 @@
                     )
                 )]]
             </div>
-            <div class="flx gap-md w-var h-var pos-rel" style="--w:36%; --h:45px">
-                [[ import "components/settings/bundle.html" nil ]]
+            <div class="flx col gap-sm ali-e w-var" style="--w:50%">
+                <button class="bg-none txt-left {{ if ne .State "2fa" }}hidden{{ end }}" id="2fa-state-toggle">.</button>
+                <div class="flx gap-md fil-x h-var pos-rel" style="--h:35px">
+                    [[ import "components/settings/bundle.html" nil ]]
+                </div>
             </div>
         </div>
     </div>

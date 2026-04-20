@@ -13,6 +13,7 @@ import (
 
 	"github.com/7apri/SimpleGOWebserver/internal/analytics"
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	exApi "github.com/7apri/SimpleGOWebserver/internal/ex-api"
@@ -22,7 +23,6 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/server"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
-	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
 
 // //go:embed all:site/templates
@@ -36,64 +36,60 @@ var (
 // i18nEmbed, _      = fs.ReadDir(i18nRaw, "site/i18n")
 )
 
-const (
-	coldCacheSizeLocation = 500
-	coldCacheSizeWeather  = 500
-
-	promoteThresholdLocation = 20
-
-	promoteBufferSizeLocation = 100
-	promoteBufferSizeWeather  = 100
-
-	janitorIntervalLocation = 10 * time.Minute
-	janitorIntervalWeather  = 10 * time.Minute
-
-	saveChanBufferSizeLocation = 100
-	saveChanBufferSizeWeather  = 100
-
-	// smtp
-	smtpHost     = "mailpit:1025"
-	smtpFrom     = "noreply@panels.com"
-	smtpPassword = ""
-	smtpUser     = ""
-)
+func tryGetEnvFatal(k string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		slog.Error("please check the .env", "missing key", k)
+		os.Exit(1)
+	}
+	return v
+}
+func tryGetEnvDefault(k, d string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		return d
+	}
+	return v
+}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db := database.Init(ctx)
-	rdb := redis.Init(ctx)
+	databaseUser := tryGetEnvFatal("DB_USER")
+	databasepassword := tryGetEnvFatal("DB_PASSWORD")
+	databaseName := tryGetEnvFatal("DB_NAME")
+	db := database.Init(ctx, databaseUser, databasepassword, databaseName)
+
+	redisAddr := tryGetEnvFatal("REDIS_ADDRESS")
+	redisPassword := tryGetEnvFatal("REDIS_PASSWORD")
+	rdb := redis.Init(ctx, redisAddr, redisPassword)
 
 	as := analytics.NewService(db, rdb)
 
 	slog.SetDefault(slog.New(as.LogHandler))
 
-	weatherApiKey := util.TryGetEnvFatal("WEATHER_API_KEY")
-	accessSecret := util.TryGetEnvFatal("ACCESS_SECRET_AUTH")
-	twoFactorSecret := util.TryGetEnvFatal("TWO_FACTOR_SECRET_AUTH")
-	providerSecret := util.TryGetEnvFatal("PROVIDER_SECRET_AUTH")
+	weatherApiKey := tryGetEnvFatal("WEATHER_API_KEY")
+	accessSecret := tryGetEnvFatal("ACCESS_SECRET_AUTH")
+	twoFactorSecret := tryGetEnvFatal("TWO_FACTOR_SECRET_AUTH")
+	mFAPepper := tryGetEnvFatal("TWO_FACTOR_PEPPER_AUTH")
+	providerSecret := tryGetEnvFatal("PROVIDER_SECRET_AUTH")
+	challengeSecret := tryGetEnvFatal("CHALLENGE_SECRET_AUTH")
 
-	githubClientID := util.TryGetEnvFatal("GITHUB_CLIENT_ID_AUTH")
-	githubRedirectUrl := util.TryGetEnvFatal("GITHUB_REDIRECT_URL_AUTH")
-	githubClientSecret := util.TryGetEnvFatal("GITHUB_CLIENT_SECRET_AUTH")
+	githubClientID := tryGetEnvFatal("GITHUB_CLIENT_ID_AUTH")
+	githubRedirectUrl := tryGetEnvFatal("GITHUB_REDIRECT_URL_AUTH")
+	githubClientSecret := tryGetEnvFatal("GITHUB_CLIENT_SECRET_AUTH")
 
-	googleClientID := util.TryGetEnvFatal("GOOGLE_CLIENT_ID_AUTH")
-	googleRedirectUrl := util.TryGetEnvFatal("GOOGLE_REDIRECT_URL_AUTH")
-	googleClientSecret := util.TryGetEnvFatal("GOOGLE_CLIENT_SECRET_AUTH")
+	googleClientID := tryGetEnvFatal("GOOGLE_CLIENT_ID_AUTH")
+	googleRedirectUrl := tryGetEnvFatal("GOOGLE_REDIRECT_URL_AUTH")
+	googleClientSecret := tryGetEnvFatal("GOOGLE_CLIENT_SECRET_AUTH")
 
-	i18nPath := os.Getenv("I18N_PATH")
-	if i18nPath == "" {
-		i18nPath = "./i18n"
-	}
-	tmplPath := os.Getenv("TMPL_PATH")
-	if tmplPath == "" {
-		tmplPath = "./templates"
-	}
-	statPath := os.Getenv("STAT_PATH")
-	if statPath == "" {
-		statPath = "./static"
-	}
+	i18nPath := tryGetEnvDefault("I18N_PATH", "./i18n")
+	tmplPath := tryGetEnvDefault("TMPL_PATH", "./templates")
+	statPath := tryGetEnvDefault("STAT_PATH", "./static")
+
+	smtpUser := tryGetEnvDefault("SMTP_USER", "")
+	smtpPass := tryGetEnvDefault("SMTP_PASSWORD", "")
 
 	i18nFS := os.DirFS(i18nPath)
 	tmplFS := os.DirFS(tmplPath)
@@ -112,11 +108,11 @@ func main() {
 	owClient := exApi.NewOwClient(weatherApiKey, 0) //time.Second
 
 	ls, err := location.NewService(db,
-		coldCacheSizeLocation,
-		promoteThresholdLocation,
-		promoteBufferSizeLocation,
-		janitorIntervalLocation,
-		saveChanBufferSizeLocation,
+		consts.LocationColdCacheSize,
+		consts.LocationPromoteThreshold,
+		consts.LocationPromoteBufferSize,
+		consts.LocationJanitorInterval,
+		consts.LocationSaveChanBufferSize,
 		owClient,
 		exApi.NewIpClient(time.Minute/40),
 	)
@@ -126,11 +122,11 @@ func main() {
 	}
 	ws, err := weather.NewService(
 		db,
-		coldCacheSizeWeather,
-		promoteBufferSizeWeather,
-		promoteBufferSizeWeather,
-		janitorIntervalWeather,
-		saveChanBufferSizeWeather,
+		consts.LocationColdCacheSize,
+		consts.WeatherPromoteThreshold,
+		consts.WeatherPromoteBufferSize,
+		consts.WeatherJanitorInterval,
+		consts.WeatherSaveChanBufferSize,
 		i18nMgr,
 		owClient,
 		ls,
@@ -140,8 +136,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	em := email.NewEmailManager(smtpHost, smtpFrom, smtpPassword, smtpUser, tmplMgr)
-	ah, err := auth.NewAuthHandler(db, rdb, em, i18nMgr, accessSecret, twoFactorSecret, providerSecret)
+	em := email.NewEmailManager(smtpPass, smtpUser, tmplMgr)
+	ah, err := auth.NewAuthHandler(db, rdb, em, i18nMgr, accessSecret, twoFactorSecret, providerSecret, challengeSecret, mFAPepper)
 	if err != nil {
 		slog.Error("There was an error creating the auth handeler", "error", err)
 		os.Exit(1)
@@ -177,16 +173,10 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("HTTP shutdown failed", "error", err)
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		slog.Error("Server shutdown failed", "error", err)
 	}
-
-	if err := ls.Down(shutdownCtx); err != nil {
-		slog.Error("Location service shutdown failed", "error", err)
-	}
-	if err := ws.Down(shutdownCtx); err != nil {
-		slog.Error("Weather service shutdown failed", "error", err)
-	}
+	srv.Down(shutdownCtx)
 
 	db.Pool.Close()
 	rdb.Close()

@@ -380,6 +380,27 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 .pe-none     { pointer-events: none; }
 .pe-none > * { pointer-events: all;  }
 
+.oauth-btn{
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--s-sm);
+    width: 100%;
+    background-color: var(--primary-container);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: var(--s-sm) 0;
+}
+.oauth-btn.suggested:not(.loading)::after {
+    background-color: var(--on-primary-container);
+    width: 0.5em; height: 0.5em;
+    border-radius: 50%;
+    position: absolute;
+    content: "";
+    right: 1em;
+}
+
 .tr-right-100   { transform: translateX(100%); }
 .transition-all { transition: all 0.3s ease;   }
 
@@ -471,14 +492,3 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     animation: pulse-dot 1.5s ease  infinite;
 }
 #code-input:focus + .code-boxes .box:nth-child(1) { border-color: var(--primary); }
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0) scale(1.05); }
-    25% { transform: translateX(-5px)   scale(1.05); }
-    50% { transform: translateX(5px)    scale(1.05); }
-    75% { transform: translateX(-5px)   scale(1.05); }
-}
-
-.shake-error {
-    animation: shake 0.4s ease-in-out;
-}

@@ -2,12 +2,14 @@ package auth
 
 import (
 	"net/http"
+
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 )
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil {
-		h.db.Pool.Exec(r.Context(), "DELETE FROM refresh_sessions WHERE token_hash = $1", HashString(cookie.Value))
+		h.db.Pool.Exec(r.Context(), "DELETE FROM refresh_sessions WHERE token_hash = $1", crypto.HashString(cookie.Value))
 	}
 
 	expiredCookie := &http.Cookie{

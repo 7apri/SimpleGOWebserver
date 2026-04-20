@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"database/sql"
+	"errors"
 	"net/http"
 
-	"github.com/7apri/SimpleGOWebserver/internal/email"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (h *AuthHandler) CheckCodeVerify(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -18,32 +18,28 @@ func (h *AuthHandler) CheckCodeVerify(w http.ResponseWriter, r *http.Request) *w
 		return web.NewError(http.StatusBadRequest, "invalid_json", nil, nil)
 	}
 
-	res, err := h.verifyChallenge(r, email.ChallengeVerify, "verify_token", req.Code)
+	c, err := r.Cookie("verify_token")
 	if err != nil {
-		return err
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
 
-	if !res.Correct {
-		if res.Attempts >= 5 {
-			return web.NewError(http.StatusUnauthorized, "too_many_attempts", nil, nil)
-		}
-		return web.NewError(http.StatusUnauthorized, "invalid_code", nil, nil)
+	_, Werr := h.ProcessChallengeVerification(w, r, consts.UserChallengeVerify, c.Value, "verify", req.Code)
+
+	if Werr == nil {
+		http.SetCookie(w, &http.Cookie{Name: "verify_token", MaxAge: -1, Path: "/"})
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:  "verify_code_tmp",
-		Value: req.Code,
-		Path:  "/", MaxAge: 300, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
-	})
-
-	return nil
+	return Werr
 }
 
 func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web.WebError {
-	cookieT, errT := r.Cookie("verify_token")
-	cookieC, errC := r.Cookie("verify_code_tmp")
+	cookieT, errT := r.Cookie("verify_claims")
+	if errT != nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
 
-	if errT != nil || errC != nil {
+	claims, err := h.GetChallengeClaims(cookieT.Value)
+	if err != nil || claims.Action != "verify" {
 		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
 
@@ -52,103 +48,32 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 		remember = (c.Value == "true")
 	}
 
+	var user UserPrintTimestamp
+
 	const q = `
-    WITH challenge_target AS (
-        SELECT user_id, code_hash, attempts
-        FROM user_challenges
-        WHERE challenge_type = $1
-            AND token_hash = $2
-            AND expires_at > NOW()
-            AND attempts < 5
-        FOR UPDATE
-    ),
-    challenge_success AS (
-        DELETE FROM user_challenges
-        WHERE user_id = (SELECT user_id FROM challenge_target WHERE code_hash = $3)
-            AND challenge_type = $1
-        RETURNING user_id
-    ),
-    challenge_failure AS (
-        UPDATE user_challenges
-        SET attempts = attempts + 1,
-            updated_at = NOW()
-        WHERE user_id = (SELECT user_id FROM challenge_target WHERE code_hash != $3)
-        AND challenge_type = $1
-        RETURNING attempts
-    ),
-    updated_user AS (
-        UPDATE users
+     UPDATE users
         SET is_verified = TRUE
-        WHERE id = (SELECT user_id FROM challenge_success)
-        RETURNING id, role, username, avatar_url, updated_at
-    )
-    SELECT 
-        (SELECT user_id FROM challenge_target) IS NOT NULL AS found,
-        COALESCE(
-            (SELECT attempts FROM challenge_failure),
-            (SELECT attempts FROM challenge_target),
-            0
-        ) AS current_attempts,
-        u.id, 
-        u.role, 
-        u.username,
-        u.avatar_url,
-        u.updated_at
-    FROM (SELECT 1) AS dummy  
-    LEFT JOIN updated_user u ON TRUE;`
+        WHERE id = $1
+        RETURNING id, role, username, avatar_url, updated_at;`
 
-	var (
-		found           bool
-		currentAttempts int
-		u               UserPrintTimestamp
-	)
-
-	var (
-		nullID        uuid.NullUUID
-		nullRole      sql.NullString
-		nullName      sql.NullString
-		nullAvatar    sql.NullString
-		nullUpdatedAt sql.NullTime
-	)
-
-	err := h.db.Pool.QueryRow(r.Context(), q,
-		email.ChallengeVerify,
-		HashString(cookieT.Value),
-		HashString(cookieC.Value),
-	).Scan(
-		&found,
-		&currentAttempts,
-		&nullID,
-		&nullRole,
-		&nullName,
-		&nullAvatar,
-		&nullUpdatedAt,
+	err = h.db.Pool.QueryRow(r.Context(), q, claims.UserID).Scan(
+		&user.ID,
+		&user.Role,
+		&user.Username,
+		&user.AvatarURL,
+		&user.UpdatedAt,
 	)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return web.NewError(http.StatusUnauthorized, "user_not_found", nil, nil)
+		}
 		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
 
-	if !found {
-		return web.NewError(http.StatusGone, "session_expired", nil, nil)
-	}
+	web.ClearCookies(w, "/", "verify_claims", "verify_remember")
 
-	if !nullID.Valid {
-		return web.NewError(http.StatusUnauthorized, "invalid_code", nil, map[string]any{
-			"remaining_attempts": max(0, 5-currentAttempts),
-		})
-	}
-
-	u.ID = nullID.UUID
-	u.Role = nullRole.String
-	u.Username = nullName.String
-	u.AvatarURL = nullAvatar.String
-	u.UpdatedAt = nullUpdatedAt.Time
-
-	http.SetCookie(w, &http.Cookie{Name: "verify_token", MaxAge: -1, Path: "/"})
-	http.SetCookie(w, &http.Cookie{Name: "verify_code_tmp", MaxAge: -1, Path: "/"})
-
-	if err := h.issueTokens(w, r, &u, TokenOptions{
+	if err := h.issueTokens(w, r, &user, TokenOptions{
 		RotateCSRF: true,
 		SendEmail:  true,
 		AccessTokenOptions: AccessTokenOptions{
@@ -158,6 +83,5 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
-	w.WriteHeader(http.StatusOK)
 	return nil
 }

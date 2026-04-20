@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
@@ -58,14 +59,6 @@ func (server *Server) serveHtmlUser(name string) http.Handler {
 	})
 }
 
-type challengeUIConfig struct {
-	tokenName   string
-	codeName    string
-	codeMaxAge  int
-	tokenMaxAge int
-	pageKey     templates.TemplateKey
-}
-
 func setChallengeCookie(w http.ResponseWriter, cookieName, val string, cookieMaxAge int) {
 	http.SetCookie(w, &http.Cookie{
 		Name:  cookieName,
@@ -80,46 +73,50 @@ func cookieExists(r *http.Request, cookieName string) (bool, *http.Cookie) {
 	return false, nil
 }
 
+type challengeUIConfig struct {
+	actionName string
+	pageKey    templates.TemplateKey
+	cType      consts.UserChallengeType
+}
+
 func (server *Server) handleChallengeUI(cfg challengeUIConfig) func(w http.ResponseWriter, r *http.Request) *web.WebError {
+	actionCookieName := cfg.actionName + "_claims"
+	tokenCookieName := cfg.actionName + "_token"
 	return func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		q := r.URL.Query()
 		t, c := q.Get("t"), q.Get("c")
 
-		if t != "" || c != "" {
-			if t != "" {
-				setChallengeCookie(w, cfg.tokenName, t, cfg.tokenMaxAge)
-			}
+		if t != "" {
+			setChallengeCookie(w, tokenCookieName, t, 900)
+
 			if c != "" {
-				setChallengeCookie(w, cfg.codeName, c, cfg.codeMaxAge)
+				_, err := server.authHandler.ProcessChallengeVerification(w, r, cfg.cType, t, cfg.actionName, c)
+				if err != nil {
+					return err
+				}
 			}
 
-			q.Del("t")
-			q.Del("c")
-			target := r.URL.Path
-			if qs := q.Encode(); qs != "" {
-				target += "?" + qs
-			}
-			http.Redirect(w, r, target, http.StatusSeeOther)
+			http.Redirect(w, r, r.URL.Path, http.StatusSeeOther)
 			return nil
 		}
 
-		hasToken, _ := cookieExists(r, cfg.tokenName)
-		hasCode, _ := cookieExists(r, cfg.codeName)
-
 		state := "email"
-		if hasToken {
-			if hasCode {
-				state = "success"
-			} else {
-				state = "code"
+
+		if cookie, err := r.Cookie(actionCookieName); err == nil {
+			claims, err := server.authHandler.GetChallengeClaims(cookie.Value)
+			if err == nil && claims.Action == cfg.actionName {
+				if claims.MfaPending {
+					state = "2fa"
+				} else {
+					state = "success"
+				}
 			}
+		} else if hasRaw, _ := cookieExists(r, tokenCookieName); hasRaw {
+			state = "code"
 		}
 
-		_, isLoggedIn := auth.GetUser(r.Context())
-
-		return server.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state+strconv.FormatBool(isLoggedIn), map[string]any{
-			"State":    state,
-			"LoggedIn": isLoggedIn,
+		return server.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state, map[string]any{
+			"State": state,
 		})
 	}
 }

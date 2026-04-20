@@ -101,6 +101,9 @@ func (mgr *TemplateManager) Refresh() error {
 				if ctx.Scripts == nil {
 					ctx.Scripts = make(map[string]struct{})
 				}
+				if ctx.ResolvedScripts == nil {
+					ctx.ResolvedScripts = make(map[string]string)
+				}
 
 				ctx.Lang = lang
 				ctx.AllLangs = langs

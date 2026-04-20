@@ -48,16 +48,16 @@ var bakeContextPool = sync.Pool{
 }
 
 type BakeContext struct {
-	Lang     i18n.Lang
-	AllLangs []i18n.Lang
-	Meta     metadata
-	Name     string
-	Layout   string
-	Scripts  map[string]struct{}
-	Defines  map[string]string
-	Body     htmlTmpl.HTML
-	Depth    uint8
-	Data     any
+	Lang            i18n.Lang
+	AllLangs        []i18n.Lang
+	Meta            metadata
+	Name            string
+	Layout          string
+	Scripts         map[string]struct{}
+	ResolvedScripts map[string]string
+	Body            htmlTmpl.HTML
+	Depth           uint8
+	Data            any
 }
 
 func (c *BakeContext) InsertMeta(incoming metadata) {
@@ -86,12 +86,8 @@ func (c *BakeContext) Reset() {
 	} else {
 		clear(c.Meta)
 	}
-	if c.Defines == nil {
-		c.Defines = make(map[string]string)
-	} else {
-		clear(c.Defines)
-	}
 	c.Scripts = nil
+	c.ResolvedScripts = nil
 	c.Lang = i18n.Lang{}
 	c.AllLangs = nil
 	c.Data = nil
@@ -101,12 +97,13 @@ func (c *BakeContext) Reset() {
 }
 func (c *BakeContext) NewSubContext() *BakeContext {
 	return &BakeContext{
-		Lang:     c.Lang,
-		Name:     c.Name,
-		AllLangs: c.AllLangs,
-		Depth:    c.Depth + 1,
-		Scripts:  c.Scripts,
-		Meta:     make(metadata),
+		Lang:            c.Lang,
+		Name:            c.Name,
+		AllLangs:        c.AllLangs,
+		Depth:           c.Depth + 1,
+		Scripts:         c.Scripts,
+		ResolvedScripts: c.ResolvedScripts,
+		Meta:            make(metadata),
 	}
 }
 func (c *BakeContext) SubContextInto(dest *BakeContext) {
@@ -117,11 +114,7 @@ func (c *BakeContext) SubContextInto(dest *BakeContext) {
 	dest.Body = c.Body
 	dest.Depth = c.Depth + 1
 	dest.Scripts = c.Scripts
-	if dest.Defines == nil {
-		dest.Defines = make(map[string]string)
-	} else {
-		dest.Defines = c.Defines
-	}
+	dest.ResolvedScripts = c.ResolvedScripts
 	if dest.Meta == nil {
 		dest.Meta = make(metadata)
 	} else {

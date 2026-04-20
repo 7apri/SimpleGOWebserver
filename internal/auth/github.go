@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/bytedance/sonic"
 )
 
@@ -19,22 +20,15 @@ type GithubOAuth struct {
 	handlr       *AuthHandler
 }
 
-const (
-	githubLoginUrl     = "https://github.com/login/oauth/authorize" + "?"
-	githubTokenUrl     = "https://github.com/login/oauth/access_token"
-	githubUserUrl      = "https://api.github.com/user"
-	githubUserEmailUrl = githubUserUrl + "/emails"
-	githubScope        = "read:user user:email"
-	githubName         = "github"
-)
+const ()
 
-func (g *GithubOAuth) Name() string { return githubName }
+func (g *GithubOAuth) Name() string { return consts.GithubProviderName }
 
 func NewGithubOAuth(clientId string, clientSecret string, baseRedirectUrl string) *GithubOAuth {
 	v := url.Values{}
 	v.Set("client_id", clientId)
 	v.Set("redirect_uri", baseRedirectUrl+"?provider=github")
-	v.Set("scope", githubScope)
+	v.Set("scope", consts.GithubProviderScope)
 	v.Set("code_challenge_method", "S256")
 
 	return &GithubOAuth{
@@ -51,7 +45,7 @@ func (g *GithubOAuth) getAuthURL(state, challenge string) string {
 	v.Set("state", state)
 	v.Set("code_challenge", challenge)
 
-	return githubLoginUrl + v.Encode()
+	return consts.GithubProviderLoginUrl + v.Encode()
 }
 
 type githubTokenResp struct {
@@ -75,7 +69,7 @@ func (g *GithubOAuth) exchangeCode(ctx context.Context, code, verifier string) (
 		g.clientId, g.clientSecret, code, verifier,
 	))
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", githubTokenUrl, reqBody)
+	req, _ := http.NewRequestWithContext(ctx, "POST", consts.GithubProviderTokenUrl, reqBody)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -96,7 +90,7 @@ func (g *GithubOAuth) exchangeCode(ctx context.Context, code, verifier string) (
 func (g *GithubOAuth) fetchUser(ctx context.Context, token string) (*ExternalUser, error) {
 	headerVal := "Bearer " + token
 
-	userReq, _ := http.NewRequestWithContext(ctx, "GET", githubUserUrl, nil)
+	userReq, _ := http.NewRequestWithContext(ctx, "GET", consts.GithubProviderUserUrl, nil)
 	userReq.Header.Set("Authorization", headerVal)
 
 	userResp, err := http.DefaultClient.Do(userReq)
@@ -114,7 +108,7 @@ func (g *GithubOAuth) fetchUser(ctx context.Context, token string) (*ExternalUse
 		return g.mapToExternalUser(&user), nil
 	}
 
-	emailReq, _ := http.NewRequestWithContext(ctx, "GET", githubUserEmailUrl, nil)
+	emailReq, _ := http.NewRequestWithContext(ctx, "GET", consts.GithubProviderUserEmailUrl, nil)
 	emailReq.Header.Set("Authorization", headerVal)
 
 	emailResp, err := http.DefaultClient.Do(emailReq)

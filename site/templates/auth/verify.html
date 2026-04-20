@@ -39,6 +39,7 @@
         </div>
         <div class="flx gap-lg j-spcBetween ali-e">
             <div class="flx col txt-left">
+                <span id="err-dsp" style="color: var(--error);"></span>
                 <button class="bg-none fil-x txt-left{{ if ne .State "code" }} hidden{{ end }}" id="state-back">[[ capitalize (tr "phrase:back")]]</button>
                 [[ import "components/keep-next-link.html" (slice
                     ( dict

@@ -12,7 +12,9 @@ if(nextUrl === null){
 }
 
 const form = document.getElementById("form");
-setupForm(form,null,async (r) => {
+const errDsp = document.getElementById("err-dsp");
+
+const onRespOK = async (r) => {
     const data = await r.json();
     switch (data.status){
         case "pending":
@@ -25,4 +27,30 @@ setupForm(form,null,async (r) => {
         default:
             window.location.href = nextUrl;
     }
-});
+};
+
+const providers = new Map(
+  Array.from(document.querySelectorAll('[data-provider]'), el => [
+    el.dataset.provider, 
+    el
+  ])
+);
+const onRespNotOk = async (r) => {
+    const contentType = r.headers.get("content-type");
+    if (!contentType || !contentType.startsWith("application/json")) {
+        errDsp.textContent = await r.text();
+        return;
+    }
+    const data = await r.json();
+    switch(data.code){
+        case "use_oauth":
+            data.data.allowed.forEach( provider => {
+                providers.get(provider).classList.add("suggested");
+            });
+            break;
+    }
+    errDsp.textContent = data.error;
+};
+
+
+setupForm(form,onRespOK,onRespNotOk);

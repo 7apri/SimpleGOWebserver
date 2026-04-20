@@ -8,59 +8,16 @@ import (
 	"encoding/hex"
 	"net/http"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
 
 const (
-	saltLenghtCrsf   = 16
-	secretLenghtCrsf = saltLenghtCrsf
-	cookieNameCrsf   = "csrf_secret"
+	cookieNameCrsf            = "csrf_secret"
+	csrfKey        contextKey = "csrf"
 )
-
-func MaskSecret(secretHex string) string {
-	secret, err := hex.DecodeString(secretHex)
-	if err != nil || len(secret) != secretLenghtCrsf {
-		return ""
-	}
-
-	salt := make([]byte, saltLenghtCrsf)
-	if _, err := rand.Read(salt); err != nil {
-		return ""
-	}
-
-	masked := make([]byte, saltLenghtCrsf+secretLenghtCrsf)
-	copy(masked[:saltLenghtCrsf], salt)
-
-	for i := range secretLenghtCrsf {
-		masked[saltLenghtCrsf+i] = secret[i] ^ salt[i]
-	}
-
-	return base64.RawURLEncoding.EncodeToString(masked)
-}
-
-func VerifyCSRFToken(maskedTokenBase64, secretHex string) bool {
-	secret, err1 := hex.DecodeString(secretHex)
-	decoded, err2 := base64.RawURLEncoding.DecodeString(maskedTokenBase64)
-
-	if err1 != nil || err2 != nil ||
-		len(secret) != secretLenghtCrsf ||
-		len(decoded) != (saltLenghtCrsf+secretLenghtCrsf) {
-		return false
-	}
-
-	salt := decoded[:saltLenghtCrsf]
-	xored := decoded[saltLenghtCrsf:]
-
-	unmasked := make([]byte, secretLenghtCrsf)
-	for i := range secretLenghtCrsf {
-		unmasked[i] = xored[i] ^ salt[i]
-	}
-
-	return subtle.ConstantTimeCompare(unmasked, secret) == 1
-}
-
-const csrfKey contextKey = "csrf"
 
 func GetCSRFSecretFromContext(ctx context.Context) (string, bool) {
 	scrt, ok := ctx.Value(csrfKey).(string)
@@ -104,6 +61,48 @@ func CSRFMiddleware(i18nMgr *i18n.I18nManager) web.Middleware {
 	}
 }
 
+func MaskSecret(secretHex string) string {
+	secret, err := hex.DecodeString(secretHex)
+	if err != nil || len(secret) != consts.CrsfSecretLen {
+		return ""
+	}
+
+	salt := make([]byte, consts.CrsfSaltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return ""
+	}
+
+	masked := make([]byte, consts.CrsfSaltLen+consts.CrsfSecretLen)
+	copy(masked[:consts.CrsfSaltLen], salt)
+
+	for i := range consts.CrsfSecretLen {
+		masked[consts.CrsfSaltLen+i] = secret[i] ^ salt[i]
+	}
+
+	return base64.RawURLEncoding.EncodeToString(masked)
+}
+
+func VerifyCSRFToken(maskedTokenBase64, secretHex string) bool {
+	secret, err1 := hex.DecodeString(secretHex)
+	decoded, err2 := base64.RawURLEncoding.DecodeString(maskedTokenBase64)
+
+	if err1 != nil || err2 != nil ||
+		len(secret) != consts.CrsfSecretLen ||
+		len(decoded) != (consts.CrsfSaltLen+consts.CrsfSecretLen) {
+		return false
+	}
+
+	salt := decoded[:consts.CrsfSaltLen]
+	xored := decoded[consts.CrsfSaltLen:]
+
+	unmasked := make([]byte, consts.CrsfSecretLen)
+	for i := range consts.CrsfSecretLen {
+		unmasked[i] = xored[i] ^ salt[i]
+	}
+
+	return subtle.ConstantTimeCompare(unmasked, secret) == 1
+}
+
 func CSRFEndpoint(w http.ResponseWriter, r *http.Request) *web.WebError {
 	var clientSecret string
 	cookie, err := r.Cookie(cookieNameCrsf)
@@ -131,7 +130,7 @@ func CSRFEndpoint(w http.ResponseWriter, r *http.Request) *web.WebError {
 }
 
 func setCSRFCookie(w http.ResponseWriter) (string, error) {
-	secretStr, err := GenerateRandomString(secretLenghtCrsf)
+	secretStr, err := crypto.GenerateRandomString(consts.CrsfSecretLen)
 	if err != nil {
 		return "", err
 	}

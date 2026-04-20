@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 )
 
@@ -37,7 +39,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		RETURNING u.id, u.role, u.username, u.avatar_url, u.updated_at, rs.remember_me`
 
 	var user UserPrintTimestamp
-	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
+	err = h.db.Pool.QueryRow(r.Context(), q, crypto.HashString(cookie.Value)).Scan(
 		&user.ID,
 		&user.Role,
 		&user.Username,
@@ -45,8 +47,8 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		&user.UpdatedAt,
 		&remember,
 	)
-
 	if err != nil {
+		slog.Error("you already know", "err", err, "token", crypto.HashString(cookie.Value))
 		redirectToLogin(w, r, next)
 		return
 	}

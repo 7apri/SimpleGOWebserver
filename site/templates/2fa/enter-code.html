@@ -2,16 +2,16 @@
  layout: page
  name:   2fa/enter-code
 ---
-[[ registerScript "auth/2fa/enter-code.js" ]]
+[[ registerScript "auth/2fa/login.js" ]]
 <main class="flx ali-c j-center fil">
-    <div class="txt-center flx col gap-sm j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:450px">
+    <div class="flx col gap-sm j-center p-lg bdr-rad-lg bg-surface-container w-var" style="--w:425px">
         <h1 class="txt-2xl ls-wide" style="margin-bottom: 0;">[[ getTitle ]]</h1>
         <form id="digit-code-form" class="flx col ali-s j-left txt-left mb-sm">
             [[ import "components/auth/code-input.html" ( dict
             "Classes"   "txt-2xl h-var"
             "Attribute" "autofocus"
             "Styles"    "--h:2em"
-             )]]
+                )]]
             <button 
             class="txt-lg fw-bold py-sm px-sm bg-primary fil-x"
             type="submit" 
@@ -40,7 +40,8 @@
         </form>
         <div class="flx gap-lg j-spcBetween ali-e">
             <div class="flx col txt-left w-fit">
-                <button class="bg-none fil-x txt-left" id="state-toggle">.</button>
+                <span id="err-dsp" style="color: var(--error);"></span>
+                <button class="bg-none fil-x txt-left" id="2fa-state-toggle">.</button>
                 [[ import "components/keep-next-link.html" (slice
                     ( dict
                         "Href" "/sign-in" 

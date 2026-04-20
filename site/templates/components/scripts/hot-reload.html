@@ -31,7 +31,9 @@
             if (event.wasClean) {
                 if (event.code === 1001 || event.code === 1006) {
                     setTimeout(connect, 3000);
+                    return;
                 }
+                console.log("webSocket closed bye!")
             } else {
                 setTimeout(connect, 2000);
             }

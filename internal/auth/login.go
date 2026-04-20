@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5"
@@ -55,7 +57,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 
 	identifier := strings.ToLower(strings.TrimSpace(req.Identifier))
 
-	err := h.db.Pool.QueryRow(r.Context(), q, identifier, UserCredentials2FA, UserCredentialsRecovery, UserCredentialsPassword).Scan(
+	err := h.db.Pool.QueryRow(r.Context(), q, identifier, consts.UserCredentials2FA, consts.UserCredentialsRecovery, consts.UserCredentialsPassword).Scan(
 		&user.ID,
 		&user.Role,
 		&user.Username,
@@ -82,7 +84,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		})
 	}
 
-	match, err := VerifyCredential(req.Password, passHash.String)
+	match, err := crypto.VerifyCredential(req.Password, passHash.String)
 	if err != nil || !match {
 		return web.NewError(http.StatusUnauthorized, "invalid_credentials", nil, nil)
 	}

@@ -3,10 +3,10 @@ import GetCsrfToken from "./csrf.js";
 
 /**
  * @param {HTMLElement} form
- * @param {HTMLElement} errorDsp
  * @param {function(Response): void} onRespOK
+ * @param {function(Response): void} onRespNotOK
  */
-const setupForm = (form, errorDsp ,onRespOK = null) =>{
+const setupForm = (form ,onRespOK = null, onRespNotOK = null) =>{
     var checkboxes = form.querySelectorAll("input[type='checkbox']");
     form.addEventListener("submit", async e => {
         e.preventDefault();
@@ -15,9 +15,6 @@ const setupForm = (form, errorDsp ,onRespOK = null) =>{
         if(!submitBtn) return;
 
         SetLoadingEl(submitBtn);
-        if(errorDsp != null){
-            errorDsp.textContent = '';
-        }
 
         const formData = new FormData(form);
         const endpoint = submitBtn.dataset.endpoint || form.dataset.endpoint;
@@ -43,23 +40,13 @@ const setupForm = (form, errorDsp ,onRespOK = null) =>{
             });
             if (resp.ok) {
                 onRespOK?.(resp);
-                ResetLoadEl(submitBtn);
             } else {
-                const data = await resp.json();
-                if(errorDsp != null){
-                    errorDsp.textContent = data.error;
-                } 
-
-                if (resp.status === 403) {
-                    GetCsrfToken(true);
-                }
-                
-                ResetLoadEl(submitBtn);
+                onRespNotOK?.(resp);
             }
         } catch (err) {
             console.error(`Form error ${err}`);
-            ResetLoadEl(submitBtn);
         }
+        ResetLoadEl(submitBtn);
     });
 }
 

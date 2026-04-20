@@ -28,7 +28,7 @@ func (mgr *EmailManager) SendVerificationEmail(challange ChallengeRaw, user User
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "verify")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "verify")
 	}
 }
 
@@ -47,7 +47,7 @@ func (mgr *EmailManager) SendPasswordResetEmail(challange ChallengeRaw, user Use
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "reset")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "reset")
 	}
 }
 
@@ -68,7 +68,7 @@ func (mgr *EmailManager) SendNewLoginEmail(info *NewLoginInfo, user UserDetail) 
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "new-login")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "new-login")
 	}
 }
 
@@ -82,7 +82,21 @@ func (mgr *EmailManager) SendAccountExistsEmail(user UserDetail) {
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "account-exists")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "account-exists")
+	}
+}
+
+func (mgr *EmailManager) SendSecurityPasswordReset(user UserDetail) {
+	err := mgr.SendEmail(&EmailCtx{
+		Reciever: user.Email,
+		EmailTemplateIdentifier: EmailTemplateIdentifier{
+			Lang: user.Lang,
+			Name: "account-exists",
+			Data: user,
+		},
+	})
+	if err != nil {
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "account-exists")
 	}
 }
 
@@ -96,6 +110,6 @@ func (mgr *EmailManager) SendWelcomeEmail(user UserDetail) {
 		},
 	})
 	if err != nil {
-		slog.Error("SMTP Error", "err", err, "to", user.Email, "host", mgr.host, "kind", "welcome")
+		slog.Error("SMTP Error", "err", err, "to", user.Email, "kind", "welcome")
 	}
 }

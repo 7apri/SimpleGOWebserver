@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
@@ -37,9 +38,8 @@ func (srv *Server) Routes() *http.ServeMux {
 	baseStack := []web.Middleware{web.RecoveryM, srv.analyticsService.Middleware, i18n.Middleware}
 
 	// guestStack := append([]web.Middleware{srv.authHandler.MiddlewareGuestOnly}, baseStack...)
-	protectedStack := append([]web.Middleware{srv.authHandler.Middleware}, baseStack...)
+	// protectedStack := append([]web.Middleware{srv.authHandler.Middleware}, baseStack...)
 
-	// --- Static Sites ---
 	rootStack := append([]web.Middleware{srv.authHandler.MiddlewareSoft}, baseStack...)
 	mux.Handle("GET /", srv.handlerHtml(srv.HandleRoot, rootStack...))
 
@@ -47,45 +47,33 @@ func (srv *Server) Routes() *http.ServeMux {
 	mux.Handle("GET /sign-up", srv.handlerHtml(srv.HandleSignUp, baseStack...))
 
 	mux.Handle("GET /2fa", web.Chain(srv.serveHtml("2fa/enter-code"), baseStack...))
-	mux.Handle("GET /2fa/setup", web.Chain(srv.serveHtmlUser("2fa/setup"), protectedStack...))
-
-	mux.Handle("GET /email", srv.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return srv.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "email", Name: "test"}, "", nil)
-	}, protectedStack...))
-	mux.Handle("GET /page", web.Chain(srv.serveHtmlUser("test"), protectedStack...))
 
 	mux.Handle("GET /password-reset", srv.handlerHtml(srv.handleChallengeUI(
 		challengeUIConfig{
-			tokenName:   "reset_token",
-			codeName:    "reset_code_tmp",
-			codeMaxAge:  300,
-			tokenMaxAge: 900,
+			actionName: "reset",
 			pageKey: templates.TemplateKey{
 				Kind: "page",
 				Name: "auth/reset",
 			},
+			cType: consts.UserChallengeReset,
 		}), rootStack...))
 
 	mux.Handle("GET /account-verify", srv.handlerHtml(srv.handleChallengeUI(
 		challengeUIConfig{
-			tokenName:   "verify_token",
-			codeName:    "verify_code_tmp",
-			codeMaxAge:  300,
-			tokenMaxAge: 900,
+			actionName: "verify",
 			pageKey: templates.TemplateKey{
 				Kind: "page",
 				Name: "auth/verify",
 			},
+			cType: consts.UserChallengeVerify,
 		}), baseStack...))
 
-	// --- Public API ---
 	mux.Handle("GET /api/health", http.HandlerFunc(srv.HandleHealth))
 
 	baseRateLimit := srv.rateLimited("", rate.Every(time.Second), 5)
 
 	protectedApiStack := append([]web.Middleware{srv.authHandler.Middleware, baseRateLimit}, baseStack...)
 
-	// --- Protected API ---
 	mux.Handle("GET /api/weather", web.Chain(http.HandlerFunc(srv.HandleWeather), protectedApiStack...))
 	mux.Handle("GET /api/location", web.Chain(http.HandlerFunc(srv.HandleLocation), protectedApiStack...))
 	mux.Handle("GET /api/sendEmail", web.Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +98,6 @@ func (srv *Server) Routes() *http.ServeMux {
 		http.Redirect(w, r, next, http.StatusPermanentRedirect)
 	}), protectedApiStack...))
 
-	// --- Auth API ---
 	mux.Handle("GET /api/auth/logout", web.Chain(
 		http.HandlerFunc(srv.authHandler.Logout),
 		web.RecoveryM,
@@ -141,11 +128,11 @@ func (srv *Server) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/2fa/recovery/regen", srv.handlerHtml(srv.authHandler.HandleRegenerateRecoveryCodes, authApiTwoFAStack...))
 
 	authApiTwoFALoginStack := append([]web.Middleware{srv.authHandler.MiddlewareTwoFA}, authApiStackQuantize...)
-	mux.Handle("POST /api/auth/2fa/recovery/verify", srv.handlerHtml(srv.authHandler.VerifyRecoveryCode, authApiTwoFALoginStack...))
+	mux.Handle("POST /api/auth/2fa/recovery/verify", srv.handlerHtml(srv.authHandler.HandleVerifyRecoveryCode, authApiTwoFALoginStack...))
 	mux.Handle("POST /api/auth/2fa/login", srv.handlerHtml(srv.authHandler.HandleLoginVerify2FA, authApiTwoFALoginStack...))
 
 	InitReset := srv.authHandler.InitEmailChallenge(
-		email.ChallengeReset,
+		consts.UserChallengeReset,
 		time.Minute,
 		15*time.Minute,
 		"reset_token",
@@ -153,17 +140,18 @@ func (srv *Server) Routes() *http.ServeMux {
 		srv.authHandler.EmailManager.SendPasswordResetEmail,
 	)
 	InitVerify := srv.authHandler.InitEmailChallenge(
-		email.ChallengeVerify,
+		consts.UserChallengeVerify,
 		time.Minute,
 		15*time.Minute,
 		"verify_token",
 		true,
 		srv.authHandler.EmailManager.SendVerificationEmail,
 	)
-	mux.Handle("POST /api/auth/reset/init", srv.handlerHtml(InitReset, authApiStackQuantize...))
 
-	resetChallengeStack := append([]web.Middleware{srv.authHandler.Middleware}, authApiStackQuantize...)
-	mux.Handle("POST /api/auth/reset/confirm", srv.handlerHtml(srv.authHandler.ConfirmReset, resetChallengeStack...))
+	mux.Handle("POST /api/auth/reset/init", srv.handlerHtml(InitReset, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/reset/confirm", srv.handlerHtml(srv.authHandler.ConfirmReset, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/reset/2fa", srv.handlerHtml(srv.authHandler.HandleResetVerify2FA, authApiStackQuantize...))
+	mux.Handle("POST /api/auth/reset/2fa/recovery", srv.handlerHtml(srv.authHandler.HandleResetVerifyRecoveryCode, authApiStackQuantize...))
 
 	mux.Handle("POST /api/auth/reset/check", srv.handlerHtml(srv.authHandler.CheckCodeReset, authApiStackQuantize...))
 	mux.Handle("POST /api/auth/verify/check", srv.handlerHtml(srv.authHandler.CheckCodeVerify, authApiStackQuantize...))
@@ -182,6 +170,6 @@ func (srv *Server) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/e/finalize", srv.handlerHtml(srv.authHandler.FinalizeExternal, authExtApiStack...))
 	mux.Handle("GET  /api/auth/e/cancel", srv.handlerHtml(srv.authHandler.CancelPendingAuth, authExtApiStack...))
 
-	mux.Handle("GET /ws-reload", srv.handlerHtml(refreshWebsocket(srv.templateMgr.RefreshChan), web.RecoveryM))
+	mux.Handle("GET /ws-reload", srv.handlerHtml(refreshWebsocket(srv.templateMgr.RefreshChan, srv.shutdownChan), web.RecoveryM))
 	return mux
 }

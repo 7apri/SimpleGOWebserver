@@ -1,7 +1,8 @@
 import { ResetLoadEl, SetLoadingEl } from "../../util/loadingEffect.js";
 const Init = (nextUri) =>{
-    document.querySelectorAll('.oauth-btn').forEach( btn => {
-        btn.onclick = async () => {
+    document.querySelectorAll('[data-provider]').forEach( btn => {
+        btn.onclick = async (e) => {
+            e.preventDefault();
             const provider = btn.getAttribute("data-provider");
             const target = `/api/auth/e/login?provider=${provider}&next=${encodeURIComponent(nextUri)}`;
     

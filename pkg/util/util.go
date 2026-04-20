@@ -2,11 +2,9 @@ package util
 
 import (
 	"iter"
-	"log/slog"
 	"maps"
 	"math/rand/v2"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -75,14 +73,6 @@ func FilterNil[T any](data []*T) []*T {
 		}
 	}
 	return data[:n]
-}
-func TryGetEnvFatal(k string) string {
-	v := os.Getenv(k)
-	if v == "" {
-		slog.Error("please check the .env", "missing key", k)
-		os.Exit(1)
-	}
-	return v
 }
 
 func RandomInt(max int) int {

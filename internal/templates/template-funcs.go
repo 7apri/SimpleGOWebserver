@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -74,6 +75,30 @@ func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {
 	return m
 }
 
+func (mgr *TemplateManager) walk(name string, resolvedScripts map[string]string) error {
+	assetInfo := mgr.assetInfo.Load()
+	if assetInfo == nil {
+		return errors.New("no asset info")
+	}
+
+	if _, seen := resolvedScripts[name]; seen {
+		return nil
+	}
+
+	path := "/static/js/" + name
+	if info, ok := assetInfo.Lookup(path); ok {
+		resolvedScripts[name] = path + "?v=" + info.Hash
+		for _, dep := range info.Deps {
+			if err := mgr.walk(dep, resolvedScripts); err != nil {
+				return err
+			}
+		}
+	} else {
+		return fmt.Errorf("script with the path %s was not found", path)
+	}
+	return nil
+}
+
 func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 	funcs := template.FuncMap{
 		"tr": func(key string) string {
@@ -113,7 +138,7 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 			if e.isCtxNil() {
 				return "{}"
 			}
-			m := mgr.i18nManager.GetClient(e.ctx.Lang.Code, e.ctx.Scripts)
+			m := mgr.i18nManager.GetClient(e.ctx.Lang.Code, e.ctx.ResolvedScripts)
 			b, err := sonic.ConfigStd.Marshal(m)
 			if err != nil {
 				slog.Error("Failed to marshal client translations", "error", err)
@@ -148,13 +173,10 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 			path, _ = strings.CutPrefix(path, "/")
 
 			e.ctx.Scripts[path] = struct{}{}
-			return ""
-		},
-		"registerDefine": func(name, content string) string {
-			if e.isCtxNil() {
-				return ""
+			if err := mgr.walk(path, e.ctx.ResolvedScripts); err != nil {
+				slog.Error("Failed to walk script", "path", path, "error", err)
 			}
-			e.ctx.Defines[name] = content
+
 			return ""
 		},
 		"setMeta": func(key, value string) string {
@@ -177,46 +199,14 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				return "", nil
 			}
 
-			assetInfo := mgr.assetInfo.Load()
-			if assetInfo == nil {
-				return "", nil
-			}
-
-			resolved := make(map[string]string)
-
-			var walk func(name string) error
-			walk = func(name string) error {
-				if _, seen := resolved[name]; seen {
-					return nil
-				}
-				path := "/static/js/" + name
-				if info, ok := assetInfo.Lookup(path); ok {
-					resolved[name] = path + "?v=" + info.Hash
-					for _, dep := range info.Deps {
-						if err := walk(dep); err != nil {
-							return err
-						}
-					}
-				} else {
-					return fmt.Errorf("script with the path %s was not found", path)
-				}
-				return nil
-			}
-
-			for scriptName := range e.ctx.Scripts {
-				if err := walk(scriptName); err != nil {
-					return "", err
-				}
+			imports := make(map[string]string)
+			for name, hashedPath := range e.ctx.ResolvedScripts {
+				// imports["./"+name] = hashedPath
+				imports["/static/js/"+name] = hashedPath
 			}
 
 			b := mgr.bufferPool.Get()
 			defer mgr.bufferPool.Put(b)
-
-			imports := make(map[string]string)
-			for name, hashedPath := range resolved {
-				// imports["./"+name] = hashedPath
-				imports["/static/js/"+name] = hashedPath
-			}
 
 			if len(imports) != 0 {
 				if m, err := sonic.ConfigStd.Marshal(map[string]any{"imports": imports}); err == nil {
@@ -226,9 +216,9 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				}
 			}
 
-			depPaths := make([]string, 0, len(resolved))
+			depPaths := make([]string, 0, len(e.ctx.ResolvedScripts))
 			entryPaths := make([]string, 0, len(e.ctx.Scripts))
-			for n, p := range resolved {
+			for n, p := range e.ctx.ResolvedScripts {
 				if _, isEntry := e.ctx.Scripts[n]; isEntry {
 					entryPaths = append(entryPaths, p)
 				} else {

@@ -27,7 +27,8 @@
                 type="submit"
                 data-endpoint="/api/auth/register"
                 style="--load-color: var(--on-primary)"
-                >[[ capitalize (tr "phrase:sign_up") ]]</button>   
+                >[[ capitalize (tr "phrase:sign_up") ]]</button>
+                <span id="err-dsp" style="color: var(--error);"></span>
                 <div class="flx mt-md ali-c gap-sm">
                     <label for="remember-input">[[ capitalize ( tr "phrase:remember_me" ) ]]</label>
                     <input id="remember-input" name="remember" type="checkbox">

@@ -22,5 +22,6 @@ InitForm(form,null,async (r) => {
             window.location.href = next;
             break;
         default:
+            window.location.href = nextUrl;
     }
 });

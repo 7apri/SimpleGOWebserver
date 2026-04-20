@@ -10,8 +10,8 @@
         "phrase:confirm"  : "confirm",
         "phrase:email"    : "email",
         "phrase:password" : "password",
-        "phrase:new_password"  : "remember me",
-        "phrase:remember_me" : "pamatovat si mě",
+        "phrase:new_password"  : "new password",
+        "phrase:remember_me" : "remember me",
         "phrase:recovery_code" : "recovery code",
         "phrase:sign_in"  : "sign in",
         "phrase:sign_up"  : "sign up",
@@ -20,21 +20,36 @@
         "phrase:or_use_local"    : "Or use a local account",
         "phrase:continue_with"   : "Continue with",
         "phrase:back_home"       : "take me home",
+        "phrase:back" : "back",
+        "phrase:user_info" : "user information",
+        "phrase:provider" : "provider",
+
+        "phrase:link"   : "link",
+        "phrase:cancel" : "cancel",
+
+        "phrase:word_bank" : "A word bank for 2fa recovery codes",
         
         "title:err/404"  : "Page Not Found",
         "title:main" : "Welcome to Panels",
         
-        "title:auth/login"        : "Sign In",
-        "title:auth/register"     : "Create Account",
+        "title:auth/login"        : "Sign in",
+        "title:auth/register"     : "Sign up",
         "title:auth/new-password" : "Set New Password",
         "title:auth/enter-code"   : "Enter Verification Code",
         "title:auth/email_req"    : "Email Verification",
         
+        "title:reset/email-request" : "Password reset request",
+
         "title:reset/enter-code"  : "Reset Password",
         "title:reset/email_req"   : "Request Password Reset",
         "title:verify/enter-code" : "Activate Account",
         "title:verify/email_req"  : "Send Verification Email",
-        
+
+        "title:auth/finish-external/link"      : "link your external account",
+        "title:auth/finish-external/register"  : "register with your external account",
+
+        "title:2fa/enter-code"  : "Two-Step Verification",
+
         "desc:err/404"  : "Sorry, we couldn't find the page you're looking for.",
         "desc:main" : "Your space for creativity and organization.",
 
@@ -48,6 +63,17 @@
         "desc:reset/email_req"   : "We will send you a recovery link to your email.",
         "desc:verify/enter-code" : "Enter the code from your email to complete registration.",
         "desc:verify/email_req"  : "Enter your email to receive a new verification link.",
+
+        "desc:development" : "The page is far from finished, but you can turn on two-step verification here for now (it's not done either)",
+
+        "aria_lbl:lang" : "switch language.",
+        "lbl:login_identifier" : "email or username",
+
+        "btn:resend"   : "send again",
+
+        "plh:email" : "jane.doe@email.com",
+        "plh:user"  : "Jane Doe",
+        "plh:recovery_code"  : "quick-brown-fox",
 
         "header:err/404" : "Oops! You've gone off-grid.",
         "text:err/404"   : "The page you are looking for has been moved or deleted.",

@@ -12,6 +12,7 @@
         
         "phrase:forgot_password" : "zapomněli jste heslo?",
         "phrase:back_home"    : "zpět na hlavní stránku",
+        "phrase:back" : "zpět",
         
         "phrase:or_use_local"    : "nebo použijte lokální účet",
         "phrase:continue_with"   : "pokračovat přes",
@@ -21,19 +22,27 @@
         "phrase:username" : "uživatelské jméno",
         "phrase:new_password" : "nové heslo",
         "phrase:remember_me" : "zapamatovat si mě",
+        "phrase:user_info" : "informace o uživateli",
         
         "phrase:sign_in"  : "přihlásit se",
         "phrase:sign_up"  : "registrovat se",
         "phrase:sign_out" : "odhlásit se",
 
+        "phrase:link"   : "propojit",
+        "phrase:cancel" : "zrušit",
+
+        "phrase:word_bank" : "'Slovní banka' pro kódy obnovení na dvou fázové ověření",
+
         "phrase:username_try" : "Zkuste:",
         
-        "lbl:login_identifier" : "uživatelské jméno nebo email",
+        "aria_lbl:lang" : "přepnout jazyk.",
+
+        "lbl:login_identifier" : "email nebo uživatelské jméno",
         "btn:resend"   : "poslat znovu",
         
         "plh:email" : "jan.novak@seznam.cz",
-        "plh:user"  : "JanNovak_real",
-        "plh:recovery_code"  : "slovo-slovo-slovo",
+        "plh:user"  : "Jan Novák",
+        "plh:recovery_code"  : "řízek-smažák-svíčková",
 
         "title:err/404"  : "Stránka nenalezena",
         "title:main" : "Vítejte v Panels",
@@ -49,9 +58,10 @@
         "title:reset/email-request"   : "Žádost o obnovu hesla",
         "title:verify/email-request"  : "Zaslat ověřovací e-mail",
 
-        "title:auth/finish-external/link"       : "link",
-        "title:auth/finish-external/register"  : "register",
+        "title:2fa/enter-code"  : "Dvoufázové ověření",
 
+        "title:auth/finish-external/link"     : "propojit svůj externí účet",
+        "title:auth/finish-external/register" : "registrujte se svým externím účtem",
         
         "desc:err/404"  : "Omlouváme se, ale tato stránka neexistuje.",
         "desc:main" : "Váš prostor pro kreativitu a organizaci.",
@@ -66,6 +76,8 @@
         "desc:verify/enter-code" : "Zadejte kód z e-mailu pro dokončení registrace.",
         "desc:reset/email-request"   : "Pošleme vám odkaz pro obnovu hesla.",
         "desc:verify/email-request"  : "Zadejte e-mail pro zaslání nového ověřovacího kódu.",
+
+        "desc:development" : "Stránka není zdaleka hotová, ale zatím si tady můžete zapnout dvoufázové ověření (taky to není hotové)",
         
         "header:err/404" : "Ups! Tudy cesta nevede.",
         "text:err/404"   : "Stránka, kterou hledáte, byla pravděpodobně přesunuta nebo smazána."

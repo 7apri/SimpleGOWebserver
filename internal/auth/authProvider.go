@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
@@ -44,9 +46,6 @@ type PendingAuthProviderClaims struct {
 	jwt.RegisteredClaims
 }
 
-var ErrExtUserNoEmail = errors.New("external user has no email")
-var SocialAccountTaken = errors.New("social account taken")
-
 func GeneratePKCE() (verifier string, challenge string, err error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -69,7 +68,7 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) *web.We
 		return web.NewError(http.StatusBadRequest, "unsupported_provider", nil, map[string]string{"provider": pQ})
 	}
 
-	state, err := GenerateRandomString(32)
+	state, err := crypto.GenerateRandomString(32)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
@@ -117,25 +116,11 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) *web.We
 	http.Redirect(w, r, p.getAuthURL(state, challenge), http.StatusTemporaryRedirect)
 	return nil
 }
-func clearCookies(w http.ResponseWriter, path string, names ...string) {
-	for _, name := range names {
-		http.SetCookie(w, &http.Cookie{
-			Name:     name,
-			Value:    "",
-			Path:     path,
-			MaxAge:   -1,
-			Expires:  time.Unix(0, 0),
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
-	}
-}
 func (h *AuthHandler) handleOAuthLogin(w http.ResponseWriter, r *http.Request, user *UserPrintTimestamp, has2FA bool) *web.WebError {
 	var next string
 	if cookie, err := r.Cookie("oauth_next"); err == nil {
 		next = cookie.Value
-		clearCookies(w, "/", "oauth_next")
+		web.ClearCookies(w, "/", "oauth_next")
 	}
 
 	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
@@ -201,7 +186,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 		return web.NewError(http.StatusBadGateway, "oauth_failed", err, nil)
 	}
 
-	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier")
+	web.ClearCookies(w, callbackPath, "oauth_state", "oauth_verifier")
 
 	var user UserPrintTimestamp
 	var has2FA, isLogin bool
@@ -231,7 +216,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
     FROM email_match;`
 
 	err = h.db.Pool.QueryRow(ctx, findQ,
-		p.Name(), extUser.ID, UserCredentials2FA, extUser.Email,
+		p.Name(), extUser.ID, consts.UserCredentials2FA, extUser.Email,
 	).Scan(&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt, &has2FA, &isLogin)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -282,7 +267,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 	})
 
 	if cookie, err := r.Cookie("oauth_next"); err == nil {
-		clearCookies(w, "/", "oauth_next")
+		web.ClearCookies(w, "/", "oauth_next")
 		http.Redirect(w, r, "/sign-up?next="+url.QueryEscape(cookie.Value), http.StatusSeeOther)
 		return nil
 	}
@@ -312,7 +297,7 @@ func (h *AuthHandler) CancelPendingAuth(w http.ResponseWriter, r *http.Request) 
 		next = "/"
 	}
 
-	clearCookies(w, "/", "oauth_pending", "oauth_next")
+	web.ClearCookies(w, "/", "oauth_pending", "oauth_next")
 	http.Redirect(w, r, next, http.StatusSeeOther)
 	return nil
 }
@@ -344,7 +329,7 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 
 	if claims.Action == "link" {
 		const qCheck2FA = `SELECT EXISTS(SELECT 1 FROM user_credentials WHERE user_id = $1 AND kind = $2)`
-		err = h.db.Pool.QueryRow(ctx, qCheck2FA, claims.UserID, UserCredentials2FA).Scan(&has2FA)
+		err = h.db.Pool.QueryRow(ctx, qCheck2FA, claims.UserID, consts.UserCredentials2FA).Scan(&has2FA)
 		if err != nil {
 			return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
 		}
@@ -397,7 +382,7 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
 	}
 
-	clearCookies(w, "/", "oauth_pending")
+	web.ClearCookies(w, "/", "oauth_pending")
 
 	var status string
 	if has2FA {

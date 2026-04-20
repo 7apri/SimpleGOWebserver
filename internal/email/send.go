@@ -9,6 +9,7 @@ import (
 	"net/smtp"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 )
 
@@ -60,7 +61,7 @@ func (mgr *EmailManager) SendEmail(ctx *EmailCtx) error {
 	copy(htmlBody, buf.Bytes())
 	buf.Reset()
 
-	fmt.Fprintf(buf, "From: %s\r\n", mgr.from)
+	buf.WriteString("From:" + consts.SmtpFrom + "\r\n")
 	fmt.Fprintf(buf, "To: %s\r\n", ctx.Reciever)
 	fmt.Fprintf(buf, "Subject: %s\r\n", subject)
 	buf.WriteString("MIME-Version: 1.0\r\n")
@@ -73,20 +74,18 @@ func (mgr *EmailManager) SendEmail(ctx *EmailCtx) error {
 	encoder.Close()
 
 	return smtp.SendMail(
-		mgr.host,
+		consts.SmtpHostPort,
 		mgr.auth,
-		mgr.from,
+		consts.SmtpFrom,
 		[]string{ctx.Reciever},
 		buf.Bytes(),
 	)
 }
 
 const (
-	baseUrl = "https://local.7apri.cfd"
-
-	secureUrlBase = baseUrl + "/secure"
-	resetUrlBase  = baseUrl + "/password-reset"
-	verifyUrlBase = baseUrl + "/account-verify"
+	secureUrlBase = consts.ProtocolUrl + "/secure"
+	resetUrlBase  = consts.ProtocolUrl + "/password-reset"
+	verifyUrlBase = consts.ProtocolUrl + "/account-verify"
 )
 
 type UserDetail struct {
@@ -97,13 +96,6 @@ type UserContact struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 }
-type ChallengeType string
-
-const (
-	ChallengeVerify ChallengeType = "verify"
-	ChallengeReset  ChallengeType = "reset"
-	ChallengeLock   ChallengeType = "lock"
-)
 
 type GeneratedChallenge struct {
 	ChallengeRaw

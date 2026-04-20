@@ -11,16 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
 func GenerateChallenge() (*email.GeneratedChallenge, error) {
-	rawToken, err := GenerateRandomString(32)
+	rawToken, err := crypto.GenerateRandomString(32)
 	if err != nil {
 		return nil, err
 	}
@@ -37,121 +40,160 @@ func GenerateChallenge() (*email.GeneratedChallenge, error) {
 			RawCode:  rawCode,
 		},
 		ChallengeHash: email.ChallengeHash{
-			TokenHash: HashString(rawToken),
-			CodeHash:  HashString(rawCode),
+			TokenHash: crypto.HashString(rawToken),
+			CodeHash:  crypto.HashString(rawCode),
 		},
 	}, nil
 }
 
-type challengeResult struct {
-	User     *UserPrintTimestamp
+type ChallengeClaims struct {
+	UserID     uuid.UUID `json:"uid"`
+	Action     string    `json:"act"`
+	MfaPending bool      `json:"mfa"`
+	jwt.RegisteredClaims
+}
+
+func (s *secretWrap) issueChallengeClaims(w http.ResponseWriter, userID uuid.UUID, mfaPending bool, name string) error {
+	duration := 15 * time.Minute
+	expiry := time.Now().Add(duration)
+	claims := ChallengeClaims{
+		UserID:     userID,
+		MfaPending: mfaPending,
+		Action:     name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID.String(),
+			ExpiresAt: jwt.NewNumericDate(expiry),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    consts.BrandName,
+		},
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.challenge)
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     name + "_claims",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(duration.Seconds()),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return nil
+}
+
+func (h *AuthHandler) GetChallengeClaims(tokenStr string) (*ChallengeClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &ChallengeClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return h.secret.challenge, nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(*ChallengeClaims)
+	if !ok {
+		return nil, ErrInvalidClaims
+	}
+
+	if claims.Issuer != consts.BrandName {
+		return nil, ErrInvalidIssuer
+	}
+
+	return claims, nil
+}
+
+type ChallengeResult struct {
+	UserID   uuid.UUID
 	Correct  bool
 	Attempts int
 	Has2FA   bool
 }
 
-func coalesce[T any](s *T, def T) T {
-	if s == nil {
-		return def
-	}
-	return *s
-}
-
-func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType, tName, codeRaw string) (*challengeResult, *web.WebError) {
-	cookieT, errT := r.Cookie(tName)
-	if errT != nil || cookieT.Value == "" {
-		return nil, web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
-	}
-
-	res := &challengeResult{}
-
-	var (
-		uid        uuid.NullUUID
-		role       *string
-		username   *string
-		avatar     *string
-		updated_at *time.Time
-	)
-
+func (h *AuthHandler) verifyChallenge(r *http.Request, cType consts.UserChallengeType, tokenRaw, codeRaw string) (*ChallengeResult, *web.WebError) {
 	const q = `
-		WITH challenge_lookup AS (
-			SELECT user_id, code_hash, attempts
-			FROM user_challenges
-			WHERE challenge_type = $1
-				AND token_hash = $2
-				AND expires_at > NOW()
-				AND attempts < 5
-			FOR UPDATE
-		),
-		challenge_failure AS (
-			UPDATE user_challenges
-			SET attempts = attempts + 1, 
-				updated_at = NOW()
-			WHERE challenge_type = $1
-				AND token_hash = $2
-				AND EXISTS (SELECT 1 FROM challenge_lookup)
-				AND (SELECT code_hash FROM challenge_lookup) != $3
-			RETURNING attempts
-		),
-		user_info AS (
-			SELECT id, role, username, avatar_url, updated_at
-			FROM users 
-			WHERE id = (SELECT user_id FROM challenge_lookup)
-		)
-		SELECT 
-			COALESCE((SELECT code_hash FROM challenge_lookup) = $3, FALSE) AS is_correct,
-			COALESCE(
-				(SELECT attempts FROM challenge_failure),
-				(SELECT attempts FROM challenge_lookup),
-				0
-			) AS current_attempts,
-			COALESCE(
-				EXISTS (
-					SELECT 1 FROM user_credentials
-					WHERE user_id = (SELECT user_id FROM challenge_lookup) 
-					AND kind = 'totp'
-				), 
-				FALSE
-			) AS has_2fa,
-    	u.id, u.role, u.username, u.avatar_url, u.updated_at
-		FROM (SELECT 1) AS dummy
-		LEFT JOIN user_info u ON TRUE;`
+        WITH challenge_lookup AS (
+		SELECT user_id, code_hash, attempts
+		FROM user_challenges
+		WHERE challenge_type = $1 
+			AND token_hash = $2 
+			AND expires_at > NOW() 
+			AND attempts < 5
+		FOR UPDATE
+	),
+	challenge_delete AS (
+		DELETE FROM user_challenges
+		WHERE challenge_type = $1 
+			AND token_hash = $2 
+			AND (SELECT code_hash FROM challenge_lookup) = $3
+		RETURNING user_id
+	),
+	challenge_failure AS (
+		UPDATE user_challenges
+		SET attempts = attempts + 1, 
+			updated_at = NOW()
+		WHERE challenge_type = $1 
+			AND token_hash = $2 
+			AND (SELECT code_hash FROM challenge_lookup) != $3
+		RETURNING attempts
+	)
+	SELECT 
+		COALESCE((SELECT user_id FROM challenge_lookup), '00000000-0000-0000-0000-000000000000'::uuid) as user_id,
+		((SELECT code_hash FROM challenge_lookup) = $3) IS TRUE AS is_correct,
+		COALESCE(
+			(SELECT attempts FROM challenge_failure),
+			(SELECT attempts FROM challenge_lookup),
+			0
+		) AS current_attempts,
+		EXISTS (
+			SELECT 1 FROM user_credentials
+			WHERE user_id = (SELECT user_id FROM challenge_lookup) 
+			AND kind = 'totp'
+		) AS has_2fa;`
+
+	res := &ChallengeResult{}
 	err := h.db.Pool.QueryRow(r.Context(), q,
 		cType,
-		HashString(cookieT.Value),
-		HashString(codeRaw),
-	).Scan(
-		&res.Correct,
-		&res.Attempts,
-		&res.Has2FA,
-		&uid,
-		&role,
-		&username,
-		&avatar,
-		&updated_at,
-	)
-
+		crypto.HashString(tokenRaw),
+		crypto.HashString(codeRaw),
+	).Scan(&res.UserID, &res.Correct, &res.Attempts, &res.Has2FA)
 	if err != nil {
 		return nil, web.NewError(http.StatusInternalServerError, "internal", err, nil)
-	}
-
-	if uid.Valid {
-		res.User = &UserPrintTimestamp{
-			UserPrint: UserPrint{
-				ID:        uid.UUID,
-				Role:      coalesce(role, ""),
-				Username:  coalesce(username, ""),
-				AvatarURL: coalesce(avatar, ""),
-			},
-			UpdatedAt: coalesce(updated_at, time.Time{}),
-		}
 	}
 
 	return res, nil
 }
 
-func (h *AuthHandler) tryLock(ctx context.Context, challengeType email.ChallengeType, key string, ttl time.Duration) (int, bool) {
-	redisKey := fmt.Sprintf("rl:%s:%s", challengeType, HashString(key))
+func (h *AuthHandler) ProcessChallengeVerification(w http.ResponseWriter, r *http.Request, cType consts.UserChallengeType, tokenRaw, action, code string) (*ChallengeResult, *web.WebError) {
+	res, err := h.verifyChallenge(r, cType, tokenRaw, code)
+	if err != nil {
+		return nil, err
+	}
+
+	if !res.Correct {
+		if res.Attempts >= 5 {
+			return res, web.NewError(http.StatusUnauthorized, "too_many_attempts", nil, nil)
+		}
+		return res, web.NewError(http.StatusUnauthorized, "invalid_code", nil, map[string]int{
+			"remaining_attempts": res.Attempts - 5,
+		})
+	}
+
+	if err := h.secret.issueChallengeClaims(w, res.UserID, res.Has2FA, action); err != nil {
+		return res, web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+
+	return res, nil
+}
+
+func (h *AuthHandler) tryLock(ctx context.Context, challengeType consts.UserChallengeType, key string, ttl time.Duration) (int, bool) {
+	redisKey := fmt.Sprintf("rl:%s:%s", challengeType, crypto.HashString(key))
 
 	success, err := h.redis.SetNX(ctx, redisKey, "1", ttl).Result()
 	if err != nil {
@@ -192,12 +234,12 @@ func (h *AuthHandler) GetValueWithTTL(ctx context.Context, key string) (string, 
 	return val, ttl, nil
 }
 
-func (h *AuthHandler) isLimited(ctx context.Context, challengeType email.ChallengeType, keys ...string) (int, bool) {
+func (h *AuthHandler) isLimited(ctx context.Context, challengeType consts.UserChallengeType, keys ...string) (int, bool) {
 	for _, key := range keys {
 		if key == "" {
 			continue
 		}
-		redisKey := fmt.Sprintf("rl:%s:%s", challengeType, HashString(key))
+		redisKey := fmt.Sprintf("rl:%s:%s", challengeType, crypto.HashString(key))
 		ttl, _ := h.redis.TTL(ctx, redisKey).Result()
 		if ttl > 0 {
 			return int(ttl.Seconds()), true
@@ -206,8 +248,8 @@ func (h *AuthHandler) isLimited(ctx context.Context, challengeType email.Challen
 	return 0, false
 }
 
-func (h *AuthHandler) setRateLimit(ctx context.Context, challengeType email.ChallengeType, key string, ttl time.Duration) {
-	redisKey := fmt.Sprintf("rl:%s:%s", challengeType, HashString(key))
+func (h *AuthHandler) setRateLimit(ctx context.Context, challengeType consts.UserChallengeType, key string, ttl time.Duration) {
+	redisKey := fmt.Sprintf("rl:%s:%s", challengeType, crypto.HashString(key))
 	h.redis.Set(ctx, redisKey, "1", ttl)
 }
 
@@ -215,7 +257,7 @@ func (h *AuthHandler) setTokenCookie(
 	ctx context.Context,
 	w http.ResponseWriter,
 	challenge *email.GeneratedChallenge,
-	challengeType email.ChallengeType,
+	challengeType consts.UserChallengeType,
 	rateLimit time.Duration,
 	expirationSec int,
 	identifier,
@@ -234,7 +276,7 @@ func (h *AuthHandler) setTokenCookie(
 }
 func (h *AuthHandler) setRateLimitsEmail(
 	ctx context.Context,
-	challengeType email.ChallengeType,
+	challengeType consts.UserChallengeType,
 	identifier,
 	tokenHash string,
 	rateLimit time.Duration,
@@ -246,7 +288,7 @@ func (h *AuthHandler) setRateLimitsEmail(
 }
 
 func (h *AuthHandler) InitEmailChallenge(
-	challengeType email.ChallengeType,
+	challengeType consts.UserChallengeType,
 	rateLimit time.Duration,
 	expiration time.Duration,
 	cookieName string,
@@ -257,7 +299,7 @@ func (h *AuthHandler) InitEmailChallenge(
 		var req struct {
 			Email string `json:"email"`
 		}
-		sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
+		err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 
 		ctx := r.Context()
 		user := email.UserDetail{
@@ -268,12 +310,12 @@ func (h *AuthHandler) InitEmailChallenge(
 
 		var tokenHashReq sql.NullString
 		if cookie, err := r.Cookie(cookieName); err == nil {
-			tokenHashReq = sql.NullString{String: HashString(cookie.Value), Valid: true}
+			tokenHashReq = sql.NullString{String: crypto.HashString(cookie.Value), Valid: true}
 		} else {
 			tokenHashReq = sql.NullString{Valid: false}
 		}
 
-		if retryAfter, limited := h.isLimited(ctx, challengeType, user.Email, tokenHashReq.String); limited {
+		if retryAfter, limited := h.isLimited(ctx, challengeType, user.Email); limited {
 			return web.NewError(http.StatusTooManyRequests, "too_many_requests_email", nil, map[string]int{"retry_after": retryAfter})
 		}
 
@@ -287,8 +329,9 @@ func (h *AuthHandler) InitEmailChallenge(
 			SELECT u.id, u.username, u.email, u.preferred_lang, u.is_verified, uc.updated_at
 			FROM users u
 			LEFT JOIN user_challenges uc ON uc.user_id = u.id AND uc.challenge_type = $2
-			WHERE (u.email = $1 OR uc.token_hash = $5)
+			WHERE (u.email = $1) OR ($1 = '' AND uc.token_hash = $5)
 			AND u.deleted_at IS NULL 
+			ORDER BY (u.email = $1) DESC
 			LIMIT 1
 		),
 		attempt AS (

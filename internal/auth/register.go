@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
+	"github.com/7apri/SimpleGOWebserver/internal/crypto"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
@@ -25,10 +26,6 @@ type registerRequest struct {
 	Password   string `json:"password"`
 	RememberMe bool   `json:"remember"`
 }
-
-var ErrPasswordShort = errors.New("password_too_short")
-var ErrPasswordLong = errors.New("password_too_long")
-var ErrPasswordSimple = errors.New("password_too_simple")
 
 func validatePassword(password string) error {
 	if len(password) < 10 {
@@ -138,17 +135,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 		return web.NewError(http.StatusBadRequest, "email_invalid", nil, nil)
 	}
 	if err := validatePassword(req.Password); err != nil {
-		return web.NewError(http.StatusBadRequest, "", err, nil)
+		return web.NewError(http.StatusBadRequest, "password_invalid", err, nil)
 	}
 	req.Username = strings.TrimSpace(req.Username)
 	if req.Username == "" || strings.Contains(req.Username, "@") {
 		return web.NewError(http.StatusBadRequest, "username_invalid", nil, nil)
 	}
-	if ttl, limited := h.tryLock(ctx, email.ChallengeVerify, req.Email, time.Minute); limited {
+	if ttl, limited := h.tryLock(ctx, consts.UserChallengeVerify, req.Email, time.Minute); limited {
 		return web.NewError(http.StatusTooManyRequests, "too_many_requests_email", nil, map[string]any{"retry_after": ttl})
 	}
 
-	hashed, err := HashCredential(req.Password)
+	hashed, err := crypto.HashCredential(req.Password)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
@@ -185,18 +182,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 	}
 
 	err = h.db.Pool.QueryRow(ctx, registerQuery,
-		strings.ToLower(req.Email), // $1
-		userDetail.Username,        // $2
-		lang,                       // $3
-		UserCredentialsPassword,    // $4 ('kind')
-		hashed,                     // $5 ('secret')
-		email.ChallengeVerify,      // $6
-		challenge.CodeHash,         // $7
-		challenge.TokenHash,        // $8
+		strings.ToLower(req.Email),     // $1
+		userDetail.Username,            // $2
+		lang,                           // $3
+		consts.UserCredentialsPassword, // $4 ('kind')
+		hashed,                         // $5 ('secret')
+		consts.UserChallengeVerify,     // $6
+		challenge.CodeHash,             // $7
+		challenge.TokenHash,            // $8
 	).Scan(&userID)
 
 	if err == nil {
-		h.setTokenCookie(ctx, w, challenge, email.ChallengeVerify, time.Minute, 900, req.Email, "verify_token")
+		h.setTokenCookie(ctx, w, challenge, consts.UserChallengeVerify, time.Minute, 900, req.Email, "verify_token")
 		http.SetCookie(w, &http.Cookie{
 			Name:     "verify_remember",
 			Value:    strconv.FormatBool(req.RememberMe),
@@ -220,7 +217,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 				userDetail.Username = existingUsername
 			}
 
-			h.setTokenCookie(ctx, w, challenge, email.ChallengeVerify, time.Minute, 900, req.Email, "verify_token")
+			h.setTokenCookie(ctx, w, challenge, consts.UserChallengeVerify, time.Minute, 900, req.Email, "verify_token")
 			http.SetCookie(w, &http.Cookie{
 				Name:     "verify_remember",
 				Value:    strconv.FormatBool(req.RememberMe),
