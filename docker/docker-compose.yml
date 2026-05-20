@@ -4,8 +4,10 @@ services:
       context: ..
       dockerfile: ./docker/Dockerfile.server
     depends_on:
-      - database
-      - redis
+      redis:
+        condition: service_healthy
+      database:
+        condition: service_started
     volumes:
       - dbsocket:/var/run/postgresql
       - ../site/i18n:/app/i18n
@@ -33,7 +35,12 @@ services:
     volumes:
       - redis_data:/data
     env_file: .env
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes 
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
   nginx:
     image: fholzer/nginx-brotli
     ports:

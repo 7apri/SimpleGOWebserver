@@ -10,32 +10,44 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const maxRetries = 5
-const baseDelay = 1 * time.Second
+const (
+	maxRetries = 5
+	baseDelay  = 1 * time.Second
+)
 
 func Init(ctx context.Context) *redis.Client {
 	redisAddr := util.TryGetEnvFatal("REDIS_ADDRESS")
 	redisPassword := util.TryGetEnvFatal("REDIS_PASSWORD")
 
-	var rdb *redis.Client
+	rdb := redis.NewClient(&redis.Options{
+		Addr:         redisAddr,
+		Password:     redisPassword,
+		DB:           0,
+		MaxRetries:   -1,
+		PoolSize:     10,
+		MinIdleConns: 2,
+	})
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		rdb = redis.NewClient(&redis.Options{
-			Addr:     redisAddr,
-			Password: redisPassword,
-			DB:       0,
-		})
-		err := rdb.Ping(ctx).Err()
+		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		err := rdb.Ping(pingCtx).Err()
+		cancel()
+
 		if err == nil {
 			slog.Info("Successfully connected to redis!", "attempt", attempt)
-			break
+			return rdb
 		}
+
 		if attempt == maxRetries {
-			slog.Error("redis connection failed", "err", err, "addr", redisAddr, "pass", redisPassword)
+			slog.Error("redis connection failed permanently", "err", err, "addr", redisAddr)
+			rdb.Close()
 			os.Exit(1)
 		}
-		slog.Warn("redis connection failed", "err", err, "attempt", attempt)
-		time.Sleep(baseDelay * time.Duration(1<<attempt))
+
+		slog.Warn("redis connection failed, retrying...", "err", err, "attempt", attempt)
+
+		time.Sleep(baseDelay * time.Duration(1<<(attempt-1)))
 	}
+
 	return rdb
 }

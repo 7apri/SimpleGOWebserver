@@ -27,7 +27,7 @@ func Init(ctx context.Context) *Database {
 
 	config.ConnConfig.User = util.TryGetEnvFatal("DB_USER")
 	config.ConnConfig.Password = util.TryGetEnvFatal("DB_PASSWORD")
-	config.ConnConfig.Host = "/var/run/postgresql"
+	config.ConnConfig.Host = util.TryGetEnvFatal("DB_SOCKET_PATH")
 	config.ConnConfig.Database = util.TryGetEnvFatal("DB_NAME")
 	config.ConnConfig.Port = uint16(5432)
 	config.ConnConfig.SSLNegotiation = "disable"
