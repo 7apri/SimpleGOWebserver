@@ -23,7 +23,7 @@ RUN git clone --recurse-submodules -j4 https://github.com/google/ngx_brotli.git 
 
 RUN git clone --depth 1 -b openssl-3.1.5+quic https://github.com/quictls/openssl.git quictls
 
-RUN NGINX_VER="1.26.2" && \
+RUN NGINX_VER="1.29.8" && \
     wget http://nginx.org/download/nginx-${NGINX_VER}.tar.gz && \
     tar -zxvf nginx-${NGINX_VER}.tar.gz && \
     mv nginx-${NGINX_VER} nginx
