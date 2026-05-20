@@ -158,21 +158,6 @@ CREATE TRIGGER update_user_challenges_modtime
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TABLE tasks (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    description TEXT,
-    is_completed BOOLEAN DEFAULT FALSE,
-    due_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_tasks_user_id ON tasks(user_id);
-CREATE TRIGGER update_user_tasks_modtime
-    BEFORE UPDATE ON tasks
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
-
 CREATE TABLE analytics (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,

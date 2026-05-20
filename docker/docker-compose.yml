@@ -2,7 +2,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: ./docker/Dockerfile.server
+      dockerfile: ./docker/server.Dockerfile
     depends_on:
       redis:
         condition: service_healthy
@@ -20,7 +20,7 @@ services:
     platform: linux/arm64
     build:
       context: ..
-      dockerfile: ./docker/Dockerfile.database
+      dockerfile: ./docker/database.Dockerfile
     env_file: .env
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -42,12 +42,16 @@ services:
       timeout: 3s
       retries: 5
   nginx:
-    image: fholzer/nginx-brotli
+    build:
+      context: ..
+      dockerfile: ./docker/nginx.Dockerfile
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/logs:/var/log/nginx/
       - ../site/static:/var/www/static:ro
       - /var/www/letsencrypt:/var/www/letsencrypt:ro
