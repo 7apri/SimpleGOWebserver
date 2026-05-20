@@ -32,17 +32,9 @@ go.work.sum
 #Test stuff
 cmd/*
 !cmd/server
-cmd/server/site/oldSite/*
 
 #Go exec
 main
-dunno
-dontask
 
-#Site
-public/static/*
-!public/static/.gitkeep
-public/templates/*
-!public/templates/.gitkeep
-
+logs
 *.nothis*

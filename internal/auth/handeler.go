@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/hex"
 	"log/slog"
 
 	"github.com/7apri/SimpleGOWebserver/internal/database"
@@ -26,21 +25,12 @@ func NewAuthHandler(db *database.Database, redisC *redis.Client, emailManager *e
 		EmailManager: emailManager,
 		i18nManager:  i18nManager,
 		secret: &secretWrap{
-			access: []byte(accessSecret),
+			access:    []byte(accessSecret),
+			twoFactor: []byte(twoFactorSecret),
+			provider:  []byte(providerSecret),
 		},
 		providers: make(map[string]OAuthProvider),
 	}
-	decodedSecret, err := hex.DecodeString(twoFactorSecret)
-	if err != nil {
-		return nil, err
-	}
-	h.secret.twoFactor = decodedSecret
-
-	decodedSecret, err = hex.DecodeString(providerSecret)
-	if err != nil {
-		return nil, err
-	}
-	h.secret.provider = decodedSecret
 	return h, nil
 }
 func (h *AuthHandler) RegisterProviders(providers ...OAuthProvider) {
