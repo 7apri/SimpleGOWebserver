@@ -16111,3 +16111,7 @@
 {"time": "2026-05-20T15:06:50+00:00","ip": "79.124.40.174","status": "301","rt": "0.000","urt": "","req": "GET /actuator/gateway/routes HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"}
 79.124.40.174 - - [20/May/2026:15:06:50 +0000] "GET /actuator/gateway/routes HTTP/1.1" 404 19 "http://130.61.36.108:80/actuator/gateway/routes" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36" "-"
 {"time": "2026-05-20T15:06:50+00:00","ip": "79.124.40.174","status": "404","rt": "0.001","urt": "0.001","req": "GET /actuator/gateway/routes HTTP/1.1","ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"}
+45.139.122.80 - - [20/May/2026:15:15:19 +0000] "GET /cgi-bin/luci/;stok=/locale HTTP/1.1" 301 169 "-" "-" "-"
+{"time": "2026-05-20T15:15:19+00:00","ip": "45.139.122.80","status": "301","rt": "0.000","urt": "","req": "GET /cgi-bin/luci/;stok=/locale HTTP/1.1","ua": ""}
+45.139.122.80 - - [20/May/2026:15:15:19 +0000] "GET /cgi-bin/luci/;stok=/locale HTTP/1.1" 404 19 "http://130.61.36.108:80/cgi-bin/luci/;stok=/locale" "-" "-"
+{"time": "2026-05-20T15:15:19+00:00","ip": "45.139.122.80","status": "404","rt": "0.002","urt": "0.002","req": "GET /cgi-bin/luci/;stok=/locale HTTP/1.1","ua": ""}
