@@ -17,7 +17,6 @@ services:
     environment:
       - REDIS_ADDRESS=redis:6379
   database:
-    platform: linux/arm64
     build:
       context: ..
       dockerfile: ./docker/database.Dockerfile
@@ -27,8 +26,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - pgdata:/var/lib/postgresql/data
       - dbsocket:${DB_SOCKET_PATH}
+      - ./database/data:/var/lib/postgresql/data:rw
+      - ./database/config:/docker-entrypoint-initdb.d/:ro
     command: ["postgres", "-c", "unix_socket_permissions=0777"]
   redis:
     image: redis:7-alpine
@@ -63,6 +63,5 @@ services:
     environment:
       MP_BASEPATH: "/mail"
 volumes:
-  pgdata:
   redis_data:
   dbsocket:
