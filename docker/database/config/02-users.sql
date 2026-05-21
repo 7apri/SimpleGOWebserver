@@ -2,24 +2,27 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     role TEXT NOT NULL DEFAULT 'basic',
-    username CITEXT UNIQUE NOT NULL,
-    email    CITEXT UNIQUE NOT NULL,
+    username CITEXT NOT NULL,
+    email    CITEXT NOT NULL,
     display_name TEXT NOT NULL,
     avatar_url TEXT,
     banner_url TEXT,
     
-    following_count BIGINT,
-    followers_count BIGINT,
+    following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
+    followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
 
-    preferred_lang VARCHAR(5) NOT NULL DEFAULT 'en',
-    units VARCHAR(10) NOT NULL DEFAULT 'metric',
+    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
 
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
-CREATE INDEX idx_users_active ON users(id) WHERE deleted_at IS NULL;
+
+CREATE INDEX users_active_idx ON users(id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX users_active_username_idx ON users (username) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX users_active_email_idx ON users (email) WHERE deleted_at IS NULL;
+
 CREATE TRIGGER update_user_modtime
     BEFORE UPDATE ON users
     FOR EACH ROW
