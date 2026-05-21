@@ -1,6 +1,38 @@
 CREATE TABLE posts (
     id UUID PRIMARY KEY,
-    like_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
-    repost_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
-    replies_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
+    parent_id     UUID REFERENCES posts(id) ON DELETE SET NULL,
+    quote_id      UUID REFERENCES posts(id) ON DELETE SET NULL,
+
+    content       VARCHAR(280),
+    media_urls    TEXT[] NOT NULL DEFAULT '{}',
+
+    likes_count    INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0),
+    reposts_count  INT NOT NULL DEFAULT 0 CHECK (reposts_count >= 0),
+    replies_count  INT NOT NULL DEFAULT 0 CHECK (replies_count >= 0),
+    quotes_count   INT NOT NULL DEFAULT 0 CHECK (quotes_count >= 0),
+
+    language      VARCHAR(5) DEFAULT 'en',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at    TIMESTAMPTZ DEFAULT NULL
 );
+
+CREATE INDEX posts_user_id_idx ON posts (user_id) WHERE deleted_at IS NULL;
+CREATE INDEX posts_parent_id_idx ON posts (parent_id) WHERE parent_id IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX posts_created_at_idx ON posts (created_at DESC);
+
+CREATE TABLE reposts (
+    user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+    post_id    UUID REFERENCES posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+CREATE INDEX reposts_post_id_idx ON reposts (post_id);
+
+CREATE TABLE likes (
+    user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+    post_id    UUID REFERENCES posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+CREATE INDEX likes_post_id_idx ON likes (post_id);
