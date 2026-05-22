@@ -116,6 +116,7 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 		&currentAttempts,
 		&nullID,
 		&nullRole,
+		&nullUsername,
 	)
 
 	if err != nil {
@@ -137,6 +138,7 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 	u.Username = nullUsername.String
 
 	http.SetCookie(w, &http.Cookie{Name: "verify_token", MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: "verify_remember", MaxAge: -1, Path: "/"})
 	http.SetCookie(w, &http.Cookie{Name: "verify_code_tmp", MaxAge: -1, Path: "/"})
 
 	if err := h.issueTokens(w, r, &u, TokenOptions{

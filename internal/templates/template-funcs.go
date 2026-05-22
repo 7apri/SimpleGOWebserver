@@ -76,13 +76,14 @@ func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {
 
 func walk(name string, scriptType ScriptType, bucket *ScriptBucked, assetInfo *util.ReadOnlyMap[string, AssetInfo]) error {
 	if script, seen := bucket.Resolved[name]; seen {
-		if bucket.ScriptSeq[script].Type < scriptType {
+		if script != -1 && bucket.ScriptSeq[script].Type < scriptType {
 			bucket.ScriptSeq[script].Type = scriptType
 		}
 		return nil
 	}
 	path := "/static/js/" + name
 	if info, ok := assetInfo.Lookup(path); ok {
+		bucket.Resolved[name] = -2
 		for _, dep := range info.Deps {
 			if err := walk(dep, ScriptTypePreload, bucket, assetInfo); err != nil {
 				bucket.Resolved[name] = -1
@@ -229,11 +230,10 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 
 			imports := make(map[string]string)
 			for name, n := range e.ctx.Scripts.Resolved {
-				if n != -1 {
-					imports["/static/js/"+name] = name
+				if n >= 0 {
+					imports["/static/js/"+name] = e.ctx.Scripts.ScriptSeq[n].HashedPath
 				}
 			}
-
 			if len(imports) != 0 {
 				if m, err := sonic.ConfigStd.Marshal(map[string]any{"imports": imports}); err == nil {
 					b.WriteString(`<script type="importmap">`)

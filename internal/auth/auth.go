@@ -242,7 +242,7 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 
 			var usrDetail email.UserDetail
 			const q = `
-			SELECT email, username, preferred_lang FROM users 
+			SELECT email, username, settings->>'lang' FROM users 
 			WHERE id = $1 
 			AND NOT EXISTS (
 				SELECT 1 FROM refresh_sessions

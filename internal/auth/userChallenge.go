@@ -280,7 +280,7 @@ func (h *AuthHandler) InitEmailChallenge(
 
 		const q = `
 		WITH target_user AS (
-			SELECT u.id, u.username, u.email, u.preferred_lang, u.is_verified, uc.updated_at
+			SELECT u.id, u.username, u.email, settings->>'lang' as lang, u.is_verified, uc.updated_at
 			FROM users u
 			LEFT JOIN user_challenges uc ON uc.user_id = u.id AND uc.challenge_type = $2
 			WHERE (u.email = $1 OR uc.token_hash = $5)
@@ -302,7 +302,7 @@ func (h *AuthHandler) InitEmailChallenge(
 			RETURNING user_id
 		)
 		SELECT 
-			username, email, preferred_lang, is_verified,
+			username, email, lang, is_verified,
 			(SELECT count(*) FROM attempt) > 0 as was_updated,
 			COALESCE(EXTRACT(EPOCH FROM (NOW() - updated_at)), 999)::int as seconds_since_update
 		FROM target_user;`

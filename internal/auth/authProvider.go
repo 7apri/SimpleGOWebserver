@@ -332,8 +332,9 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 	ctx := r.Context()
 
 	var req struct {
-		Username   *string `json:"username"`
-		RememberMe bool    `json:"remember"`
+		Username    *string `json:"username"`
+		DisplayName *string `json:"display_name"`
+		RememberMe  bool    `json:"remember"`
 	}
 
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -367,26 +368,37 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 		if req.Username == nil || *req.Username == "" {
 			return web.NewError(http.StatusBadRequest, "username_required", nil, nil)
 		}
+		/*
+			if req.DisplayName == nil || *req.DisplayName == "" {
+				return web.NewError(http.StatusBadRequest, "display_name_required", nil, nil)
+			}
+		*/
 
 		lang, ok := i18n.GetLangFromContext(ctx)
 		if !ok {
 			lang = "en"
 		}
+		settings, err := sonic.Marshal(map[string]string{
+			"lang": lang,
+		})
+		if err != nil {
+			return web.NewError(http.StatusInternalServerError, "marshal", err, nil)
+		}
 
 		const qReg = `
             WITH new_user AS (
-                INSERT INTO users (email, username, avatar_url, preferred_lang, is_verified)
-                VALUES ($1, $2, $3, $4, true)
+                INSERT INTO users (email, username, display_name, avatar_url, settings, is_verified)
+                VALUES ($1, $2, $3, $4, $5, true)
                 RETURNING id, role, username
             ),
             new_cred AS (
                 INSERT INTO user_credentials (user_id, kind, secret)
-                SELECT id, $5, $6 FROM new_user
+                SELECT id, $6, $7 FROM new_user
             )
             SELECT id, role, username FROM new_user;`
 
 		err = h.db.Pool.QueryRow(ctx, qReg,
-			claims.Email, req.Username, claims.AvatarURL, lang, claims.Provider, claims.ExternalID).Scan(
+			claims.Email, req.Username, req.Username, claims.AvatarURL, settings, claims.Provider, claims.ExternalID).Scan(
 			&user.ID, &user.Role, &user.Username,
 		)
 	}
