@@ -1,12 +1,14 @@
 package util
 
 import (
+	"bytes"
 	"iter"
 	"log/slog"
 	"maps"
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -51,6 +53,34 @@ func (w ReadOnlyMap[K, V]) Keys() iter.Seq[K] {
 				return
 			}
 		}
+	}
+}
+
+type BufferPool struct {
+	pool    sync.Pool
+	maxSize int
+}
+
+func NewBufferPool(maxSize int) *BufferPool {
+	return &BufferPool{
+		pool: sync.Pool{
+			New: func() any {
+				return new(bytes.Buffer)
+			},
+		},
+		maxSize: maxSize,
+	}
+}
+
+func (p *BufferPool) Get() *bytes.Buffer {
+	b := p.pool.Get().(*bytes.Buffer)
+	b.Reset()
+	return b
+}
+
+func (p *BufferPool) Put(b *bytes.Buffer) {
+	if b.Cap() <= p.maxSize {
+		p.pool.Put(b)
 	}
 }
 

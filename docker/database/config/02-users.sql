@@ -7,6 +7,7 @@ CREATE TABLE users (
     display_name TEXT NOT NULL,
     avatar_url TEXT,
     banner_url TEXT,
+    bio VARCHAR(280),
     
     following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
     followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
@@ -18,8 +19,6 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
-
-CREATE INDEX users_active_idx ON users(id) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX users_active_username_idx ON users (username) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX users_active_email_idx ON users (email) WHERE deleted_at IS NULL;
 

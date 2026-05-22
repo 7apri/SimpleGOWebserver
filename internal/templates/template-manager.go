@@ -52,7 +52,7 @@ type TemplateManager struct {
 	Templatefs              fs.FS
 	Staticfs                fs.FS
 	i18nManager             *i18n.I18nManager
-	bufferPool              *BufferPool
+	bufferPool              *util.BufferPool
 	snapshot                atomic.Pointer[templatesSnapshot]
 	assetInfo               atomic.Pointer[util.ReadOnlyMap[string, AssetInfo]]
 	staticRoot              string
@@ -66,7 +66,7 @@ func NewManager(templateFS, staticFS fs.FS, staticRoot string, i18nManager *i18n
 		Staticfs:    staticFS,
 		i18nManager: i18nManager,
 		RefreshChan: make(chan rune, 1),
-		bufferPool:  NewBufferPool(65536),
+		bufferPool:  util.NewBufferPool(65536),
 		staticRoot:  staticRoot,
 	}
 	mgr.syncStaticAndCheck()

@@ -13,34 +13,6 @@ import (
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
 
-type BufferPool struct {
-	pool    sync.Pool
-	maxSize int
-}
-
-func NewBufferPool(maxSize int) *BufferPool {
-	return &BufferPool{
-		pool: sync.Pool{
-			New: func() any {
-				return new(bytes.Buffer)
-			},
-		},
-		maxSize: maxSize,
-	}
-}
-
-func (p *BufferPool) Get() *bytes.Buffer {
-	b := p.pool.Get().(*bytes.Buffer)
-	b.Reset()
-	return b
-}
-
-func (p *BufferPool) Put(b *bytes.Buffer) {
-	if b.Cap() <= p.maxSize {
-		p.pool.Put(b)
-	}
-}
-
 var bakeContextPool = sync.Pool{
 	New: func() any {
 		return &BakeContext{}
@@ -48,16 +20,17 @@ var bakeContextPool = sync.Pool{
 }
 
 type BakeContext struct {
-	Lang     i18n.Lang
-	AllLangs []i18n.Lang
-	Meta     metadata
-	Name     string
-	Layout   string
-	Scripts  map[string]struct{}
-	Defines  map[string]string
-	Body     htmlTmpl.HTML
-	Depth    uint8
-	Data     any
+	Lang      i18n.Lang
+	AllLangs  []i18n.Lang
+	Meta      metadata
+	Name      string
+	Layout    string
+	Scripts   map[string]struct{}
+	ScriptSeq []string
+	Defines   map[string]string
+	Body      htmlTmpl.HTML
+	Depth     uint8
+	Data      any
 }
 
 func (c *BakeContext) InsertMeta(incoming metadata) {

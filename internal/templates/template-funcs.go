@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 )
 
@@ -72,6 +73,24 @@ func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {
 	}
 	maps.Copy(m, mgr.funcMapBase())
 	return m
+}
+
+func walk(name string, resolved map[string]struct{}, assetInfo *util.ReadOnlyMap[string, AssetInfo]) error {
+	if _, seen := resolved[name]; seen {
+		return nil
+	}
+	resolved[name] = struct{}{}
+	path := "/static/js/" + name
+	if info, ok := assetInfo.Lookup(path); ok {
+		for _, dep := range info.Deps {
+			if err := walk(dep, resolved, assetInfo); err != nil {
+				return err
+			}
+		}
+	} else {
+		return fmt.Errorf("script with the path %s was not found", path)
+	}
+	return nil
 }
 
 func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
@@ -142,12 +161,16 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 			if e.isCtxNil() {
 				return ""
 			}
+			assetInfo := mgr.assetInfo.Load()
+			if assetInfo == nil {
+				return ""
+			}
+
 			if !strings.HasSuffix(path, ".js") {
 				path += ".js"
 			}
 			path, _ = strings.CutPrefix(path, "/")
 
-			e.ctx.Scripts[path] = struct{}{}
 			return ""
 		},
 		"registerDefine": func(name, content string) string {
@@ -175,32 +198,6 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 		"getScriptImports": func() (template.HTML, error) {
 			if e.isCtxNil() {
 				return "", nil
-			}
-
-			assetInfo := mgr.assetInfo.Load()
-			if assetInfo == nil {
-				return "", nil
-			}
-
-			resolved := make(map[string]string)
-
-			var walk func(name string) error
-			walk = func(name string) error {
-				if _, seen := resolved[name]; seen {
-					return nil
-				}
-				path := "/static/js/" + name
-				if info, ok := assetInfo.Lookup(path); ok {
-					resolved[name] = path + "?v=" + info.Hash
-					for _, dep := range info.Deps {
-						if err := walk(dep); err != nil {
-							return err
-						}
-					}
-				} else {
-					return fmt.Errorf("script with the path %s was not found", path)
-				}
-				return nil
 			}
 
 			for scriptName := range e.ctx.Scripts {
