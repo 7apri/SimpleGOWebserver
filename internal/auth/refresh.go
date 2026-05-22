@@ -34,15 +34,13 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			AND rs.token_hash = $1 
 			AND rs.expires_at > NOW()
 			AND u.is_verified = true
-		RETURNING u.id, u.role, u.username, u.avatar_url, u.updated_at, rs.remember_me`
+		RETURNING u.id, u.role, u.username, rs.remember_me`
 
-	var user UserPrintTimestamp
+	var user UserPrint
 	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
 		&user.ID,
 		&user.Role,
 		&user.Username,
-		&user.AvatarURL,
-		&user.UpdatedAt,
 		&remember,
 	)
 

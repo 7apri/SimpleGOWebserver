@@ -80,7 +80,7 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
         UPDATE users
         SET is_verified = TRUE
         WHERE id = (SELECT user_id FROM challenge_success)
-        RETURNING id, role, username, avatar_url, updated_at
+        RETURNING id, role, username
     )
     SELECT 
         (SELECT user_id FROM challenge_target) IS NOT NULL AS found,
@@ -89,26 +89,22 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
             (SELECT attempts FROM challenge_target),
             0
         ) AS current_attempts,
-        u.id, 
-        u.role, 
-        u.username,
-        u.avatar_url,
-        u.updated_at
+        u.id,
+		u.role,
+		u.username
     FROM (SELECT 1) AS dummy  
     LEFT JOIN updated_user u ON TRUE;`
 
 	var (
 		found           bool
 		currentAttempts int
-		u               UserPrintTimestamp
+		u               UserPrint
 	)
 
 	var (
-		nullID        uuid.NullUUID
-		nullRole      sql.NullString
-		nullName      sql.NullString
-		nullAvatar    sql.NullString
-		nullUpdatedAt sql.NullTime
+		nullID       uuid.NullUUID
+		nullRole     sql.NullString
+		nullUsername sql.NullString
 	)
 
 	err := h.db.Pool.QueryRow(r.Context(), q,
@@ -120,9 +116,6 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 		&currentAttempts,
 		&nullID,
 		&nullRole,
-		&nullName,
-		&nullAvatar,
-		&nullUpdatedAt,
 	)
 
 	if err != nil {
@@ -141,9 +134,7 @@ func (h *AuthHandler) ConfirmVerify(w http.ResponseWriter, r *http.Request) *web
 
 	u.ID = nullID.UUID
 	u.Role = nullRole.String
-	u.Username = nullName.String
-	u.AvatarURL = nullAvatar.String
-	u.UpdatedAt = nullUpdatedAt.Time
+	u.Username = nullUsername.String
 
 	http.SetCookie(w, &http.Cookie{Name: "verify_token", MaxAge: -1, Path: "/"})
 	http.SetCookie(w, &http.Cookie{Name: "verify_code_tmp", MaxAge: -1, Path: "/"})

@@ -83,7 +83,7 @@ func (m *I18nManager) TranslateError(lang, key string) (string, error) {
 	return key, ErrorKeyNotFound
 }
 
-func (mgr *I18nManager) GetClient(lang string, scripts map[string]struct{}) map[string]string {
+func (mgr *I18nManager) GetClient(lang string, scripts map[string]int) map[string]string {
 	s := mgr.snapshot.Load()
 	if s == nil {
 		return nil

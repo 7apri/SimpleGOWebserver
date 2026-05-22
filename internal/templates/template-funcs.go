@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"log/slog"
 	"maps"
-	"sort"
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
@@ -75,21 +74,30 @@ func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {
 	return m
 }
 
-func walk(name string, resolved map[string]struct{}, assetInfo *util.ReadOnlyMap[string, AssetInfo]) error {
-	if _, seen := resolved[name]; seen {
+func walk(name string, scriptType ScriptType, bucket *ScriptBucked, assetInfo *util.ReadOnlyMap[string, AssetInfo]) error {
+	if script, seen := bucket.Resolved[name]; seen {
+		if bucket.ScriptSeq[script].Type < scriptType {
+			bucket.ScriptSeq[script].Type = scriptType
+		}
 		return nil
 	}
-	resolved[name] = struct{}{}
 	path := "/static/js/" + name
 	if info, ok := assetInfo.Lookup(path); ok {
 		for _, dep := range info.Deps {
-			if err := walk(dep, resolved, assetInfo); err != nil {
+			if err := walk(dep, ScriptTypePreload, bucket, assetInfo); err != nil {
+				bucket.Resolved[name] = -1
 				return err
 			}
 		}
+		bucket.ScriptSeq = append(bucket.ScriptSeq, Script{
+			HashedPath: path + "?v=" + info.Hash,
+			Type:       scriptType,
+		})
+		bucket.Resolved[name] = len(bucket.ScriptSeq) - 1
 	} else {
 		return fmt.Errorf("script with the path %s was not found", path)
 	}
+
 	return nil
 }
 
@@ -132,7 +140,7 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 			if e.isCtxNil() {
 				return "{}"
 			}
-			m := mgr.i18nManager.GetClient(e.ctx.Lang.Code, e.ctx.Scripts)
+			m := mgr.i18nManager.GetClient(e.ctx.Lang.Code, e.ctx.Scripts.Resolved)
 			b, err := sonic.ConfigStd.Marshal(m)
 			if err != nil {
 				slog.Error("Failed to marshal client translations", "error", err)
@@ -170,7 +178,23 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				path += ".js"
 			}
 			path, _ = strings.CutPrefix(path, "/")
+			walk(path, ScriptTypeModule, e.ctx.Scripts, assetInfo)
+			return ""
+		},
+		"registerScriptGlobal": func(path string) string {
+			if e.isCtxNil() {
+				return ""
+			}
+			assetInfo := mgr.assetInfo.Load()
+			if assetInfo == nil {
+				return ""
+			}
 
+			if !strings.HasSuffix(path, ".js") {
+				path += ".js"
+			}
+			path, _ = strings.CutPrefix(path, "/")
+			walk(path, ScriptTypeGlobal, e.ctx.Scripts, assetInfo)
 			return ""
 		},
 		"registerDefine": func(name, content string) string {
@@ -200,19 +224,14 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				return "", nil
 			}
 
-			for scriptName := range e.ctx.Scripts {
-				if err := walk(scriptName); err != nil {
-					return "", err
-				}
-			}
-
 			b := mgr.bufferPool.Get()
 			defer mgr.bufferPool.Put(b)
 
 			imports := make(map[string]string)
-			for name, hashedPath := range resolved {
-				// imports["./"+name] = hashedPath
-				imports["/static/js/"+name] = hashedPath
+			for name, n := range e.ctx.Scripts.Resolved {
+				if n != -1 {
+					imports["/static/js/"+name] = name
+				}
 			}
 
 			if len(imports) != 0 {
@@ -223,25 +242,28 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				}
 			}
 
-			depPaths := make([]string, 0, len(resolved))
-			entryPaths := make([]string, 0, len(e.ctx.Scripts))
-			for n, p := range resolved {
-				if _, isEntry := e.ctx.Scripts[n]; isEntry {
-					entryPaths = append(entryPaths, p)
-				} else {
-					depPaths = append(depPaths, p)
+			preloadPaths := make([]string, 0)
+			modulePaths := make([]string, 0)
+			globalPaths := make([]string, 0)
+			for _, s := range e.ctx.Scripts.ScriptSeq {
+				switch s.Type {
+				case ScriptTypePreload:
+					preloadPaths = append(preloadPaths, s.HashedPath)
+				case ScriptTypeModule:
+					modulePaths = append(modulePaths, s.HashedPath)
+				case ScriptTypeGlobal:
+					globalPaths = append(globalPaths, s.HashedPath)
 				}
-
 			}
-			sort.Strings(depPaths)
-			sort.Strings(entryPaths)
 
-			for _, path := range depPaths {
+			for _, path := range preloadPaths {
 				fmt.Fprintf(b, `<link rel="modulepreload" href="%s">`, path)
 			}
-
-			for _, path := range entryPaths {
+			for _, path := range modulePaths {
 				fmt.Fprintf(b, `<script type="module" src="%s"></script>`, path)
+			}
+			for _, path := range globalPaths {
+				fmt.Fprintf(b, `<script src="%s"></script>`, path)
 			}
 
 			return template.HTML(b.String()), nil

@@ -20,10 +20,11 @@ import (
 )
 
 type registerRequest struct {
-	Username   string `json:"username"`
-	Email      string `json:"email"`
-	Password   string `json:"password"`
-	RememberMe bool   `json:"remember"`
+	DisplayName string `json:"display_name"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	RememberMe  bool   `json:"remember"`
 }
 
 var ErrPasswordShort = errors.New("password_too_short")
@@ -158,19 +159,25 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 	}
 
 	lang := i18n.GetLangFromReq(r)
+	settings, err := sonic.Marshal(map[string]string{
+		"lang": "en",
+	})
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "marshal", err, nil)
+	}
 
 	const registerQuery = `
     WITH new_user AS (
-        INSERT INTO users (email, username, preferred_lang, is_verified)
-        VALUES ($1, $2, $3, FALSE)
+        INSERT INTO users (email, username, display_name, settings, is_verified)
+        VALUES ($1, $2, $3, $4, FALSE)
         RETURNING id
     ),
     new_credentials AS (
         INSERT INTO user_credentials (user_id, kind, secret)
-        SELECT id, $4, $5 FROM new_user
+        SELECT id, $5, $6 FROM new_user
     )
     INSERT INTO user_challenges (user_id, challenge_type, code_hash, token_hash, expires_at)
-    SELECT id, $6, $7, $8, NOW() + INTERVAL '15 minutes' FROM new_user
+    SELECT id, $7, $8, $9, NOW() + INTERVAL '15 minutes' FROM new_user
     RETURNING user_id;`
 
 	var userID uuid.UUID
@@ -187,12 +194,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 	err = h.db.Pool.QueryRow(ctx, registerQuery,
 		strings.ToLower(req.Email), // $1
 		userDetail.Username,        // $2
-		lang,                       // $3
-		UserCredentialsPassword,    // $4 ('kind')
-		hashed,                     // $5 ('secret')
-		email.ChallengeVerify,      // $6
-		challenge.CodeHash,         // $7
-		challenge.TokenHash,        // $8
+		req.DisplayName,            // $3
+		settings,                   // $4
+		UserCredentialsPassword,    // $5 ('kind')
+		hashed,                     // $6 ('secret')
+		email.ChallengeVerify,      // $7
+		challenge.CodeHash,         // $8
+		challenge.TokenHash,        // $9
 	).Scan(&userID)
 
 	if err == nil {

@@ -131,7 +131,7 @@ func clearCookies(w http.ResponseWriter, path string, names ...string) {
 		})
 	}
 }
-func (h *AuthHandler) handleOAuthLogin(w http.ResponseWriter, r *http.Request, user *UserPrintTimestamp, has2FA bool) *web.WebError {
+func (h *AuthHandler) handleOAuthLogin(w http.ResponseWriter, r *http.Request, user *UserPrint, has2FA bool) *web.WebError {
 	var next string
 	if cookie, err := r.Cookie("oauth_next"); err == nil {
 		next = cookie.Value
@@ -203,12 +203,14 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 
 	clearCookies(w, callbackPath, "oauth_state", "oauth_verifier")
 
-	var user UserPrintTimestamp
-	var has2FA, isLogin bool
+	var (
+		user            UserPrint
+		has2FA, isLogin bool
+	)
 
 	const findQ = `
     WITH oauth_match AS (
-        SELECT u.id, u.role, u.username, u.avatar_url, u.updated_at,
+        SELECT u.id, u.role, u.username,
                EXISTS(SELECT 1 FROM user_credentials WHERE user_id = u.id AND kind = $3) as has_2fa,
                true as is_login
         FROM users u
@@ -217,22 +219,22 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 		LIMIT 1
     ),
     email_match AS (
-        SELECT id, role, username, avatar_url, updated_at,
+        SELECT id, role, username,
 				false as has_2fa,
                 false as is_login
         FROM users
         WHERE email = $4 AND NOT EXISTS (SELECT 1 FROM oauth_match)
 		LIMIT 1
     )
-    SELECT id, role, username, avatar_url, updated_at, has_2fa, is_login 
+    SELECT id, role, username, has_2fa, is_login 
     FROM oauth_match
     UNION ALL
-    SELECT id, role, username, avatar_url, updated_at, has_2fa, is_login
+    SELECT id, role, username, has_2fa, is_login
     FROM email_match;`
 
 	err = h.db.Pool.QueryRow(ctx, findQ,
 		p.Name(), extUser.ID, UserCredentials2FA, extUser.Email,
-	).Scan(&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt, &has2FA, &isLogin)
+	).Scan(&user.ID, &user.Role, &user.Username, &has2FA, &isLogin)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return web.NewError(http.StatusInternalServerError, "database_error", err, nil)
@@ -247,7 +249,6 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) *web
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		action = "register"
-		user.Username = extUser.Username
 		userIDStr = ""
 	}
 
@@ -339,7 +340,7 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 	}
 
-	var user UserPrintTimestamp
+	var user UserPrint
 	var has2FA bool
 
 	if claims.Action == "link" {
@@ -355,12 +356,12 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
                 VALUES ($1, $2, $3)
                 RETURNING user_id
             )
-            SELECT u.id, u.role, u.username, u.avatar_url, u.updated_at
+            SELECT u.id, u.role, u.username
             FROM users u
             JOIN linked l ON u.id = l.user_id;`
 
 		err = h.db.Pool.QueryRow(ctx, qLink, claims.UserID, claims.Provider, claims.ExternalID).Scan(
-			&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt,
+			&user.ID, &user.Role, &user.Username,
 		)
 	} else {
 		if req.Username == nil || *req.Username == "" {
@@ -376,17 +377,17 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
             WITH new_user AS (
                 INSERT INTO users (email, username, avatar_url, preferred_lang, is_verified)
                 VALUES ($1, $2, $3, $4, true)
-                RETURNING id, role, username, avatar_url, updated_at
+                RETURNING id, role, username
             ),
             new_cred AS (
                 INSERT INTO user_credentials (user_id, kind, secret)
                 SELECT id, $5, $6 FROM new_user
             )
-            SELECT id, role, username, avatar_url, updated_at FROM new_user;`
+            SELECT id, role, username FROM new_user;`
 
 		err = h.db.Pool.QueryRow(ctx, qReg,
 			claims.Email, req.Username, claims.AvatarURL, lang, claims.Provider, claims.ExternalID).Scan(
-			&user.ID, &user.Role, &user.Username, &user.AvatarURL, &user.UpdatedAt,
+			&user.ID, &user.Role, &user.Username,
 		)
 	}
 

@@ -99,7 +99,10 @@ func (mgr *TemplateManager) Refresh() error {
 				ctx.InsertMeta(file.Meta)
 
 				if ctx.Scripts == nil {
-					ctx.Scripts = make(map[string]struct{})
+					ctx.Scripts = &ScriptBucked{
+						Resolved:  make(map[string]int),
+						ScriptSeq: make([]Script, 0),
+					}
 				}
 
 				ctx.Lang = lang

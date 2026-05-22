@@ -12,7 +12,7 @@ CREATE TABLE users (
     following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
     followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
 
-    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    settings JSONB NOT NULL DEFAULT '{"lang":"en"}'::jsonb,
 
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

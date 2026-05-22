@@ -24,7 +24,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 	}
 
 	var (
-		user           UserPrintTimestamp
+		user           UserPrint
 		isVerified     bool
 		passHash       sql.NullString
 		has2FA         bool
@@ -34,10 +34,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 	const q = `
 	SELECT 
 		u.id, 
-		u.role, 
-		u.username, 
-		u.avatar_url,
-		u.updated_at,
+		u.role,
+		u.username,
 		u.is_verified,
 		c.secret AS password_hash,
 		EXISTS (SELECT 1 FROM user_credentials WHERE user_id = u.id AND kind = $2) AS has_two_fa,
@@ -59,8 +57,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		&user.ID,
 		&user.Role,
 		&user.Username,
-		&user.AvatarURL,
-		&user.UpdatedAt,
 		&isVerified,
 		&passHash,
 		&has2FA,

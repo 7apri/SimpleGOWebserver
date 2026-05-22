@@ -18,7 +18,7 @@ func GetClaims(ctx context.Context) (*UserClaims, bool) {
 	claims, ok := ctx.Value(ClaimsContextKey).(*UserClaims)
 	return claims, ok
 }
-func GetUser(ctx context.Context) (*UserPrintTimestamp, bool) {
+func GetUser(ctx context.Context) (*UserPrint, bool) {
 	claims, ok := GetClaims(ctx)
 	if !ok {
 		return nil, false

@@ -44,7 +44,7 @@ func GenerateChallenge() (*email.GeneratedChallenge, error) {
 }
 
 type challengeResult struct {
-	User     *UserPrintTimestamp
+	User     *UserPrint
 	Correct  bool
 	Attempts int
 	Has2FA   bool
@@ -136,14 +136,10 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 	}
 
 	if uid.Valid {
-		res.User = &UserPrintTimestamp{
-			UserPrint: UserPrint{
-				ID:        uid.UUID,
-				Role:      coalesce(role, ""),
-				Username:  coalesce(username, ""),
-				AvatarURL: coalesce(avatar, ""),
-			},
-			UpdatedAt: coalesce(updated_at, time.Time{}),
+		res.User = &UserPrint{
+			ID:       uid.UUID,
+			Role:     coalesce(role, ""),
+			Username: coalesce(username, ""),
 		}
 	}
 

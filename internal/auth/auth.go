@@ -31,28 +31,15 @@ type secretWrap struct {
 	twoFactor []byte
 }
 type UserClaims struct {
-	User       *UserPrintTimestamp `json:"usr"`
-	Pending2FA bool                `json:"p2fa,omitempty"`
-	RememberMe bool                `json:"rem,omitempty"`
+	User       *UserPrint `json:"usr"`
+	Pending2FA bool       `json:"p2fa,omitempty"`
+	RememberMe bool       `json:"rem,omitempty"`
 	jwt.RegisteredClaims
 }
-type UserPrintBig struct {
-	UserPrint
-	UserDetail
-}
-type UserDetail struct {
-	Email string `json:"email"`
-	Lang  string `json:"lang"`
-}
 type UserPrint struct {
-	ID        uuid.UUID `json:"id"`
-	Role      string    `json:"role"`
-	Username  string    `json:"username"`
-	AvatarURL string    `json:"avatar_url,omitempty"`
-}
-type UserPrintTimestamp struct {
-	UserPrint
-	UpdatedAt time.Time `json:"u_at"`
+	ID       uuid.UUID `json:"id"`
+	Role     string    `json:"role"`
+	Username string    `json:"username"`
 }
 
 const (
@@ -163,7 +150,7 @@ func VerifyCredential(credential, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
 
-func (s *secretWrap) GenerateAccess(user *UserPrintTimestamp, opt AccessTokenOptions) (string, time.Time, error) {
+func (s *secretWrap) GenerateAccess(user *UserPrint, opt AccessTokenOptions) (string, time.Time, error) {
 	duration := 15 * time.Minute
 	if opt.IsPending {
 		duration = 5 * time.Minute
@@ -208,7 +195,7 @@ type AccessTokenOptions struct {
 	IsPending bool
 }
 
-func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrintTimestamp, opt AccessTokenOptions) error {
+func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, opt AccessTokenOptions) error {
 	access, exp, err := h.secret.GenerateAccess(user, opt)
 	if err != nil {
 		return err
@@ -227,7 +214,7 @@ func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrintTim
 	return nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrintTimestamp, options TokenOptions) error {
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, options TokenOptions) error {
 	if options.RotateCSRF {
 		setCSRFCookie(w)
 	}

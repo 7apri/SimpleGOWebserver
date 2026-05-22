@@ -19,18 +19,35 @@ var bakeContextPool = sync.Pool{
 	},
 }
 
+type ScriptType uint8
+
+const (
+	ScriptTypePreload ScriptType = iota
+	ScriptTypeModule
+	ScriptTypeGlobal
+)
+
+type Script struct {
+	HashedPath string
+	Type       ScriptType
+}
+
+type ScriptBucked struct {
+	Resolved  map[string]int
+	ScriptSeq []Script
+}
+
 type BakeContext struct {
-	Lang      i18n.Lang
-	AllLangs  []i18n.Lang
-	Meta      metadata
-	Name      string
-	Layout    string
-	Scripts   map[string]struct{}
-	ScriptSeq []string
-	Defines   map[string]string
-	Body      htmlTmpl.HTML
-	Depth     uint8
-	Data      any
+	Lang     i18n.Lang
+	AllLangs []i18n.Lang
+	Meta     metadata
+	Name     string
+	Layout   string
+	Scripts  *ScriptBucked
+	Defines  map[string]string
+	Body     htmlTmpl.HTML
+	Depth    uint8
+	Data     any
 }
 
 func (c *BakeContext) InsertMeta(incoming metadata) {

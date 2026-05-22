@@ -1,9 +1,6 @@
 package server
 
 import (
-	"crypto/md5"
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 
@@ -11,13 +8,6 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
-
-func generateUserETag(user *auth.UserPrintTimestamp) string {
-	h := md5.New()
-	io.WriteString(h, user.ID.String())
-	io.WriteString(h, strconv.FormatInt(user.UpdatedAt.UnixNano(), 10))
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
 
 func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.WebError {
 	if r.URL.Path != "/" {
@@ -30,7 +20,7 @@ func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.We
 		return nil
 	}
 
-	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, generateUserETag(user), user)
+	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, "", user)
 }
 
 func (server *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -54,7 +44,7 @@ func (server *Server) serveHtml(name string) http.Handler {
 func (server *Server) serveHtmlUser(name string) http.Handler {
 	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		user, _ := auth.GetUser(r.Context())
-		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, generateUserETag(user), user)
+		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", user)
 	})
 }
 
