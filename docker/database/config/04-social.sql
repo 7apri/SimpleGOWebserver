@@ -35,4 +35,4 @@ CREATE TABLE likes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, post_id)
 );
-CREATE INDEX likes_post_id_idx ON likes (post_id);
+CREATE INDEX likes_post_id_idx ON likes (post_id);ě
