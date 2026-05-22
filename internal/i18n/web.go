@@ -3,7 +3,62 @@ package i18n
 import (
 	"context"
 	"net/http"
+	"time"
 )
+
+func (mgr *I18nManager) isSupported(l string) bool {
+	s := mgr.snapshot.Load()
+	if s == nil {
+		return false
+	}
+
+	_, ok := s.Buckets[l]
+
+	return ok
+}
+
+func (mgr *I18nManager) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Accept-Language")
+
+		lang := r.URL.Query().Get("lang")
+
+		if lang != "" {
+			if !mgr.isSupported(lang) {
+				return
+			}
+
+			if util.GetUserAgent(r).Bot {
+				ctx := context.WithValue(r.Context(), LangKey, lang)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			c, err := r.Cookie("lang")
+
+			if err != nil || c.Value != lang {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "lang",
+					Value:    lang,
+					Path:     "/",
+					MaxAge:   int((24 * time.Hour).Seconds() * 365),
+					HttpOnly: false,
+					Secure:   true,
+					SameSite: http.SameSiteLaxMode,
+				})
+
+			}
+
+			return
+
+		}
+
+		lang = GetLangFromReq(r)
+
+		ctx := context.WithValue(r.Context(), LangKey, lang)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

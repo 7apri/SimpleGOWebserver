@@ -22,7 +22,7 @@
         </div>
         <form class="flx col ali-s j-left txt-left mt-md" id="form">
             {{ if eq .Action "register" }}
-                [[ import "components/auth/username-input.html" (dict "Value" "{{ .Username }}" "Attribute" `autocomplete="off"` "Class" "mb-sm") ]]
+                [[ import "components/auth/name-inputs.html" (dict "Value" "{{ .Username }}" "Attribute" `autocomplete="off"` "Class" "mb-sm") ]]
             {{ end }}
             <div class="flx col gap-sm ali-e fil-x">
                 <div class="flx ali-c gap-sm">

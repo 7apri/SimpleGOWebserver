@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
@@ -274,6 +275,9 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				bank = make([]string, 0)
 			}
 			return bank
+		},
+		"getBaseUrlProtocol": func() string {
+			return consts.BaseUrlProtocol
 		},
 	}
 	maps.Copy(funcs, mgr.funcMapBase())

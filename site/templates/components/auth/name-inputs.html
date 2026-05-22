@@ -1,7 +1,19 @@
 [[ registerScript "auth/components/username-input.js" ]]
-<div class="flx col gap-sm fil-x [[ if .Data.Class ]][[.Data.Class]][[else]]mb-md[[end]]">
-    <label class="fil-x" for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
-    <div class="pos-rel fil-x">
+<div class="mb-md">
+    <label class="fil-x" for="display-name-input">[[ capitalize (tr "phrase:display_name") ]]</label>
+    <input
+        class="fil-x p-sm mb-md mt-sm txt-lg" 
+        name="display_name"
+        id="display-name-input"
+        type="email"
+        autocomplete="name"
+        placeholder="[[ tr "plh:display_name" ]]"
+        required
+    />
+    <div class="fil-x">
+        <label for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
+    </div>
+    <div class="pos-rel mt-sm fil-x">
         <input  
             class="fil-x p-sm txt-lg pr-2xl"
             name="username"

@@ -472,13 +472,47 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 #code-input:focus + .code-boxes .box:nth-child(1) { border-color: var(--primary); }
 
-@keyframes shake {
-    0%, 100% { transform: translateX(0) scale(1.05); }
-    25% { transform: translateX(-5px)   scale(1.05); }
-    50% { transform: translateX(5px)    scale(1.05); }
-    75% { transform: translateX(-5px)   scale(1.05); }
+.hint-focus-parent {
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
-.shake-error {
-    animation: shake 0.4s ease-in-out;
+.hint {
+    opacity: 0;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: var(--primary);
+}
+
+.hint-focus-parent:focus-within .hint {
+    opacity: 1;
+}
+
+@media (min-width: 768px) {
+    .hint {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%) translateX(12px);
+        white-space: nowrap;
+        background: var(--surface-container);
+        border: 1px solid var(--outline);
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        z-index: 20;
+    }
+
+    .hint::before {
+        content: '';
+        position: absolute;
+        left: -6px;
+        top: 50%;
+        transform: translateY(-50%) rotate(45deg);
+        width: 10px;
+        height: 10px;
+        background: var(--surface-container);
+        border-left: 1px solid var(--outline);
+        border-bottom: 1px solid var(--outline);
+    }
 }
