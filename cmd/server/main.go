@@ -153,17 +153,9 @@ func main() {
 	ah.RegisterProviders(githubProv, googleProv)
 
 	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as)
-
-	httpSrv := &http.Server{
-		Addr:         ":8080",
-		Handler:      srv.Routes(),
-		IdleTimeout:  10 * time.Second,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
 	go func() {
 		slog.Info("Starting server on :8080")
-		if err = httpSrv.ListenAndServe(); err != nil {
+		if err = srv.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
 				slog.Error("There was an error running the server", "error", err)
 			}
@@ -177,7 +169,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("HTTP shutdown failed", "error", err)
 	}
 

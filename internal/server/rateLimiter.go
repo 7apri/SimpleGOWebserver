@@ -16,19 +16,19 @@ type limiterTimeWrap struct {
 	lastSeen int64
 }
 
-func (s *Server) cleanupLimiters() {
+func (rw *RouteWrapper) cleanupLimiters() {
 	ticker := time.NewTicker(10 * time.Minute)
 	go func() {
 		for range ticker.C {
 			now := time.Now().Unix()
-			s.userLimiters.Range(func(key, value any) bool {
+			rw.userLimiters.Range(func(key, value any) bool {
 				ul, ok := value.(*limiterTimeWrap)
 				if !ok {
 					return true
 				}
 
 				if now-atomic.LoadInt64(&ul.lastSeen) > 3600 {
-					s.userLimiters.Delete(key)
+					rw.userLimiters.Delete(key)
 				}
 				return true
 			})
@@ -36,7 +36,7 @@ func (s *Server) cleanupLimiters() {
 	}()
 }
 
-func (s *Server) rateLimited(key string, limit rate.Limit, b int) web.Middleware {
+func (rw *RouteWrapper) rateLimited(key string, limit rate.Limit, b int) web.Middleware {
 	return func(next http.Handler) http.Handler {
 		return web.MakeHandler(func(w http.ResponseWriter, r *http.Request) *web.WebError {
 			key := key
@@ -53,7 +53,7 @@ func (s *Server) rateLimited(key string, limit rate.Limit, b int) web.Middleware
 
 			now := time.Now().Unix()
 
-			val, exists := s.userLimiters.Load(key)
+			val, exists := rw.userLimiters.Load(key)
 
 			var wrap *limiterTimeWrap
 			var isAllowed = true
@@ -62,7 +62,7 @@ func (s *Server) rateLimited(key string, limit rate.Limit, b int) web.Middleware
 					limiter:  rate.NewLimiter(limit, b),
 					lastSeen: now,
 				}
-				actual, _ := s.userLimiters.LoadOrStore(key, wrap)
+				actual, _ := rw.userLimiters.LoadOrStore(key, wrap)
 				wrap = actual.(*limiterTimeWrap)
 			} else {
 				wrap = val.(*limiterTimeWrap)
@@ -77,7 +77,7 @@ func (s *Server) rateLimited(key string, limit rate.Limit, b int) web.Middleware
 
 			next.ServeHTTP(w, r)
 			return nil
-		}, s.i18Mgr, func(w http.ResponseWriter, r *http.Request, buffer *bytes.Buffer, appErr *web.WebError) *web.WebError {
+		}, rw.i18Mgr, func(w http.ResponseWriter, r *http.Request, buffer *bytes.Buffer, appErr *web.WebError) *web.WebError {
 			return appErr
 		})
 	}

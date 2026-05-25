@@ -28,12 +28,6 @@ func (mgr *I18nManager) Middleware(next http.Handler) http.Handler {
 				return
 			}
 
-			if util.GetUserAgent(r).Bot {
-				ctx := context.WithValue(r.Context(), LangKey, lang)
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
-			}
-
 			c, err := r.Cookie("lang")
 
 			if err != nil || c.Value != lang {

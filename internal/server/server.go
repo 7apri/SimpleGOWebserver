@@ -1,7 +1,9 @@
 package server
 
 import (
+	"net/http"
 	"sync"
+	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/analytics"
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
@@ -13,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type Server struct {
+type RouteWrapper struct {
 	locationService  *location.LocationService
 	weatherService   *weather.WeatherService
 	analyticsService *analytics.Service
@@ -34,8 +36,8 @@ func NewServer(
 	i18nMgr *i18n.I18nManager,
 	templateMgr *templates.TemplateManager,
 	analyticsSr *analytics.Service,
-) *Server {
-	srv := &Server{
+) *http.Server {
+	w := &RouteWrapper{
 		locationService:  locationSr,
 		weatherService:   weatherSr,
 		analyticsService: analyticsSr,
@@ -45,7 +47,14 @@ func NewServer(
 		i18Mgr:           i18nMgr,
 		redis:            rdb,
 	}
+	s := &http.Server{
+		Addr:         ":8080",
+		Handler:      w.Routes(),
+		IdleTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 
-	srv.cleanupLimiters()
-	return srv
+	w.cleanupLimiters()
+	return s
 }

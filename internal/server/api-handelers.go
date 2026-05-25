@@ -17,8 +17,8 @@ import (
 	"github.com/bytedance/sonic"
 )
 
-func (server *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
-	dbLatency, err := server.database.GetLatency()
+func (rw *RouteWrapper) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	dbLatency, err := rw.database.GetLatency()
 	if err != nil {
 		http.Error(w, "Database unreachable", http.StatusInternalServerError)
 		return
@@ -47,7 +47,7 @@ var resolveInPool = sync.Pool{
 	},
 }
 
-func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
+func (rw *RouteWrapper) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
 	w.Header().Set("Cache-Control", "public")
@@ -114,7 +114,7 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.locationService.ResolveLocation(ctx, j.in)
+				res, jsonBytes, err := rw.locationService.ResolveLocation(ctx, j.in)
 
 				if err == nil {
 					if jsonBytes == nil {
@@ -168,7 +168,7 @@ func (server *Server) HandleLocation(w http.ResponseWriter, r *http.Request) {
 	util.SendRawJsonSlice(w, http.StatusOK, finalData)
 }
 
-func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
+func (rw *RouteWrapper) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ctx := r.Context()
 	var lang string
@@ -278,7 +278,7 @@ func (server *Server) HandleWeather(w http.ResponseWriter, r *http.Request) {
 	for range workerCount {
 		go func() {
 			for j := range jobs {
-				res, jsonBytes, err := server.weatherService.GetWeather(ctx, j.in, lang, unit, exclude)
+				res, jsonBytes, err := rw.weatherService.GetWeather(ctx, j.in, lang, unit, exclude)
 
 				if err == nil {
 					if jsonBytes == nil {

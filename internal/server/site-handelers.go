@@ -9,7 +9,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
 
-func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.WebError {
+func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.WebError {
 	if r.URL.Path != "/" {
 		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
@@ -20,31 +20,31 @@ func (server *Server) HandleRoot(w http.ResponseWriter, r *http.Request) *web.We
 		return nil
 	}
 
-	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, "", user)
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, "", user)
 }
 
-func (server *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
+func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
 	cookie, err := r.Cookie("oauth_pending")
 
 	if err == nil && cookie.Value != "" {
-		claims, err := server.authHandler.GetPendingAuthProviderClaims(cookie.Value)
+		claims, err := rw.authHandler.GetPendingAuthProviderClaims(cookie.Value)
 		if err == nil && claims != nil {
-			return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims.AvatarURL, claims)
+			return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims.AvatarURL, claims)
 		}
 	}
 
-	return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, "", nil)
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, "", nil)
 }
 
-func (server *Server) serveHtml(name string) http.Handler {
-	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", nil)
+func (rw *RouteWrapper) serveHtml(name string) http.Handler {
+	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", nil)
 	})
 }
-func (server *Server) serveHtmlUser(name string) http.Handler {
-	return server.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+func (rw *RouteWrapper) serveHtmlUser(name string) http.Handler {
+	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		user, _ := auth.GetUser(r.Context())
-		return server.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", user)
+		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", user)
 	})
 }
 
@@ -70,7 +70,7 @@ func cookieExists(r *http.Request, cookieName string) (bool, *http.Cookie) {
 	return false, nil
 }
 
-func (server *Server) handleChallengeUI(cfg challengeUIConfig) func(w http.ResponseWriter, r *http.Request) *web.WebError {
+func (rw *RouteWrapper) handleChallengeUI(cfg challengeUIConfig) func(w http.ResponseWriter, r *http.Request) *web.WebError {
 	return func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		q := r.URL.Query()
 		t, c := q.Get("t"), q.Get("c")
@@ -107,7 +107,7 @@ func (server *Server) handleChallengeUI(cfg challengeUIConfig) func(w http.Respo
 
 		_, isLoggedIn := auth.GetUser(r.Context())
 
-		return server.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state+strconv.FormatBool(isLoggedIn), map[string]any{
+		return rw.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state+strconv.FormatBool(isLoggedIn), map[string]any{
 			"State":    state,
 			"LoggedIn": isLoggedIn,
 		})
