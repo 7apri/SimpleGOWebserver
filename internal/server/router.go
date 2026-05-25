@@ -182,6 +182,6 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/e/finalize", rw.handlerHtml(rw.authHandler.FinalizeExternal, authExtApiStack...))
 	mux.Handle("GET  /api/auth/e/cancel", rw.handlerHtml(rw.authHandler.CancelPendingAuth, authExtApiStack...))
 
-	mux.Handle("GET /ws-reload", rw.handlerHtml(refreshWebsocket(rw.templateMgr.RefreshChan), web.RecoveryM))
+	mux.Handle("GET /api/ws", rw.handlerHtml(rw.websocketHub.HandleWS, web.RecoveryM))
 	return mux
 }

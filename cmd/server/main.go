@@ -22,6 +22,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/server"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
+	"github.com/7apri/SimpleGOWebserver/internal/websocket"
 	"github.com/7apri/SimpleGOWebserver/pkg/util"
 )
 
@@ -152,7 +153,9 @@ func main() {
 
 	ah.RegisterProviders(githubProv, googleProv)
 
-	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as)
+	wsHub := websocket.NewWebsocketHub()
+
+	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as, wsHub)
 	go func() {
 		slog.Info("Starting server on :8080")
 		if err = srv.ListenAndServe(); err != nil {

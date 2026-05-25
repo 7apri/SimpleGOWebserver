@@ -12,6 +12,8 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/location"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
+	"github.com/7apri/SimpleGOWebserver/internal/websocket"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -25,6 +27,7 @@ type RouteWrapper struct {
 	userLimiters     sync.Map
 	templateMgr      *templates.TemplateManager
 	i18Mgr           *i18n.I18nManager
+	websocketHub     *websocket.WebsocketHub
 }
 
 func NewServer(
@@ -36,6 +39,7 @@ func NewServer(
 	i18nMgr *i18n.I18nManager,
 	templateMgr *templates.TemplateManager,
 	analyticsSr *analytics.Service,
+	websocketHub *websocket.WebsocketHub,
 ) *http.Server {
 	w := &RouteWrapper{
 		locationService:  locationSr,
@@ -46,6 +50,7 @@ func NewServer(
 		templateMgr:      templateMgr,
 		i18Mgr:           i18nMgr,
 		redis:            rdb,
+		websocketHub:     websocketHub,
 	}
 	s := &http.Server{
 		Addr:         ":8080",
@@ -54,7 +59,17 @@ func NewServer(
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-
+	go func() {
+		for range templateMgr.RefreshChan {
+			select {
+			case _, ok := <-templateMgr.RefreshChan:
+				if !ok {
+					return
+				}
+				websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{}`))
+			}
+		}
+	}()
 	w.cleanupLimiters()
 	return s
 }
