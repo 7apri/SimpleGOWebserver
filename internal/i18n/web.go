@@ -13,7 +13,6 @@ func (mgr *I18nManager) isSupported(l string) bool {
 	}
 
 	_, ok := s.Buckets[l]
-
 	return ok
 }
 
@@ -29,7 +28,6 @@ func (mgr *I18nManager) Middleware(next http.Handler) http.Handler {
 			}
 
 			c, err := r.Cookie("lang")
-
 			if err != nil || c.Value != lang {
 				http.SetCookie(w, &http.Cookie{
 					Name:     "lang",
@@ -40,14 +38,10 @@ func (mgr *I18nManager) Middleware(next http.Handler) http.Handler {
 					Secure:   true,
 					SameSite: http.SameSiteLaxMode,
 				})
-
 			}
-
-			return
-
+		} else {
+			lang = GetLangFromReq(r)
 		}
-
-		lang = GetLangFromReq(r)
 
 		ctx := context.WithValue(r.Context(), LangKey, lang)
 		next.ServeHTTP(w, r.WithContext(ctx))

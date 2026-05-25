@@ -38,12 +38,10 @@ displayNameInput.addEventListener('input', (e) => {
     
     if (!isUsernameUserEdited && val.length <= maxUsernameLen) {
         userNameInput.value = slugify(val);
-        // Trigger validation on auto-fill
         startDebounce(userNameInput.value);
     }
 });
 
-// 2. Username Handler
 userNameInput.addEventListener('input', (e) => {
     const input = e.target;
     isUsernameUserEdited = input.value.length > 0;
@@ -51,7 +49,6 @@ userNameInput.addEventListener('input', (e) => {
     const oldVal = input.value;
     const start = input.selectionStart;
 
-    // Apply strict formatting live
     const value = oldVal
         .toLowerCase()
         .replace(/\s+/g, '-') 
@@ -73,7 +70,6 @@ const setStatus = (state) => {
     userSuggestionsWrapper.classList.toggle("hidden", state !== "suggest");
     userNameStatus.style.display = (state === 'idle') ? 'none' : '';
 
-    // 2. Loading State
     if (state === "loading") {
         SetLoadingEl(userNameStatus);
     } else {
