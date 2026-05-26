@@ -34,11 +34,10 @@ func (rw *RouteWrapper) handlerHtml(h func(w http.ResponseWriter, r *http.Reques
 func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	//web.RecoveryM
-	baseStack := []web.Middleware{rw.analyticsService.Middleware, rw.i18Mgr.Middleware}
+	baseStack := []web.Middleware{web.RecoveryM, rw.analyticsService.Middleware, rw.i18Mgr.Middleware}
 
 	// guestStack := append([]web.Middleware{rw.authHandler.MiddlewareGuestOnly}, baseStack...)
-	protectedStack := append([]web.Middleware{rw.authHandler.Middleware}, baseStack...)
+	protectedStack := append(baseStack, rw.authHandler.MiddlewareBlock)
 
 	// --- Static Sites ---
 	mux.Handle("GET /", rw.handlerHtml(rw.HandleRoot, baseStack...))
@@ -77,7 +76,6 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("GET /api/health", http.HandlerFunc(rw.HandleHealth))
 
 	baseRateLimit := rw.rateLimited("", rate.Every(time.Second), 5)
-
 	protectedApiStack := append(baseStack, rw.authHandler.MiddlewareBlock, baseRateLimit)
 
 	// --- Protected API ---
@@ -114,29 +112,28 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	))
 
 	authRateLimit := rw.rateLimited("auth:", rate.Limit(1), 5)
-
-	authApiStack := append([]web.Middleware{auth.CSRFMiddleware(rw.i18Mgr), authRateLimit}, baseStack...)
+	authApiStack := append(baseStack, authRateLimit, auth.CSRFMiddleware(rw.i18Mgr))
 
 	authExtRateLimit := rw.rateLimited("authExt:", rate.Limit(2), 5)
-	authExtApiStack := append([]web.Middleware{authExtRateLimit}, baseStack...)
+	authExtApiStack := append(baseStack, authExtRateLimit)
 
 	authApiStackQuantize := append([]web.Middleware{web.QuantizeDelay(300*time.Millisecond, 50)}, authApiStack...)
 
 	mux.Handle("POST /api/auth/register", rw.handlerHtml(rw.authHandler.Register, authApiStackQuantize...))
 
-	verifyUsernameStack := append([]web.Middleware{auth.CSRFMiddleware(rw.i18Mgr), rw.rateLimited("user:", rate.Every(time.Second), 15)}, baseStack...)
+	verifyUsernameStack := append(baseStack, auth.CSRFMiddleware(rw.i18Mgr), rw.rateLimited("user:", rate.Every(time.Second), 15))
 	mux.Handle("POST /api/verify-username", rw.handlerHtml(rw.authHandler.VerifyUsername, verifyUsernameStack...))
 
 	mux.Handle("POST /api/auth/login", rw.handlerHtml(rw.authHandler.Login, authApiStackQuantize...))
 
-	authApiTwoFAStack := append([]web.Middleware{rw.authHandler.Middleware}, authApiStack...)
+	authApiTwoFAStack := append(authApiStack, rw.authHandler.MiddlewareBlock)
 	mux.Handle("POST /api/auth/2fa/init", rw.handlerHtml(rw.authHandler.HandleInit2FA, authApiTwoFAStack...))
 
 	mux.Handle("POST /api/auth/2fa/enable", rw.handlerHtml(rw.authHandler.HandleVerifyAndEnable2FA, authApiTwoFAStack...))
 
 	mux.Handle("POST /api/auth/2fa/recovery/regen", rw.handlerHtml(rw.authHandler.HandleRegenerateRecoveryCodes, authApiTwoFAStack...))
 
-	authApiTwoFALoginStack := append([]web.Middleware{rw.authHandler.MiddlewareTwoFA}, authApiStackQuantize...)
+	authApiTwoFALoginStack := append(authApiStackQuantize, rw.authHandler.MiddlewareTwoFA)
 	mux.Handle("POST /api/auth/2fa/recovery/verify", rw.handlerHtml(rw.authHandler.VerifyRecoveryCode, authApiTwoFALoginStack...))
 	mux.Handle("POST /api/auth/2fa/login", rw.handlerHtml(rw.authHandler.HandleLoginVerify2FA, authApiTwoFALoginStack...))
 
@@ -167,7 +164,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/verify/init", rw.handlerHtml(InitVerify, authApiStackQuantize...))
 	mux.Handle("POST /api/auth/verify/confirm", rw.handlerHtml(rw.authHandler.ConfirmVerify, authApiStackQuantize...))
 
-	crsfStack := append([]web.Middleware{baseRateLimit}, baseStack...)
+	crsfStack := append(baseStack, baseRateLimit)
 	mux.Handle("GET /api/csrf", rw.handlerHtml(auth.CSRFEndpoint, crsfStack...))
 
 	mux.Handle("GET  /api/auth/e/login", rw.handlerHtml(rw.authHandler.OAuthLogin, authExtApiStack...))
