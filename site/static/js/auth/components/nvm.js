@@ -2,7 +2,7 @@ import { SetLoadingEl, ResetLoadEl } from "../../util/loadingEffect.js";
 import GetCsrfToken from "./csrf.js";
 
 const displayNameInput = document.getElementById("display-name-input");
-const displayNameLen = document.getElementById("display-name-lenght"); // Note: typo 'lenght' in your HTML
+const displayNameLen = document.getElementById("display-name-lenght");
 
 const userNameStatus = document.getElementById("username-status");
 const userNameInput = document.getElementById("username-input");

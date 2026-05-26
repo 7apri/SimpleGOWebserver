@@ -68,9 +68,9 @@ func NewServer(
 				}
 				switch action {
 				case templates.SignalReload:
-					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act:h"}`))
+					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act":"h"}`))
 				case templates.SignalCSS:
-					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act:s"}`))
+					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act":"s"}`))
 				}
 			}
 		}

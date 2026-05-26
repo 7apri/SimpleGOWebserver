@@ -82,8 +82,8 @@ func NewManager(templateFS, staticFS fs.FS, staticRoot string, i18nManager *i18n
 }
 
 const (
-	SignalReload = 'r'
-	SignalCSS    = 'c'
+	SignalReload = 'h'
+	SignalCSS    = 's'
 	maxSmallFile = 2 * 1024 * 1024
 )
 
