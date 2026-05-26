@@ -8,10 +8,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type ActionType uint8
+type ClientActionType uint8
 
 const (
-	ActionUnknown ActionType = iota
+	ActionUnknown ClientActionType = iota
 	ActionUnsubscribe
 	ActionSubscribe
 )
@@ -23,9 +23,9 @@ type Client struct {
 }
 
 type ClientMessage struct {
-	Action    ActionType `json:"a"`
-	TopicType TopicType  `json:"t"`
-	TopicID   uuid.UUID  `json:"i"`
+	Action    ClientActionType `json:"a"`
+	TopicType TopicType        `json:"t"`
+	TopicID   uuid.UUID        `json:"i"`
 }
 
 func (c *Client) writePump() {

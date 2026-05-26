@@ -60,13 +60,18 @@ func NewServer(
 		WriteTimeout: 10 * time.Second,
 	}
 	go func() {
-		for range templateMgr.RefreshChan {
+		for {
 			select {
-			case _, ok := <-templateMgr.RefreshChan:
+			case action, ok := <-templateMgr.RefreshChan:
 				if !ok {
 					return
 				}
-				websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{}`))
+				switch action {
+				case templates.SignalReload:
+					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act:h"}`))
+				case templates.SignalCSS:
+					websocketHub.Broadcast(websocket.TopicGlobal, uuid.Nil, []byte(`{"act:s"}`))
+				}
 			}
 		}
 	}()

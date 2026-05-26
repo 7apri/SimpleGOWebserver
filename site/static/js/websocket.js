@@ -5,8 +5,8 @@ var webSocket = {
         this.socket = new WebSocket(this.endpoint);
 
         this.socket.onmessage = (event) => {
-            const signal = event.data;
-            console.log(signal);
+            const data = JSON.parse(event.data);
+            console.log(data);
         };
 
         this.socket.onerror = (error) => {
