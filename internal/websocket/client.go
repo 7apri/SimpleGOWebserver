@@ -11,7 +11,8 @@ import (
 type ActionType uint8
 
 const (
-	ActionUnsubscribe ActionType = iota
+	ActionUnknown ActionType = iota
+	ActionUnsubscribe
 	ActionSubscribe
 )
 

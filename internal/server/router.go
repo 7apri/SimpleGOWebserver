@@ -34,7 +34,8 @@ func (rw *RouteWrapper) handlerHtml(h func(w http.ResponseWriter, r *http.Reques
 func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	baseStack := []web.Middleware{web.RecoveryM, rw.analyticsService.Middleware, rw.i18Mgr.Middleware}
+	//web.RecoveryM
+	baseStack := []web.Middleware{rw.analyticsService.Middleware, rw.i18Mgr.Middleware}
 
 	// guestStack := append([]web.Middleware{rw.authHandler.MiddlewareGuestOnly}, baseStack...)
 	protectedStack := append([]web.Middleware{rw.authHandler.Middleware}, baseStack...)
@@ -182,6 +183,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/e/finalize", rw.handlerHtml(rw.authHandler.FinalizeExternal, authExtApiStack...))
 	mux.Handle("GET  /api/auth/e/cancel", rw.handlerHtml(rw.authHandler.CancelPendingAuth, authExtApiStack...))
 
-	mux.Handle("GET /api/ws", rw.handlerHtml(rw.websocketHub.HandleWS, web.RecoveryM))
+	//web.RecoveryM
+	mux.Handle("GET /api/ws", web.MakeHandler(rw.websocketHub.HandleWS, rw.i18Mgr, nil))
 	return mux
 }

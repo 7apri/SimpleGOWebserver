@@ -1,12 +1,29 @@
-const webSocket = {
-    endpoint : (window.location.protocol === 'http:' ? 'ws' : 'wss') + `://${window.location.host}/ws-reload`,
+var webSocket = {
+    endpoint : (window.location.protocol === 'http:' ? 'ws' : 'wss') + `://${window.location.host}/api/ws`,
     socket   : null,
-    connect  : () => {
-        self.socket = new WebSocket(endpoint);
+    connect  : function() {
+        this.socket = new WebSocket(this.endpoint);
 
-        socket.onmessage = function(event) {
+        this.socket.onmessage = (event) => {
             const signal = event.data;
+            console.log(signal);
+        };
 
+        this.socket.onerror = (error) => {
+            console.error("webSocket Error:", error);
+        };
+
+        this.socket.onclose = (event) => {
+            if (event.wasClean && event.code === 1001) {
+                setTimeout(() => this.connect(), 3000);
+            } else {
+                setTimeout(() => this.connect(), 2000);
+            }
+        };
+    }
+}
+webSocket.connect();
+            /*
             if (signal === 'r') {
                 window.location.reload();
             } 
@@ -20,20 +37,4 @@ const webSocket = {
                     el[attr] = url.href;
                 });
             }
-        };
-
-        socket.onerror = (error) => {
-            console.error("webSocket Error:", error);
-        };
-
-        socket.onclose = (event) => {
-            if (event.wasClean) {
-                if (event.code === 1001 || event.code === 1006) {
-                    setTimeout(connect, 3000);
-                }
-            } else {
-                setTimeout(connect, 2000);
-            }
-        };
-    }
-}
+            */

@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"net/http"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -33,13 +32,11 @@ type Subscription struct {
 }
 
 type WebsocketHub struct {
-	topics         map[Topic]map[*Client]struct{}
-	clientToTopics map[*Client]map[Topic]struct{}
+	topics map[Topic]map[*Client]struct{}
 
 	broadcast  chan TopicMessage
 	subscribe  chan Subscription
 	unregister chan *Client
-	mu         sync.RWMutex
 	upgr       websocket.Upgrader
 }
 

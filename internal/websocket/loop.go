@@ -9,16 +9,19 @@ import (
 )
 
 func (h *WebsocketHub) HandleWS(w http.ResponseWriter, r *http.Request) *web.WebError {
-	user, _ := auth.GetUser(r.Context())
 	conn, err := h.upgr.Upgrade(w, r, nil)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "upgrade", err, nil)
 	}
-
+	user, ok := auth.GetUser(r.Context())
+	usrID := uuid.Nil
+	if ok {
+		usrID = user.ID
+	}
 	client := &Client{
 		conn:   conn,
 		egress: make(chan []byte, 32),
-		userID: user.ID,
+		userID: usrID,
 	}
 
 	h.subscribe <- Subscription{
@@ -37,7 +40,6 @@ func (h *WebsocketHub) Run() {
 	for {
 		select {
 		case sub := <-h.subscribe:
-			h.mu.Lock()
 			switch sub.Action {
 			case ActionSubscribe:
 				if h.topics[sub.Topic] == nil {
@@ -64,10 +66,7 @@ func (h *WebsocketHub) Run() {
 					}
 				}
 			}
-			h.mu.Unlock()
-
 		case msg := <-h.broadcast:
-			h.mu.RLock()
 			if clients, ok := h.topics[msg.Topic]; ok {
 				for client := range clients {
 					select {
@@ -76,10 +75,7 @@ func (h *WebsocketHub) Run() {
 					}
 				}
 			}
-			h.mu.RUnlock()
-
 		case c := <-h.unregister:
-			h.mu.Lock()
 			if clientTopics, ok := h.clientToTopics[c]; ok {
 				for topic := range clientTopics {
 					if subs, ok := h.topics[topic]; ok {
@@ -91,8 +87,6 @@ func (h *WebsocketHub) Run() {
 				}
 				delete(h.clientToTopics, c)
 			}
-			h.mu.Unlock()
-
 			close(c.egress)
 		}
 	}
