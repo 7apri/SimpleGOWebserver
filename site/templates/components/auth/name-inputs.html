@@ -1,6 +1,9 @@
-[[ registerScript "auth/components/username-input.js" ]]
-<div class="mb-md">
-    <label class="fil-x" for="display-name-input">[[ capitalize (tr "phrase:display_name") ]]</label>
+[[ registerScript "auth/components/name-inputs.js" ]]
+<div class="mb-md fil-x">
+    <div class="flx j-spcBetween">
+        <label class="fil-x" for="display-name-input">[[ capitalize (tr "phrase:display_name") ]]</label>
+        <span id="display-name-lenght"></span>
+    </div>
     <input
         class="fil-x p-sm mb-md mt-sm txt-lg" 
         name="display_name"
@@ -12,7 +15,7 @@
     />
     <div class="fil-x flx j-spcBetween">
         <label for="username-input">[[ capitalize (tr "phrase:username") ]]</label>
-        <span ></span>
+        <span id="username-hint"></span>
     </div>
     <div class="pos-rel mt-sm fil-x">
         <input  
@@ -21,8 +24,6 @@
             id="username-input"
             type="text"
             placeholder="[[ tr "plh:user" ]]"
-            [[ if .Data.Value ]]value="[[ .Data.Value ]]"[[ end ]]
-            [[ if .Data.Attribute ]][[ .Data.Attribute ]][[ end ]]
             required
         />
         <div class="pos-abs top right fil-y grd pli-c" id="username-status" style="width: 2.5em;">

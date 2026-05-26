@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/golang-jwt/jwt/v5"
@@ -150,7 +151,7 @@ func VerifyCredential(credential, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
 
-func (s *secretWrap) GenerateAccess(user *UserPrint, opt AccessTokenOptions) (string, time.Time, error) {
+func (s *secretWrap) GenerateAccess(user *UserPrint, opt AccessTokenOptions) (string, time.Time, *UserClaims, error) {
 	duration := 15 * time.Minute
 	if opt.IsPending {
 		duration = 5 * time.Minute
@@ -164,22 +165,33 @@ func (s *secretWrap) GenerateAccess(user *UserPrint, opt AccessTokenOptions) (st
 			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(expiry),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "panels",
+			Issuer:    consts.Brand,
 		},
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.access)
-	return token, expiry, err
+	return token, expiry, &claims, err
 }
+
+var (
+	ErrTokenExpired = errors.New("token expired")
+)
 
 func (s *secretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (any, error) {
+		exp, err := t.Claims.GetExpirationTime()
+		if err != nil {
+			return nil, err
+		}
+		if exp.Before(time.Now()) {
+			return nil, ErrTokenExpired
+		}
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.access, nil
 	})
 	if err != nil || !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, err
 	}
 	return token.Claims.(*UserClaims), nil
 }
@@ -195,10 +207,10 @@ type AccessTokenOptions struct {
 	IsPending bool
 }
 
-func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, opt AccessTokenOptions) error {
-	access, exp, err := h.secret.GenerateAccess(user, opt)
+func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, opt AccessTokenOptions) (*UserClaims, error) {
+	access, exp, claims, err := h.secret.GenerateAccess(user, opt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -211,22 +223,22 @@ func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, o
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})
-	return nil
+	return claims, nil
 }
 
-func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, options TokenOptions) error {
+func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, options TokenOptions) (*UserClaims, error) {
 	if options.RotateCSRF {
 		setCSRFCookie(w)
 	}
 
-	err := h.issueAccessToken(w, user, options.AccessTokenOptions)
+	claims, err := h.issueAccessToken(w, user, options.AccessTokenOptions)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	refresh, err := GenerateRandomString(32)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	refreshHash := HashString(refresh)
@@ -301,5 +313,5 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	return nil
+	return claims, nil
 }

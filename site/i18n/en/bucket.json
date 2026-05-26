@@ -5,6 +5,7 @@
     },
     "static": {
         "phrase:username" : "username",
+        "phrase:display_name" : "display name",
         "phrase:or"       : "or",
         "phrase:next"     : "next",
         "phrase:confirm"  : "confirm",

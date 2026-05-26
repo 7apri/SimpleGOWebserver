@@ -19,6 +19,7 @@
         "phrase:password" : "heslo",
         "phrase:email"    : "email",
         "phrase:username" : "uživatelské jméno",
+        "phrase:display_name" : "jméno",
         "phrase:new_password" : "nové heslo",
         "phrase:remember_me" : "zapamatovat si mě",
         
@@ -32,7 +33,8 @@
         "btn:resend"   : "poslat znovu",
         
         "plh:email" : "jan.novak@seznam.cz",
-        "plh:user"  : "JanNovak_real",
+        "plh:user"  : "jan-novak-real",
+        "plh:display_name"  : "Jan Novak",
         "plh:recovery_code"  : "slovo-slovo-slovo",
 
         "title:err/404"  : "Stránka nenalezena",

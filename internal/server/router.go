@@ -41,19 +41,13 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	protectedStack := append([]web.Middleware{rw.authHandler.Middleware}, baseStack...)
 
 	// --- Static Sites ---
-	rootStack := append([]web.Middleware{rw.authHandler.MiddlewareSoft}, baseStack...)
-	mux.Handle("GET /", rw.handlerHtml(rw.HandleRoot, rootStack...))
+	mux.Handle("GET /", rw.handlerHtml(rw.HandleRoot, baseStack...))
 
 	mux.Handle("GET /sign-in", web.Chain(rw.serveHtml("auth/login"), baseStack...))
 	mux.Handle("GET /sign-up", rw.handlerHtml(rw.HandleSignUp, baseStack...))
 
 	mux.Handle("GET /2fa", web.Chain(rw.serveHtml("2fa/enter-code"), baseStack...))
 	mux.Handle("GET /2fa/setup", web.Chain(rw.serveHtmlUser("2fa/setup"), protectedStack...))
-
-	mux.Handle("GET /email", rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "email", Name: "test"}, "", nil)
-	}, protectedStack...))
-	mux.Handle("GET /page", web.Chain(rw.serveHtmlUser("test"), protectedStack...))
 
 	mux.Handle("GET /password-reset", rw.handlerHtml(rw.handleChallengeUI(
 		challengeUIConfig{
@@ -65,7 +59,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 				Kind: "page",
 				Name: "auth/reset",
 			},
-		}), rootStack...))
+		}), baseStack...))
 
 	mux.Handle("GET /account-verify", rw.handlerHtml(rw.handleChallengeUI(
 		challengeUIConfig{
@@ -84,7 +78,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 
 	baseRateLimit := rw.rateLimited("", rate.Every(time.Second), 5)
 
-	protectedApiStack := append([]web.Middleware{rw.authHandler.Middleware, baseRateLimit}, baseStack...)
+	protectedApiStack := append(baseStack, rw.authHandler.MiddlewareBlock, baseRateLimit)
 
 	// --- Protected API ---
 	mux.Handle("GET /api/weather", web.Chain(http.HandlerFunc(rw.HandleWeather), protectedApiStack...))
@@ -116,6 +110,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 		http.HandlerFunc(rw.authHandler.Logout),
 		web.RecoveryM,
 		rw.authHandler.Middleware,
+		rw.authHandler.MiddlewareBlock,
 	))
 
 	authRateLimit := rw.rateLimited("auth:", rate.Limit(1), 5)
@@ -174,9 +169,6 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 
 	crsfStack := append([]web.Middleware{baseRateLimit}, baseStack...)
 	mux.Handle("GET /api/csrf", rw.handlerHtml(auth.CSRFEndpoint, crsfStack...))
-
-	refreshStack := append([]web.Middleware{rw.authHandler.MiddlewareSoft}, crsfStack...)
-	mux.Handle("GET /api/auth/refresh", web.Chain(http.HandlerFunc(rw.authHandler.Refresh), refreshStack...))
 
 	mux.Handle("GET  /api/auth/e/login", rw.handlerHtml(rw.authHandler.OAuthLogin, authExtApiStack...))
 	mux.Handle("GET  /api/auth/e/callback", rw.handlerHtml(rw.authHandler.OAuthCallback, authExtApiStack...))

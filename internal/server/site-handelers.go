@@ -13,13 +13,7 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	if r.URL.Path != "/" {
 		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
-	user, loggedIn := auth.GetUser(r.Context())
-
-	if !loggedIn {
-		http.Redirect(w, r, "/api/auth/refresh", http.StatusTemporaryRedirect)
-		return nil
-	}
-
+	user, _ := auth.GetUser(r.Context())
 	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, "", user)
 }
 

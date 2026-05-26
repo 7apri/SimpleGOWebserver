@@ -1,32 +1,12 @@
 package auth
 
 import (
+	"context"
 	"net/http"
-	"net/url"
-	"strings"
-
-	"github.com/7apri/SimpleGOWebserver/internal/templates"
 )
 
-func redirectToLogin(w http.ResponseWriter, r *http.Request, next string) {
-	target := "/sign-in"
-	if next != "" {
-		target = target + "?next=" + url.QueryEscape(next)
-	}
-	http.Redirect(w, r, target, http.StatusTemporaryRedirect)
-}
-
-func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	next := r.URL.Query().Get("next")
-
-	cookie, err := r.Cookie("refresh_token")
-	if err != nil {
-		redirectToLogin(w, r, next)
-		return
-	}
-
+func (h *AuthHandler) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request, refreshToken string) (*UserClaims, error) {
 	remember := false
-
 	const q = `
 		DELETE FROM refresh_sessions rs
 		USING users u
@@ -35,35 +15,23 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			AND rs.expires_at > NOW()
 			AND u.is_verified = true
 		RETURNING u.id, u.role, u.username, rs.remember_me`
-
 	var user UserPrint
-	err = h.db.Pool.QueryRow(r.Context(), q, HashString(cookie.Value)).Scan(
+	err := h.db.Pool.QueryRow(r.Context(), q, HashString(refreshToken)).Scan(
 		&user.ID,
 		&user.Role,
 		&user.Username,
 		&remember,
 	)
-
 	if err != nil {
-		redirectToLogin(w, r, next)
-		return
+		return nil, err
 	}
-
-	err = h.issueTokens(w, r, &user, TokenOptions{
+	claims, err := h.issueTokens(w, r, &user, TokenOptions{
 		AccessTokenOptions: AccessTokenOptions{
 			Remember: remember,
 		},
 	})
 	if err != nil {
-		redirectToLogin(w, r, next)
-		return
+		return nil, err
 	}
-
-	if next == "" || strings.HasPrefix(next, "http") || strings.HasPrefix(next, "//") {
-		next = "/"
-	}
-
-	templates.SetETag(w, r, "refresh")
-
-	http.Redirect(w, r, next, http.StatusSeeOther)
+	return claims, nil
 }

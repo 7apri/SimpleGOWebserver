@@ -85,7 +85,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 
 	var status string
 	if has2FA {
-		err = h.issueAccessToken(w, &user, AccessTokenOptions{
+		_, err = h.issueAccessToken(w, &user, AccessTokenOptions{
 			IsPending: true,
 			Remember:  req.Remember,
 		})
@@ -94,7 +94,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) *web.WebErro
 		}
 		status = "pending"
 	} else {
-		if err := h.issueTokens(w, r, &user, TokenOptions{
+		if _, err := h.issueTokens(w, r, &user, TokenOptions{
 			RotateCSRF: true,
 			SendEmail:  true,
 			AccessTokenOptions: AccessTokenOptions{

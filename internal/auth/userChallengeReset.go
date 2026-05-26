@@ -37,7 +37,7 @@ func (h *AuthHandler) CheckCodeReset(w http.ResponseWriter, r *http.Request) *we
 
 	var status string
 	if res.Has2FA {
-		err := h.issueAccessToken(w, res.User, AccessTokenOptions{
+		_, err := h.issueAccessToken(w, res.User, AccessTokenOptions{
 			IsPending: true,
 			Remember:  false,
 		})
@@ -46,7 +46,7 @@ func (h *AuthHandler) CheckCodeReset(w http.ResponseWriter, r *http.Request) *we
 		}
 		status = "pending"
 	} else {
-		if err := h.issueTokens(w, r, res.User, TokenOptions{
+		if _, err := h.issueTokens(w, r, res.User, TokenOptions{
 			RotateCSRF: true,
 			SendEmail:  true,
 			AccessTokenOptions: AccessTokenOptions{
@@ -197,7 +197,7 @@ func (h *AuthHandler) ConfirmReset(w http.ResponseWriter, r *http.Request) *web.
 	http.SetCookie(w, &http.Cookie{Name: "reset_token", MaxAge: -1, Path: "/"})
 	http.SetCookie(w, &http.Cookie{Name: "reset_code_tmp", MaxAge: -1, Path: "/"})
 
-	if err := h.issueTokens(w, r, &u, TokenOptions{
+	if _, err := h.issueTokens(w, r, &u, TokenOptions{
 		RotateCSRF: true,
 		SendEmail:  true,
 	}); err != nil {

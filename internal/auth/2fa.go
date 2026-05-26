@@ -270,7 +270,7 @@ func (h *AuthHandler) HandleLoginVerify2FA(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.redis.Del(ctx, redisKey)
-	if err := h.issueTokens(w, r, claims.User, TokenOptions{
+	if _, err := h.issueTokens(w, r, claims.User, TokenOptions{
 		RotateCSRF: true,
 		SendEmail:  true,
 		AccessTokenOptions: AccessTokenOptions{
@@ -342,7 +342,7 @@ func (h *AuthHandler) VerifyRecoveryCode(w http.ResponseWriter, r *http.Request)
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 
-	if err := h.issueTokens(w, r, claims.User, TokenOptions{
+	if _, err := h.issueTokens(w, r, claims.User, TokenOptions{
 		RotateCSRF: true,
 		SendEmail:  true,
 		AccessTokenOptions: AccessTokenOptions{

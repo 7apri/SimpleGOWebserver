@@ -149,14 +149,14 @@ func (h *AuthHandler) handleOAuthLogin(w http.ResponseWriter, r *http.Request, u
 			next = "/2fa"
 		}
 
-		if err := h.issueAccessToken(w, user, AccessTokenOptions{
+		if _, err := h.issueAccessToken(w, user, AccessTokenOptions{
 			IsPending: true,
 			Remember:  true,
 		}); err != nil {
 			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
 	} else {
-		if err := h.issueTokens(w, r, user, TokenOptions{
+		if _, err := h.issueTokens(w, r, user, TokenOptions{
 			RotateCSRF: true,
 			SendEmail:  true,
 			AccessTokenOptions: AccessTokenOptions{
@@ -414,7 +414,7 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 
 	var status string
 	if has2FA {
-		err = h.issueAccessToken(w, &user, AccessTokenOptions{
+		_, err = h.issueAccessToken(w, &user, AccessTokenOptions{
 			Remember:  req.RememberMe,
 			IsPending: true,
 		})
@@ -423,7 +423,7 @@ func (h *AuthHandler) FinalizeExternal(w http.ResponseWriter, r *http.Request) *
 		}
 		status = "pending"
 	} else {
-		if err := h.issueTokens(w, r, &user, TokenOptions{
+		if _, err := h.issueTokens(w, r, &user, TokenOptions{
 			RotateCSRF: true,
 			SendEmail:  true,
 			AccessTokenOptions: AccessTokenOptions{

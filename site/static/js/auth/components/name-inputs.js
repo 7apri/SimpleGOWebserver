@@ -31,7 +31,6 @@ const slugify = (str) => {
         .replace(/^-+|-+$/g, '');
 };
 
-// 1. Display Name Handler
 displayNameInput.addEventListener('input', (e) => {
     const val = e.target.value;
     displayNameLen.textContent = val.length;

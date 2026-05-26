@@ -13,8 +13,6 @@ import (
 	"github.com/bytedance/sonic"
 )
 
-const brand = "Panels"
-
 func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 	return template.FuncMap{
 		"dict": func(values ...any) (map[string]any, error) {
@@ -114,19 +112,19 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 		},
 		"getTitleBrand": func() string {
 			if e.isCtxNil() {
-				return brand
+				return consts.Brand
 			}
 			title, err := mgr.i18nManager.Translate(e.ctx.Lang.Code, fmt.Sprintf("title:%s", e.ctx.Name))
 			if err != nil || title == "" {
-				title = brand
+				title = consts.Brand
 			} else {
-				title = fmt.Sprintf("%s | %s", title, brand)
+				title = fmt.Sprintf("%s | %s", title, consts.Brand)
 			}
 			return title
 		},
 		"getTitle": func() string {
 			if e.isCtxNil() {
-				return brand
+				return consts.Brand
 			}
 			title, _ := mgr.i18nManager.Translate(e.ctx.Lang.Code, fmt.Sprintf("title:%s", e.ctx.Name))
 			return title
