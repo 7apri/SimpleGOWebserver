@@ -32,7 +32,13 @@
     <link data-no-hot href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     
     <link rel="icon" type="image/x-icon" href="[[ asset "/static/assets/favicon.svg" ]]">
-    
+    [[ $URL := concat getBaseUrlProtocol (coalesce .Data.Path "") -]]
+    <link rel="canonical" href="[[ $URL ]][[ if ne .Lang.Code "en" ]]?lang=[[ .Lang.Code ]][[ end ]]">
+    [[ range $_, $lang := .AllLangs -]]
+        <link rel="alternate" hreflang="[[ $lang.Code ]]" href="[[ $URL ]][[ if ne $lang.Code "en" ]]?lang=[[ $lang.Code ]][[ end ]]">
+    [[ end -]]
+    <link rel="alternate" hreflang="x-default" href="[[ $URL ]]">
+
     [[ $trans := getTranslations ]]
     [[- if ne $trans "{}" -]][[ import "scripts/i18n-cache" $trans ]][[- end ]]
     [[ getScriptImports ]]

@@ -106,3 +106,32 @@ func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key Template
 
 	return nil
 }
+
+/*
+func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, meta string, data any) *web.WebError {
+	lang := i18n.GetLangFromReq(r)
+	tmpl := mgr.Get(lang, fragment)
+	if tmpl == nil {
+		return web.NewError(http.StatusNotFound, "not_found", nil, key)
+	}
+
+	if SetETag(w, r, tmpl.Etag+meta) {
+		return nil
+	}
+
+	b := mgr.bufferPool.Get()
+	defer mgr.bufferPool.Put(b)
+
+	if err := tmpl.Execute(b, data); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, key)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
+	}
+
+	return nil
+}
+*/

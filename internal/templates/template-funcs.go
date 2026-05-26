@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log/slog"
 	"maps"
+	"reflect"
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/consts"
@@ -55,6 +56,15 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 				return ""
 			}
 			return strings.ToUpper(s[:1]) + s[1:]
+		},
+		"coalesce": func(args ...any) any {
+			for _, arg := range args {
+				// Use reflection to check if the value is a "zero value" or nil
+				if arg != nil && !reflect.ValueOf(arg).IsZero() {
+					return arg
+				}
+			}
+			return nil
 		},
 	}
 }

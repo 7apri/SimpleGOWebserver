@@ -173,27 +173,41 @@ func (s *secretWrap) GenerateAccess(user *UserPrint, opt AccessTokenOptions) (st
 }
 
 var (
-	ErrTokenExpired = errors.New("token expired")
+	ErrTokenExpired  = errors.New("token expired")
+	ErrInvalidToken  = errors.New("token invalid")
+	ErrInvalidClaims = errors.New("claims invalid")
+	ErrInvalidIssuer = errors.New("issuer invalid")
 )
 
 func (s *secretWrap) ValidateAccess(tokenStr string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (any, error) {
-		exp, err := t.Claims.GetExpirationTime()
-		if err != nil {
-			return nil, err
-		}
-		if exp.Before(time.Now()) {
-			return nil, ErrTokenExpired
-		}
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.access, nil
 	})
-	if err != nil || !token.Valid {
-		return nil, err
+
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		}
+		return nil, ErrInvalidToken
 	}
-	return token.Claims.(*UserClaims), nil
+
+	if !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(*UserClaims)
+	if !ok {
+		return nil, ErrInvalidClaims
+	}
+
+	if claims.Issuer != consts.Brand {
+		return nil, ErrInvalidIssuer
+	}
+
+	return claims, nil
 }
 
 type TokenOptions struct {
