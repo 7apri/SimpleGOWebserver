@@ -104,9 +104,8 @@ func (h *AuthHandler) VerifyUsername(w http.ResponseWriter, r *http.Request) *we
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
 		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 	}
-	req.Username = strings.TrimSpace(req.Username)
-	if req.Username == "" || strings.Contains(req.Username, "@") {
-		return web.NewError(http.StatusBadRequest, "username_invalid", nil, nil)
+	if ok, err := validateUsername(req.Username); !ok {
+		return web.NewError(http.StatusBadRequest, "", err, nil)
 	}
 
 	var exists bool
@@ -141,9 +140,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) *web.WebE
 	if err := validatePassword(req.Password); err != nil {
 		return web.NewError(http.StatusBadRequest, "", err, nil)
 	}
-	req.Username = strings.TrimSpace(req.Username)
-	if req.Username == "" || strings.Contains(req.Username, "@") {
-		return web.NewError(http.StatusBadRequest, "username_invalid", nil, nil)
+	if ok, err := validateUsername(req.Username); !ok {
+		return web.NewError(http.StatusBadRequest, "", err, nil)
+	}
+	if ok, err := validateDisplayName(req.Username); !ok {
+		return web.NewError(http.StatusBadRequest, "", err, nil)
 	}
 	if ttl, limited := h.tryLock(ctx, email.ChallengeVerify, req.Email, time.Minute); limited {
 		return web.NewError(http.StatusTooManyRequests, "too_many_requests_email", nil, map[string]any{"retry_after": ttl})
