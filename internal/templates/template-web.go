@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"html/template"
 	"io"
 	"net/http"
 	"strconv"
@@ -107,26 +108,45 @@ func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key Template
 	return nil
 }
 
-/*
+type HtmxBodyPageData struct {
+	Body template.HTML
+	Data any
+}
+
 func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, meta string, data any) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 	tmpl := mgr.Get(lang, fragment)
 	if tmpl == nil {
-		return web.NewError(http.StatusNotFound, "not_found", nil, key)
+		return web.NewError(http.StatusNotFound, "not_found", nil, fragment)
 	}
+	etag := tmpl.Etag
 
-	if SetETag(w, r, tmpl.Etag+meta) {
+	if r.Header.Get("HX-Request") == "true" {
+		tmpl = mgr.Get(lang, body)
+		if tmpl == nil {
+			return web.NewError(http.StatusNotFound, "not_found", nil, body)
+		}
+		etag += tmpl.Etag
+	}
+	if SetETag(w, r, etag) {
 		return nil
 	}
-
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
-	if err := tmpl.Execute(b, data); err != nil {
-		return web.NewError(http.StatusInternalServerError, "internal", err, key)
+	if err := tmplFragment.Execute(b, data); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, fragment)
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := tmplBody.Execute(b, HtmxBodyPageData{
+		Body: template.HTML(b.String()),
+		Data: data,
+	}); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, tmplBody)
+	}
+
 	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	w.Header().Add("Vary", "HX-Request")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, err := w.Write(b.Bytes())
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
@@ -134,4 +154,3 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 
 	return nil
 }
-*/

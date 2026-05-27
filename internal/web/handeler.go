@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
+	"github.com/7apri/SimpleGOWebserver/pkg/util"
 	"github.com/bytedance/sonic"
 )
 
@@ -43,35 +43,7 @@ func (e *WebError) Error() string {
 type Handler func(w http.ResponseWriter, r *http.Request) *WebError
 type OnErrHtmlFunc func(w http.ResponseWriter, r *http.Request, buffer *bytes.Buffer, appErr *WebError) *WebError
 
-type BufferPool struct {
-	pool    sync.Pool
-	maxSize int
-}
-
-func NewBufferPool(maxSize int) *BufferPool {
-	return &BufferPool{
-		pool: sync.Pool{
-			New: func() any {
-				return new(bytes.Buffer)
-			},
-		},
-		maxSize: maxSize,
-	}
-}
-
-func (p *BufferPool) Get() *bytes.Buffer {
-	b := p.pool.Get().(*bytes.Buffer)
-	b.Reset()
-	return b
-}
-
-func (p *BufferPool) Put(b *bytes.Buffer) {
-	if b.Cap() <= p.maxSize {
-		p.pool.Put(b)
-	}
-}
-
-var bufferPool = NewBufferPool(64 * 1024)
+var bufferPool = util.NewBufferPool(64 * 1024)
 
 type ContentType uint8
 
