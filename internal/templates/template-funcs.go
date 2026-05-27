@@ -14,6 +14,39 @@ import (
 	"github.com/bytedance/sonic"
 )
 
+func TemplateCoalesce(args ...any) any {
+	for _, arg := range args {
+		if arg == nil {
+			continue
+		}
+
+		v := reflect.ValueOf(arg)
+		if !v.IsValid() {
+			continue
+		}
+
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				continue
+			}
+			v = v.Elem()
+		}
+
+		switch v.Kind() {
+		case reflect.String:
+			if v.String() == "" {
+				continue
+			}
+		case reflect.Slice, reflect.Map, reflect.Chan:
+			if v.Len() == 0 {
+				continue
+			}
+		}
+		return arg
+	}
+	return ""
+}
+
 func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 	return template.FuncMap{
 		"dict": func(values ...any) (map[string]any, error) {
@@ -57,15 +90,7 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 			}
 			return strings.ToUpper(s[:1]) + s[1:]
 		},
-		"coalesce": func(args ...any) any {
-			for _, arg := range args {
-				// Use reflection to check if the value is a "zero value" or nil
-				if arg != nil && !reflect.ValueOf(arg).IsZero() {
-					return arg
-				}
-			}
-			return nil
-		},
+		"coalesce": TemplateCoalesce,
 	}
 }
 func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {

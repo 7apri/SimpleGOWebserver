@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -121,12 +122,28 @@ func RandomInt(max int) int {
 	}
 	return rand.IntN(max)
 }
-func Coalesce[T comparable](values ...T) T {
-	var zero T
-	for _, v := range values {
-		if v != zero {
-			return v
+func Coalesce[T any](args ...T) T {
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+
+		if !v.IsValid() {
+			continue
 		}
+
+		switch v.Kind() {
+		case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+			if v.IsNil() {
+				continue
+			}
+		}
+
+		if v.Kind() == reflect.String {
+			if v.String() == "" {
+				continue
+			}
+		}
+		return arg
 	}
+	var zero T
 	return zero
 }
