@@ -2,6 +2,23 @@
 layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
-<main class="grd pli-c fil gap-md">
+[[ setData (dict "BodyAttributes" "hewo") ]]
+<aside>
+    <ul>
+        <li>
+            <a
+            hx-get="/home"
+            hx-push-url="true"
+            hx-target="#main"
+            >
+            Home
+            <svg class="icon color" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#home"></use>
+            </svg>
+            </a>
+        </li>
+    </ul>
+</aside>
+<main id="main">
     {{ .Body }}
 </main>

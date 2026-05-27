@@ -272,7 +272,7 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				if m, err := sonic.ConfigStd.Marshal(map[string]any{"imports": imports}); err == nil {
 					b.WriteString(`<script type="importmap">`)
 					b.Write(m)
-					b.WriteString(`</script>`)
+					b.WriteString(`</script>` + "\n")
 				}
 			}
 
@@ -291,13 +291,13 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 			}
 
 			for _, path := range preloadPaths {
-				fmt.Fprintf(b, `<link rel="modulepreload" href="%s">`, path)
+				fmt.Fprintf(b, `<link rel="modulepreload" href="%s">`+"\n", path)
 			}
 			for _, path := range modulePaths {
-				fmt.Fprintf(b, `<script type="module" src="%s"></script>`, path)
+				fmt.Fprintf(b, `<script type="module" src="%s"></script>`+"\n", path)
 			}
 			for _, path := range globalPaths {
-				fmt.Fprintf(b, `<script src="%s"></script>`, path)
+				fmt.Fprintf(b, `<script src="%s"></script>`+"\n", path)
 			}
 
 			return template.HTML(b.String()), nil

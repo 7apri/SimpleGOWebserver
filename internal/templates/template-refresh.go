@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -22,6 +23,12 @@ import (
 type RawTemplate struct {
 	Content *textTmpl.Template
 	Meta    metadata
+}
+
+func cleanEmptyLines(input string) string {
+	re := regexp.MustCompile(`(?m)^\s*$\n?`)
+	result := re.ReplaceAllString(input, "")
+	return strings.TrimSpace(result)
 }
 
 func (mgr *TemplateManager) Refresh() error {
@@ -115,7 +122,7 @@ func (mgr *TemplateManager) Refresh() error {
 				if err != nil {
 					return fmt.Errorf("[Page: %s] [Lang: %s] bake failed: %w", path, lang.Code, err)
 				}
-				bakedPage = strings.TrimSpace(bakedPage)
+				bakedPage = cleanEmptyLines(strings.TrimSpace(bakedPage))
 				tag := generateETag([]byte(bakedPage))
 
 				t := template.New(path).Funcs(mgr.funcMapExec(lang))

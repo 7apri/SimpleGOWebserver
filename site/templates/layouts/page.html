@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     
-    <title>[[ getTitleBrand ]]</title>
-    <meta property="og:title"       content="[[ getTitleBrand ]]">
-    <meta property="og:description" content="[[ getDesc ]]">
-    <meta name="description"        content="[[ getDesc ]]">
-    <meta property="og:type"  content="website">
-    <meta property="og:image" content="[[ asset "/static/assets/og-image.png" ]]">
+    [[ $title := coalesce getTitleBrand .Data.Title ]]
+    [[ $desc  := coalesce getDesc .Data.Description ]]
+    <title>[[ $title ]]</title>
+    <meta property="og:title"       content="[[ $title ]]">
+    <meta property="og:description" content="[[ $desc ]]">
+    <meta name="description"        content="[[ $desc ]]">
+    <meta property="og:type"  content=[[ coalesce .Data.Type "website" ]]>
+    <meta property="og:image" content="[[ coalesce .Data.Image (asset "/static/assets/og-image.png") ]]">
     
     <meta name="theme-color"  content="#222831" id="theme-color">
     <meta name="color-scheme" content="dark light">
@@ -43,7 +45,7 @@
     [[- if ne $trans "{}" -]][[ import "scripts/i18n-cache" $trans ]][[- end ]]
     [[ getScriptImports ]]
 </head>
-<body>
+<body[[ if .Data.BodyAttributes ]] [[ .Data.BodyAttributes ]][[ end -]]>
     [[ .Body ]]
 </body>
 </html>
