@@ -9,8 +9,16 @@ import (
 
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
+	"github.com/cespare/xxhash/v2"
 )
 
+func XxHashETag(parts ...string) string {
+	h := xxhash.New()
+	for _, part := range parts {
+		_, _ = h.WriteString(part)
+	}
+	return strconv.FormatUint(h.Sum64(), 36)
+}
 func cleanETag(s string) string {
 	if len(s) >= 2 && s[0:2] == "W/" {
 		s = s[2:]
@@ -20,7 +28,6 @@ func cleanETag(s string) string {
 	}
 	return s
 }
-
 func SetETag(w http.ResponseWriter, r *http.Request, tag string) bool {
 	fullTag := `W/"` + tag + `"`
 
@@ -115,37 +122,47 @@ type HtmxBodyPageData struct {
 
 func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, meta string, data any) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
-	tmpl := mgr.Get(lang, fragment)
-	if tmpl == nil {
+	w.Header().Add("Vary", "HX-Request")
+
+	tmplFragment := mgr.Get(lang, fragment)
+	if tmplFragment == nil {
 		return web.NewError(http.StatusNotFound, "not_found", nil, fragment)
 	}
-	etag := tmpl.Etag
+	etag := tmplFragment.Etag
 
-	if r.Header.Get("HX-Request") == "true" {
-		tmpl = mgr.Get(lang, body)
-		if tmpl == nil {
+	var tmplBody *TemplateWrapper
+	isFullReq := r.Header.Get("HX-Request") == ""
+
+	if isFullReq {
+		tmplBody = mgr.Get(lang, body)
+		if tmplBody == nil {
 			return web.NewError(http.StatusNotFound, "not_found", nil, body)
 		}
-		etag += tmpl.Etag
+
+		etag += tmplBody.Etag
 	}
-	if SetETag(w, r, etag) {
+	if SetETag(w, r, XxHashETag(etag, meta)) {
 		return nil
 	}
+
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
 	if err := tmplFragment.Execute(b, data); err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, fragment)
 	}
-	if err := tmplBody.Execute(b, HtmxBodyPageData{
-		Body: template.HTML(b.String()),
-		Data: data,
-	}); err != nil {
-		return web.NewError(http.StatusInternalServerError, "internal", err, tmplBody)
+	if isFullReq {
+		body := template.HTML(b.String())
+		b.Reset()
+		if err := tmplBody.Execute(b, HtmxBodyPageData{
+			Body: body,
+			Data: data,
+		}); err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, tmplBody)
+		}
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
-	w.Header().Add("Vary", "HX-Request")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, err := w.Write(b.Bytes())
 	if err != nil {

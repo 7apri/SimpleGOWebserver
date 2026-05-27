@@ -3,7 +3,6 @@ const wsAction = Object.freeze({
     PREPEND: 'p',
     REPLACE: 'r'
 });
-
 var WS = {
     endpoint : (window.location.protocol === 'http:' ? 'ws' : 'wss') + `://${window.location.host}/api/ws`,
     socket   : null,

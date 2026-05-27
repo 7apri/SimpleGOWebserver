@@ -14,7 +14,7 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
 	user, _ := auth.GetUser(r.Context())
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, "", user)
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, "", user)
 }
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {

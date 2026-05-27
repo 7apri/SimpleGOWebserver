@@ -66,7 +66,7 @@ func NewManager(templateFS, staticFS fs.FS, staticRoot string, i18nManager *i18n
 		Staticfs:    staticFS,
 		i18nManager: i18nManager,
 		RefreshChan: make(chan rune, 1),
-		bufferPool:  util.NewBufferPool(65536),
+		bufferPool:  util.NewBufferPool(10240),
 		staticRoot:  staticRoot,
 	}
 	mgr.syncStaticAndCheck()
