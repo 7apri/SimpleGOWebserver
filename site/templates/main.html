@@ -2,22 +2,43 @@
 layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
-[[ setData (dict "BodyAttributes" "hewo") ]]
-<aside>
-    <ul>
-        <li>
-            <a
-            hx-get="/home"
-            hx-push-url="true"
-            hx-target="#main"
-            >
-            Home
-            <svg class="icon color" aria-hidden="true">
-                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#home"></use>
-            </svg>
-            </a>
-        </li>
-    </ul>
+[[ setData (dict "BodyAttributes" `class="flx j-spcBetween"`) ]]
+<aside class="side-left">
+    <nav>
+        <ul>
+            [[ range (slice 
+            (  dict 
+                "Text" "navigation/text:home"
+                "Get"  "/"
+                "Icon" "home"
+            ) (dict 
+                "Text" "navigation/text:explore" 
+                "Get"  "/explore"
+                "Icon" "magnifier"
+            ) (dict 
+                "Text" "navigation/text:notifications" 
+                "Get"  "/notifications"
+                "Icon" "bell"
+            ) (dict 
+                "Text" "navigation/text:explore"
+                "Get"  "/explore"
+                "Icon" "home"
+            ) (dict 
+                "Text" "navigation/text:explore"
+                "Get"  "/explore"
+                "Icon" "home"
+            ))]]
+            <li class="navigation-item">
+                <a hx-get="[[ .Get ]]" hx-push-url="true" hx-target="#main" >
+                [[capitalize ( tr .Text )]]
+                    <svg class="icon color" aria-hidden="true">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#[[ .Icon ]]"></use>
+                    </svg>
+                </a>
+            </li>
+            [[ end ]]
+        </ul>
+    </nav>
 </aside>
 <main id="main">
     {{ .Body }}
