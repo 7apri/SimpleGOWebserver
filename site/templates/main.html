@@ -2,44 +2,53 @@
 layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
-[[ setData (dict "BodyAttributes" `class="flx j-spcBetween"`) ]]
+[[ setData (dict "BodyAttributes" `class="body-main"`) ]]
 <aside class="side-left">
-    <nav>
-        <ul>
-            [[ range (slice 
-            (  dict 
-                "Text" "navigation/text:home"
-                "Get"  "/"
-                "Icon" "home"
-            ) (dict 
-                "Text" "navigation/text:explore" 
-                "Get"  "/explore"
-                "Icon" "magnifier"
-            ) (dict 
-                "Text" "navigation/text:notifications" 
-                "Get"  "/notifications"
-                "Icon" "bell"
-            ) (dict 
-                "Text" "navigation/text:explore"
-                "Get"  "/explore"
-                "Icon" "home"
-            ) (dict 
-                "Text" "navigation/text:explore"
-                "Get"  "/explore"
-                "Icon" "home"
-            ))]]
-            <li class="navigation-item">
-                <a hx-get="[[ .Get ]]" hx-push-url="true" hx-target="#main" >
-                [[capitalize ( tr .Text )]]
-                    <svg class="icon color" aria-hidden="true">
+    <div class="side-container">
+        <a hx-get="/" hx-push-url="true" hx-target="#main" style="--icon-size:2rem" class="flx ali-c mb-md">
+            <svg class="icon" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#brand"></use>
+            </svg>
+        </a>
+        <nav>
+            <ul class="flx col gap-lg" style="--icon-size:1.8rem">
+                [[ range (slice 
+                (  dict 
+                    "Text" "navigation/text:home"
+                    "Get"  "/"
+                    "Icon" "home"
+                ) (dict 
+                    "Text" "navigation/text:explore" 
+                    "Get"  "/explore"
+                    "Icon" "magnifier"
+                ) (dict 
+                    "Text" "navigation/text:notifications" 
+                    "Get"  "/notifications"
+                    "Icon" "bell"
+                ) (dict 
+                    "Text" "navigation/text:chat"
+                    "Get"  "/chat"
+                    "Icon" "chat"
+                ) (dict 
+                    "Text" "navigation/text:profile"
+                    "Get"  "/profile"
+                    "Icon" "profile"
+                ))]]
+                <li>
+                    <a class="navigation-item grow lighten"  hx-get="[[ .Get ]]" hx-push-url="true" hx-target="#main" >
+                    [[capitalize ( tr .Text )]]
+                    <svg class="icon" aria-hidden="true">
                         <use href="[[ asset "/static/assets/iconBundle.svg" ]]#[[ .Icon ]]"></use>
                     </svg>
-                </a>
-            </li>
-            [[ end ]]
-        </ul>
-    </nav>
+                    </a>
+                </li>
+                [[ end ]]
+            </ul>
+        </nav>
+    </div>
 </aside>
-<main id="main">
+<main id="main" style="height: 2000px;">
     {{ .Body }}
 </main>
+<aside class="side-right">
+</aside>

@@ -16,6 +16,11 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	user, _ := auth.GetUser(r.Context())
 	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, "", user)
 }
+func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {
+	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
+		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, "", nil)
+	})
+}
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
 	cookie, err := r.Cookie("oauth_pending")
@@ -26,7 +31,6 @@ func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *we
 			return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims.AvatarURL, claims)
 		}
 	}
-
 	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, "", nil)
 }
 
