@@ -38,7 +38,6 @@ func (h *AuthHandler) RegisterProviders(providers ...OAuthProvider) {
 		h.registerProvider(provider)
 	}
 }
-
 func (h *AuthHandler) registerProvider(p OAuthProvider) {
 	name := p.Name()
 	slog.Info("registering OAuth provider", "name", name)

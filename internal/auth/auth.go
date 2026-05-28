@@ -37,6 +37,7 @@ type UserClaims struct {
 	RememberMe bool       `json:"rem,omitempty"`
 	jwt.RegisteredClaims
 }
+
 type UserPrint struct {
 	ID       uuid.UUID `json:"id"`
 	Role     string    `json:"role"`
