@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/social"
@@ -14,8 +15,22 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	if r.URL.Path != "/" {
 		return web.NewError(http.StatusNotFound, "err_not_found", nil, nil)
 	}
-	user, _ := auth.GetUser(r.Context())
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, "", user)
+	var (
+		profile *social.UserProfile
+		meta    string
+	)
+	if user, ok := auth.GetUser(r.Context()); ok {
+		meta += user.Username
+		var err error
+		profile, err = rw.socialWrapper.GetProfileByUsername(r.Context(), user.Username)
+		if err != nil {
+			slog.Error("got", "err", err)
+		}
+	}
+	if profile != nil {
+		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
+	}
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, meta)
 }
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -70,12 +85,12 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		Status:  status,
 	}
 
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "user-profile"}, "", data)
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "user-profile"}, data, user.ID.String(), profile.ID.String(), string(status))
 }
 
 func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {
 	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, "", nil)
+		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, nil)
 	})
 }
 func (rw *RouteWrapper) serveHtml(name string) http.Handler {

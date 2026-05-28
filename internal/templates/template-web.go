@@ -12,9 +12,10 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
-func XxHashETag(parts ...string) string {
+func xxHashETag(base string, meta ...string) string {
 	h := xxhash.New()
-	for _, part := range parts {
+	_, _ = h.WriteString(base)
+	for _, part := range meta {
 		_, _ = h.WriteString(part)
 	}
 	return strconv.FormatUint(h.Sum64(), 36)
@@ -141,7 +142,7 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 
 		etag += tmplBody.Etag
 	}
-	if SetETag(w, r, XxHashETag(etag, meta...)) {
+	if SetETag(w, r, xxHashETag(etag, meta...)) {
 		return nil
 	}
 

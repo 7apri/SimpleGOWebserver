@@ -15,8 +15,11 @@ type UserProfile struct {
 	AvatarURL      string    `json:"avatar_url"`
 	BannerURL      string    `json:"banner_url"`
 	Bio            string    `json:"bio"`
-	FollowingCount int       `json:"following_count"`
 	FollowersCount int       `json:"followers_count"`
+	FollowingCount int       `json:"following_count"`
+	IsVerified     bool      `json:"is_verified"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 func (s *SocialWrapper) GetProfileByUsername(ctx context.Context, username string) (*UserProfile, error) {
@@ -30,12 +33,12 @@ func (s *SocialWrapper) GetProfileByUsername(ctx context.Context, username strin
 
 	err = s.pool.QueryRow(ctx, `
         SELECT id, username, display_name, avatar_url, banner_url, bio, 
-               followers_count, following_count
+               followers_count, following_count, created_at, updated_at
         FROM users 
         WHERE username = $1 AND deleted_at IS NULL`, username).Scan(
 		&profile.ID, &profile.Username, &profile.DisplayName,
 		&profile.AvatarURL, &profile.BannerURL, &profile.Bio,
-		&profile.FollowersCount, &profile.FollowingCount,
+		&profile.FollowersCount, &profile.FollowingCount, &profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
