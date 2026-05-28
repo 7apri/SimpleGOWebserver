@@ -48,8 +48,12 @@ layout: page
             </nav>
         </div>
         <div class="side-left-info">
-            {{ with .Data }} 
+            {{ with .Data }}
             <img class="pfp" src="{{.AvatarURL}}" />
+            <div>
+                <p>{{ .DisplayName }}</p>
+                <p>@{{ .Username }}</p>
+            </div>
             {{ else }}
                 login wallahi
             {{ end }}

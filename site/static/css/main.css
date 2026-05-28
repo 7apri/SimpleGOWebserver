@@ -527,16 +527,22 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     padding: var(--s-lg);
     height: 100vh;
 }
+.navigation-item,
+.side-left-info{
+    background-color: var(--surface-container);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: var(--s-md);
+    justify-content: space-between;
+}
 .navigation-item{
     width: 100%;
-    display: flex;
     cursor: pointer;
-    gap: var(--s-md);
-    align-items: center;
-    border-radius: 10px;
     padding: var(--s-lg) var(--s-md);
-    justify-content: space-between;
-    background-color: var(--surface-container);
+}
+.side-left-info{
+    padding: var(--s-sm) var(--s-md);
 }
 .pfp{
     border-radius: 50%;
