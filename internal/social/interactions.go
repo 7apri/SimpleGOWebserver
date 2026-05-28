@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,12 +22,22 @@ const (
 )
 
 var syncQueries = map[string]string{
-	KeyFollowers:   "UPDATE users SET follower_count = follower_count + $1 WHERE id = $2",
-	KeyFollowing:   "UPDATE users SET following_count = following_count + $1 WHERE id = $2",
-	KeyPostLikes:   "UPDATE posts SET like_count = like_count + $1 WHERE id = $2",
+	KeyFollowers: "UPDATE users SET follower_count = follower_count + $1 WHERE id = $2",
+	KeyFollowing: "UPDATE users SET following_count = following_count + $1 WHERE id = $2",
+	KeyPostLikes: "UPDATE posts SET like_count = like_count + $1 WHERE id = $2",
+
 	KeyPostReposts: "UPDATE posts SET reposts_count = reposts_count + $1 WHERE id = $2",
 	KeyPostReplies: "UPDATE posts SET replies_count = replies_count + $1 WHERE id = $2",
 	KeyPostQuotes:  "UPDATE posts SET quotes_count = quotes_count + $1 WHERE id = $2",
+}
+
+func (s *SocialWrapper) runFlush() {
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	for mainKey, query := range syncQueries {
+		s.processMetric(ctx, mainKey, query)
+	}
 }
 
 func (s *SocialWrapper) processMetric(ctx context.Context, mainKey, query string) {

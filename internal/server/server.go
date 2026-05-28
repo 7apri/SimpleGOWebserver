@@ -10,6 +10,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/database"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
 	"github.com/7apri/SimpleGOWebserver/internal/location"
+	"github.com/7apri/SimpleGOWebserver/internal/social"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
 	"github.com/7apri/SimpleGOWebserver/internal/websocket"
@@ -28,6 +29,7 @@ type RouteWrapper struct {
 	templateMgr      *templates.TemplateManager
 	i18Mgr           *i18n.I18nManager
 	websocketHub     *websocket.WebsocketHub
+	socialWrapper    *social.SocialWrapper
 }
 
 func NewServer(
@@ -40,6 +42,7 @@ func NewServer(
 	templateMgr *templates.TemplateManager,
 	analyticsSr *analytics.Service,
 	websocketHub *websocket.WebsocketHub,
+	socialWrapper *social.SocialWrapper,
 ) *http.Server {
 	w := &RouteWrapper{
 		locationService:  locationSr,
@@ -51,6 +54,7 @@ func NewServer(
 		i18Mgr:           i18nMgr,
 		redis:            rdb,
 		websocketHub:     websocketHub,
+		socialWrapper:    socialWrapper,
 	}
 	s := &http.Server{
 		Addr:         ":8080",

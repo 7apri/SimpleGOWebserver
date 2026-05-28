@@ -120,7 +120,7 @@ type HtmxBodyPageData struct {
 	Data any
 }
 
-func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, meta string, data any) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, data any, meta ...string) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 	w.Header().Add("Vary", "HX-Request")
 
@@ -141,7 +141,7 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 
 		etag += tmplBody.Etag
 	}
-	if SetETag(w, r, XxHashETag(etag, meta)) {
+	if SetETag(w, r, XxHashETag(etag, meta...)) {
 		return nil
 	}
 

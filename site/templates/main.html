@@ -29,9 +29,9 @@ layout: page
                     "Text" "navigation/text:chat"
                     "Get"  "/chat"
                     "Icon" "chat"
-                ) (dict 
+                ) (dict
                     "Text" "navigation/text:profile"
-                    "Get"  "/profile"
+                    "Get"  "/"
                     "Icon" "profile"
                 ))]]
                 <li>
@@ -52,6 +52,7 @@ layout: page
 </aside>
 <main id="main" style="height: 2000px;">
     {{ .Body }}
+    {{ .Data }}
 </main>
 <aside class="side-right">
 </aside>

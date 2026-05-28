@@ -20,6 +20,7 @@ import (
 	"github.com/7apri/SimpleGOWebserver/internal/location"
 	"github.com/7apri/SimpleGOWebserver/internal/redis"
 	"github.com/7apri/SimpleGOWebserver/internal/server"
+	"github.com/7apri/SimpleGOWebserver/internal/social"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/weather"
 	"github.com/7apri/SimpleGOWebserver/internal/websocket"
@@ -154,8 +155,10 @@ func main() {
 	ah.RegisterProviders(githubProv, googleProv)
 
 	wsHub := websocket.NewWebsocketHub()
+	socialWrapper := social.NewSocialWrapper(db.Pool, rdb)
+	socialWrapper.Start()
 
-	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as, wsHub)
+	srv := server.NewServer(ls, ws, ah, db, rdb, i18nMgr, tmplMgr, as, wsHub, socialWrapper)
 	go func() {
 		slog.Info("Starting server on :8080")
 		if err = srv.ListenAndServe(); err != nil {

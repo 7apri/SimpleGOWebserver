@@ -34,13 +34,14 @@ func (rw *RouteWrapper) handlerHtml(h func(w http.ResponseWriter, r *http.Reques
 func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	baseStack := []web.Middleware{web.RecoveryM, rw.analyticsService.Middleware, rw.i18Mgr.Middleware}
+	baseStack := []web.Middleware{web.RecoveryM, rw.analyticsService.Middleware, rw.i18Mgr.Middleware, rw.authHandler.Middleware}
 
 	// guestStack := append([]web.Middleware{rw.authHandler.MiddlewareGuestOnly}, baseStack...)
 	protectedStack := append(baseStack, rw.authHandler.MiddlewareBlock)
 
 	// --- Static Sites ---
 	mux.Handle("GET /", rw.handlerHtml(rw.HandleRoot, baseStack...))
+	mux.Handle("GET /{username}", rw.handlerHtml(rw.HandleProfile, baseStack...))
 	mux.Handle("GET /explore", web.Chain(rw.serveHtmx("main", "explore"), baseStack...))
 
 	mux.Handle("GET /sign-in", web.Chain(rw.serveHtml("auth/login"), baseStack...))

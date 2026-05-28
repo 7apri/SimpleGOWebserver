@@ -64,12 +64,3 @@ func (s *SocialWrapper) worker() {
 		}
 	}
 }
-
-func (s *SocialWrapper) runFlush() {
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-	defer cancel()
-
-	for mainKey, query := range syncQueries {
-		s.processMetric(ctx, mainKey, query)
-	}
-}
