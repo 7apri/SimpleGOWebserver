@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 )
@@ -32,7 +33,6 @@ func (h *AuthHandler) tryRefresh(ctx context.Context, w http.ResponseWriter, r *
 	}
 
 	claims, err := h.Refresh(ctx, w, r, cookie.Value)
-
 	if err != nil {
 		return nil, false
 	}
@@ -50,14 +50,15 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie("access_token")
 		if err == nil {
+			slog.Info("claims")
 			claims, err = h.secret.ValidateAccess(cookie.Value)
-			if err != nil || claims == nil {
-				var ok bool
-				claims, ok = h.tryRefresh(ctx, w, r)
-				if !ok {
-					next.ServeHTTP(w, r)
-					return
-				}
+		}
+		if err != nil || claims == nil {
+			var ok bool
+			claims, ok = h.tryRefresh(ctx, w, r)
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
 			}
 		}
 

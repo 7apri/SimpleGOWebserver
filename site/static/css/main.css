@@ -525,6 +525,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     position: sticky;
     top:0;
     padding: var(--s-lg);
+    height: 100vh;
 }
 .navigation-item{
     width: 100%;
@@ -536,4 +537,9 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     padding: var(--s-lg) var(--s-md);
     justify-content: space-between;
     background-color: var(--surface-container);
+}
+.pfp{
+    border-radius: 50%;
+    height: var(--pfp-size, 5rem);
+    width: var(--pfp-size, 5rem);
 }

@@ -5,9 +5,9 @@ CREATE TABLE users (
     username CITEXT NOT NULL,
     email    CITEXT NOT NULL,
     display_name TEXT NOT NULL,
-    avatar_url TEXT,
-    banner_url TEXT,
-    bio VARCHAR(280),
+    avatar_url TEXT NOT NULL DEFAULT '',
+    banner_url TEXT NOT NULL DEFAULT '',
+    bio VARCHAR(280) NOT NULL DEFAULT '',
     
     following_count INT NOT NULL DEFAULT 0 CHECK (following_count >= 0),
     followers_count INT NOT NULL DEFAULT 0 CHECK (followers_count >= 0),

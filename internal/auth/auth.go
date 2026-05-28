@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -314,7 +313,6 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 	if options.Remember {
 		maxAge = int(refreshDuration.Seconds())
 		expiry = time.Now().Add(refreshDuration)
-		slog.Info("u alredy know", "maxAge", maxAge, "expiry", expiry, "remember", options.Remember)
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -324,7 +322,7 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 		Expires:  expiry,
 		HttpOnly: true,
 		Secure:   true,
-		Path:     "/api/auth/",
+		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})
 

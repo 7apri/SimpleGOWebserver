@@ -19,17 +19,16 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 		profile *social.UserProfile
 		meta    string
 	)
-	if user, ok := auth.GetUser(r.Context()); ok {
+	var err error
+	user, ok := auth.GetUser(r.Context())
+	if ok {
 		meta += user.Username
-		var err error
 		profile, err = rw.socialWrapper.GetProfileByUsername(r.Context(), user.Username)
-		if err != nil {
-			slog.Error("got", "err", err)
-		}
 	}
 	if profile != nil {
 		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
 	}
+	slog.Info("ndjka", "u", user, "ok", ok, "p", profile, "err", err)
 	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, meta)
 }
 
