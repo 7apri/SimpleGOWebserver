@@ -74,9 +74,9 @@ func (rw *RouteWrapper) handleChallengeUI(cfg challengeUIConfig) func(w http.Res
 
 		_, isLoggedIn := auth.GetUser(r.Context())
 
-		return rw.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, state+strconv.FormatBool(isLoggedIn), map[string]any{
+		return rw.templateMgr.WriteTemplateETag(w, r, cfg.pageKey, map[string]any{
 			"State":    state,
 			"LoggedIn": isLoggedIn,
-		})
+		}, state, strconv.FormatBool(isLoggedIn))
 	}
 }

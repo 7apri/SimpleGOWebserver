@@ -37,10 +37,10 @@ func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *we
 	if err == nil && cookie.Value != "" {
 		claims, err := rw.authHandler.GetPendingAuthProviderClaims(cookie.Value)
 		if err == nil && claims != nil {
-			return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims.AvatarURL, claims)
+			return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/finish-external"}, claims, claims.AvatarURL)
 		}
 	}
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, "", nil)
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: "auth/register"}, nil)
 }
 
 type RelationshipStatus string
@@ -118,12 +118,12 @@ func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {
 }
 func (rw *RouteWrapper) serveHtml(name string) http.Handler {
 	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", nil)
+		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, nil)
 	})
 }
 func (rw *RouteWrapper) serveHtmlUser(name string) http.Handler {
 	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
 		user, _ := auth.GetUser(r.Context())
-		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, "", user)
+		return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "page", Name: name}, user)
 	})
 }

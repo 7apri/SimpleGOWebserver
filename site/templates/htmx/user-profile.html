@@ -2,7 +2,27 @@
 kind : htmx
 name : user-profile
 ---
-<header class="user-profile-header">
+{{ if .IsFragment }}
+    [[ $title := concat "{{ .Meta.Title }} |" (getBrand) ]]
+    <title id="title">[[ $title ]]</title>
+    <meta  id="og-title" property="og:title" content="[[ $title ]]">
+    [[ $meta := (dict 
+        "description"    (dict "Name" "description" "Content" "{{ .Meta.Description }}")    
+        "og-type"        (dict "Property" "og:type" "Content" "{{ .Meta.Type }}") 
+        "og-description" (dict "Property" "og:description" "Content" "{{ .Meta.Description }}")  
+        "og-url"         (dict "Property" "og:url" "Content" "{{ .Meta.URL }}")  
+        "og-image"       (dict "Property" "og:image" "Content" "{{ .Meta.Image  }}")
+        "twitter-card"   (dict "Name" "twitter:card" "Content" "{{ .Meta.Card }}")    
+        "twitter-title"  (dict "Name" "twitter:title" "Content" $title)    
+        "twitter-image"    (dict "Name" "twitter:image" "Content" "{{ .Meta.Image }}")    
+        "twitter-description" (dict "Name" "twitter:description" "Content" "{{ .Meta.Description }}")    
+    )]]
+    [[ range $id, $data := $meta ]]
+    <meta id="[[ $id ]]"[[ with $data.Property ]] property="[[.]]"[[end]][[ with $data.Name ]] name="[[.]]"[[end]] content="[[ $data.Content ]]" hx-swap-oob="true">
+    [[ end ]]
+{{ end }}
+{{ with .Data }}
+<header id="user-profile-header" class="user-profile-header" data-status="{{ .Status }}" data-profile-id="{{ .Profile.ID }}">
     <a id="back-btn" class="crs-pointer grd pli-c">
         <svg class="icon" aria-hidden="true">
             <use href="[[ asset "/static/assets/iconBundle.svg" ]]#arrow-left"></use>
@@ -29,3 +49,4 @@ name : user-profile
         </button>
     </div>
 </div>
+{{ end }}

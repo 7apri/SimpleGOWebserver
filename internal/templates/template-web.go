@@ -49,7 +49,7 @@ func SetETag(w http.ResponseWriter, r *http.Request, tag string) bool {
 	return false
 }
 
-func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Request, key TemplateKey, meta string, data any) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Request, key TemplateKey, data any, meta ...string) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 
 	tmpl := mgr.Get(lang, key)
@@ -57,7 +57,7 @@ func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Req
 		return web.NewError(http.StatusNotFound, "not_found", nil, key)
 	}
 
-	if SetETag(w, r, tmpl.Etag+meta) {
+	if SetETag(w, r, xxHashETag(tmpl.Etag, meta...)) {
 		return nil
 	}
 
@@ -141,8 +141,8 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 	}
 	etag := tmplFragment.Etag
 
-	var tmplBody *TemplateWrapper
 	isFullReq := r.Header.Get("HX-Request") == ""
+	var tmplBody *TemplateWrapper
 
 	if isFullReq {
 		tmplBody = mgr.Get(lang, body)
@@ -159,7 +159,11 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
-	if err := tmplFragment.Execute(b, dataFragment); err != nil {
+	if err := tmplFragment.Execute(b, struct {
+		IsFragment bool
+		Meta       PageMeta
+		Data       any
+	}{Data: dataFragment, Meta: pageMeta, IsFragment: !isFullReq}); err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, fragment)
 	}
 	if isFullReq {
