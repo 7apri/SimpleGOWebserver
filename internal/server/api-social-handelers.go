@@ -23,5 +23,8 @@ func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *we
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "", err, nil)
 	}
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, isFollowed)
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
+		IsFollowed bool
+		Username   string
+	}{IsFollowed: isFollowed, Username: username})
 }

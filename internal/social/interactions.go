@@ -22,7 +22,7 @@ const (
 )
 
 var syncQueries = map[string]string{
-	KeyFollowers: "UPDATE users SET follower_count = follower_count + $1 WHERE id = $2",
+	KeyFollowers: "UPDATE users SET followers_count = followers_count + $1 WHERE id = $2",
 	KeyFollowing: "UPDATE users SET following_count = following_count + $1 WHERE id = $2",
 	KeyPostLikes: "UPDATE posts SET like_count = like_count + $1 WHERE id = $2",
 
