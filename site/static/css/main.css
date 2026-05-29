@@ -557,8 +557,9 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     padding: var(--s-sm) var(--s-md);
     position: relative;
 }
-.pfp{
-    border-radius: 50%;
-    height: var(--pfp-size, 4rem);
-    width: var(--pfp-size, 4rem);
+.pfp {
+  border-radius: 50%;
+  height: var(--pfp-size, 4rem);
+  width: var(--pfp-size, 4rem);
+  object-fit: cover;
 }

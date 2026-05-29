@@ -3,6 +3,7 @@ layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
 [[ registerScript "main.js"  ]]
+[[ registerScript "router.js"  ]]
 [[ setData (dict "BodyAttributes" `class="body-main"`) ]]
 <aside class="side-left">
     <div class="side-container flx col j-spcBetween">
@@ -64,7 +65,13 @@ layout: page
         <div class="side-left-info">
             {{ with .Data }}
             <div class="flx gap-md ali-c">
-                <img class="pfp" src="{{.AvatarURL}}" />
+                {{ with .AvatarURL }}
+                <img class="pfp" src="{{.}}"/>
+                {{ else }}
+                <div class="pfp grd pli-c bdr-low txt-lg">
+                    {{capitalize (firstChar .DisplayName) }}
+                </div>
+                {{ end }}
                 <div>
                     <p>{{ .DisplayName }}</p>
                     <p>@{{ .Username }}</p>
