@@ -8,18 +8,24 @@ name : user-profile
             <use href="[[ asset "/static/assets/iconBundle.svg" ]]#arrow-left"></use>
         </svg>
     </a>
+    <span>[[capitalize (tr "phrase:profile") ]] {{ .Profile.DisplayName }}</span>
 </header>
-<div style="--pfp-size:6.5rem">
+<div>
     <img src="{{ or .Profile.BannerURL "https://cdn.sanity.io/images/599r6htc/regionalized/858bb9c294615c07c379587bb8a8fdb53a51e678-1440x810.png?q=75&fit=max&auto=format&dpr=2" }}" class="fil-x" style="height: 200px;"/>
-    <div class="pos-rel">
+    <div class="flx j-spcBetween ali-s">
         <div class="user-profile-pfp-container">
             {{ with .Profile.AvatarURL }}
             <img class="pfp" src="{{.}}"/>
             {{ else }}
-            <div class="pfp grd pli-c bdr-low bg-surface-container txt-lg">
-                {{capitalize (firstChar .Profile.DisplayName) }}
-            </div>
+            <div class="pfp grd pli-c bdr-low bg-surface-container txt-2xl">{{capitalize (firstChar .Profile.DisplayName) }}</div>
             {{ end }}
         </div>
+        <button class="px-md py-sm">
+            {{ if eq .Status "not_following" }}
+                [[ tr "phrase:follow" ]]
+            {{ else if eq .Status "following" }}
+                [[ tr "phrase:unfollow" ]]
+            {{ end }}
+        </button>
     </div>
 </div>
