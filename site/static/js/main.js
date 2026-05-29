@@ -1,0 +1,1 @@
+document.getElementById('side-left-info-more-btn').addEventListener("click", () => document.getElementById('side-left-info-more').classList.toggle('hide'))

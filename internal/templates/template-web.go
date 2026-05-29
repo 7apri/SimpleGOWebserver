@@ -121,7 +121,7 @@ type HtmxBodyPageData struct {
 	Data any
 }
 
-func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, data any, meta ...string) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, dataBody, dataFragment any, meta ...string) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 	w.Header().Add("Vary", "HX-Request")
 
@@ -149,7 +149,7 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
 
-	if err := tmplFragment.Execute(b, data); err != nil {
+	if err := tmplFragment.Execute(b, dataFragment); err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, fragment)
 	}
 	if isFullReq {
@@ -157,7 +157,7 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 		b.Reset()
 		if err := tmplBody.Execute(b, HtmxBodyPageData{
 			Body: body,
-			Data: data,
+			Data: dataBody,
 		}); err != nil {
 			return web.NewError(http.StatusInternalServerError, "internal", err, tmplBody)
 		}

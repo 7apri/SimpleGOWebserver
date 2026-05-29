@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"net/url"
 )
@@ -50,7 +49,6 @@ func (h *AuthHandler) Middleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie("access_token")
 		if err == nil {
-			slog.Info("claims")
 			claims, err = h.secret.ValidateAccess(cookie.Value)
 		}
 		if err != nil || claims == nil {

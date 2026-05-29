@@ -91,6 +91,12 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 			return strings.ToUpper(s[:1]) + s[1:]
 		},
 		"coalesce": TemplateCoalesce,
+		"firstChar": func(s string) string {
+			for _, r := range s {
+				return string(r)
+			}
+			return ""
+		},
 	}
 }
 func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {

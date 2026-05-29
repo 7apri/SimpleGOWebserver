@@ -511,6 +511,18 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
         border-bottom: 1px solid var(--outline);
     }
 }
+
+.anchored-thingy{
+    left: 50%;
+    position: absolute;
+    overflow-x: hidden;
+    bottom: calc(100% + 5px);
+    transform: translateX(-50%); 
+}
+.anchored-thingy.hide{
+    pointer-events: none;
+    display: none;
+}
 .body-main{
     display: grid;
     grid-template-columns: 1fr 500px 1fr;
@@ -533,8 +545,8 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     border-radius: 10px;
     display: flex;
     align-items: center;
-    gap: var(--s-md);
     justify-content: space-between;
+    gap: var(--s-md);
 }
 .navigation-item{
     width: 100%;
@@ -543,6 +555,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 .side-left-info{
     padding: var(--s-sm) var(--s-md);
+    position: relative;
 }
 .pfp{
     border-radius: 50%;

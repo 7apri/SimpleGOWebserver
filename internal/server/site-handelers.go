@@ -27,7 +27,7 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	if profile != nil {
 		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
 	}
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, meta)
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, profile, meta)
 }
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -82,12 +82,12 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		Status:  status,
 	}
 
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "user-profile"}, data, user.ID.String(), profile.ID.String(), string(status))
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "user-profile"}, profile, data, user.ID.String(), profile.ID.String(), string(status))
 }
 
 func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {
 	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, nil)
+		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, nil, nil)
 	})
 }
 func (rw *RouteWrapper) serveHtml(name string) http.Handler {

@@ -2,6 +2,7 @@
 layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
+[[ registerScript "main.js"  ]]
 [[ setData (dict "BodyAttributes" `class="body-main"`) ]]
 <aside class="side-left">
     <div class="side-container flx col j-spcBetween">
@@ -62,10 +63,31 @@ layout: page
         </div>
         <div class="side-left-info">
             {{ with .Data }}
-            <img class="pfp" src="{{.AvatarURL}}" />
-            <div>
-                <p>{{ .DisplayName }}</p>
-                <p>@{{ .Username }}</p>
+            <div class="flx gap-md ali-c">
+                <img class="pfp" src="{{.AvatarURL}}" />
+                <div>
+                    <p>{{ .DisplayName }}</p>
+                    <p>@{{ .Username }}</p>
+                </div>
+            </div>
+            <button class="bg-none grd pli-c" style="--icon-size:2rem" id="side-left-info-more-btn">
+                <svg class="icon" aria-hidden="true">
+                    <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
+                </svg>
+            </button>
+            <div id="side-left-info-more" class="fil-x p-md bg-surface-container flx col gap-sm anchored-thingy hide" style="--icon-size:1.5rem">
+                <a href="/api/auth/logout" class="flx j-spcBetween ali-c gap-md">
+                    [[capitalize (tr "phrase:logout") ]]
+                    <svg class="icon" aria-hidden="true">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#out"></use>
+                    </svg>
+                </a>
+                <a class="flx j-spcBetween ali-c gap-md"  hx-get="/settings" hx-push-url="true" hx-target="#main" >
+                    [[capitalize (tr "phrase:settings") ]]
+                    <svg class="icon" aria-hidden="true">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#cog"></use>
+                    </svg>
+                </a>
             </div>
             {{ else }}
             <div class="flx col gap-sm">
