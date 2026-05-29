@@ -43,7 +43,7 @@ func GenerateChallenge() (*email.GeneratedChallenge, error) {
 	}, nil
 }
 
-type challengeResult struct {
+type ChallengeResult struct {
 	User     *UserPrint
 	Correct  bool
 	Attempts int
@@ -57,13 +57,12 @@ func coalesce[T any](s *T, def T) T {
 	return *s
 }
 
-func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType, tName, codeRaw string) (*challengeResult, *web.WebError) {
-	cookieT, errT := r.Cookie(tName)
-	if errT != nil || cookieT.Value == "" {
+func (h *AuthHandler) VerifyChallenge(r *http.Request, cType email.ChallengeType, token, codeRaw string) (*ChallengeResult, *web.WebError) {
+	if token == "" || codeRaw == "" {
 		return nil, web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
 	}
 
-	res := &challengeResult{}
+	res := &ChallengeResult{}
 
 	var (
 		uid        uuid.NullUUID
@@ -118,7 +117,7 @@ func (h *AuthHandler) verifyChallenge(r *http.Request, cType email.ChallengeType
 		LEFT JOIN user_info u ON TRUE;`
 	err := h.db.Pool.QueryRow(r.Context(), q,
 		cType,
-		HashString(cookieT.Value),
+		HashString(token),
 		HashString(codeRaw),
 	).Scan(
 		&res.Correct,

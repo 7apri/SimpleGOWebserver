@@ -1,20 +1,23 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 )
 
 type challengeUIConfig struct {
-	tokenName   string
-	codeName    string
-	codeMaxAge  int
-	tokenMaxAge int
-	pageKey     templates.TemplateKey
+	tokenName     string
+	codeName      string
+	codeMaxAge    int
+	tokenMaxAge   int
+	pageKey       templates.TemplateKey
+	challengeType email.ChallengeType
 }
 
 func setChallengeCookie(w http.ResponseWriter, cookieName, val string, cookieMaxAge int) {
@@ -41,7 +44,10 @@ func (rw *RouteWrapper) handleChallengeUI(cfg challengeUIConfig) func(w http.Res
 				setChallengeCookie(w, cfg.tokenName, t, cfg.tokenMaxAge)
 			}
 			if c != "" {
-				setChallengeCookie(w, cfg.codeName, c, cfg.codeMaxAge)
+				if _, err := rw.authHandler.VerifyChallenge(r, cfg.challengeType, t, c); err == nil {
+					slog.Error("ad", "err", err)
+					setChallengeCookie(w, cfg.codeName, c, cfg.codeMaxAge)
+				}
 			}
 
 			q.Del("t")

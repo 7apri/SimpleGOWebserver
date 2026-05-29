@@ -22,7 +22,19 @@ layout: page
                         "Text" "navigation/text:explore" 
                         "Get"  "/explore"
                         "Icon" "magnifier"
-                    ) (dict 
+                    ))]]
+                    <li>
+                        <a class="navigation-item grow lighten"  hx-get="[[ .Get ]]" hx-push-url="true" hx-target="#main" >
+                        [[capitalize ( tr .Text )]]
+                        <svg class="icon" aria-hidden="true">
+                            <use href="[[ asset "/static/assets/iconBundle.svg" ]]#[[ .Icon ]]"></use>
+                        </svg>
+                        </a>
+                    </li>
+                    [[ end ]]
+                    {{ with .Data }}
+                    [[ range (slice 
+                     (dict 
                         "Text" "navigation/text:notifications" 
                         "Get"  "/notifications"
                         "Icon" "bell"
@@ -32,7 +44,7 @@ layout: page
                         "Icon" "chat"
                     ) (dict
                         "Text" "navigation/text:profile"
-                        "Get"  "/"
+                        "Get"  "/{{ .Username }}"
                         "Icon" "profile"
                     ))]]
                     <li>
@@ -44,6 +56,7 @@ layout: page
                         </a>
                     </li>
                     [[ end ]]
+                    {{ end }}
                 </ul>
             </nav>
         </div>
@@ -55,7 +68,13 @@ layout: page
                 <p>@{{ .Username }}</p>
             </div>
             {{ else }}
-                login wallahi
+            <div class="flx col gap-sm">
+                <a href="/sign-in">[[capitalize (tr "phrase:sign_in") ]]</a>
+                <a href="/sign-up">[[capitalize (tr "phrase:sign_up") ]]</a>
+            </div>
+             <svg class="icon" aria-hidden="true" style="--icon-size:2rem;">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#in"></use>
+            </svg>
             {{ end }}
         </div>
     </div>

@@ -546,6 +546,6 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 .pfp{
     border-radius: 50%;
-    height: var(--pfp-size, 5rem);
-    width: var(--pfp-size, 5rem);
+    height: var(--pfp-size, 4rem);
+    width: var(--pfp-size, 4rem);
 }

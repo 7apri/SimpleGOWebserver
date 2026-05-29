@@ -10,10 +10,6 @@ const confirmForm = document.getElementById("form-confirm");
 const backBtn = document.getElementById("state-back");
 const statesWrapper = document.getElementById('states-wrapper');
 
-if( statesWrapper.dataset.loggedIn === "false" && statesWrapper.dataset.state === "success"){
-    window.location.href = `/2fa?next=${encodeURIComponent(window.location.href + "?") + window.location.search}`
-}
-
 function setState(newState) {
     statesWrapper.querySelectorAll('[data-state]').forEach(el => {
         el.classList.toggle('hidden', el.dataset.state !== newState);

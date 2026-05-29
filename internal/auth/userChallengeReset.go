@@ -17,8 +17,12 @@ func (h *AuthHandler) CheckCodeReset(w http.ResponseWriter, r *http.Request) *we
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req); err != nil {
 		return web.NewError(http.StatusBadRequest, "invalid_json", err, nil)
 	}
+	cookieT, errT := r.Cookie("reset_token")
+	if errT != nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
 
-	res, WebErr := h.verifyChallenge(r, email.ChallengeReset, "reset_token", req.Code)
+	res, WebErr := h.VerifyChallenge(r, email.ChallengeReset, cookieT.Value, req.Code)
 	if WebErr != nil {
 		return WebErr
 	}
@@ -140,7 +144,7 @@ func (h *AuthHandler) ConfirmReset(w http.ResponseWriter, r *http.Request) *web.
         ) AS current_attempts,
         u.id, 
         u.role,
-		u.username,
+		u.username
     FROM (SELECT 1) AS dummy  
     LEFT JOIN updated_user u ON TRUE;`
 

@@ -18,7 +18,12 @@ func (h *AuthHandler) CheckCodeVerify(w http.ResponseWriter, r *http.Request) *w
 		return web.NewError(http.StatusBadRequest, "invalid_json", nil, nil)
 	}
 
-	res, err := h.verifyChallenge(r, email.ChallengeVerify, "verify_token", req.Code)
+	cookieT, errT := r.Cookie("verify_token")
+	if errT != nil {
+		return web.NewError(http.StatusUnauthorized, "session_expired", nil, nil)
+	}
+
+	res, err := h.VerifyChallenge(r, email.ChallengeVerify, cookieT.Value, req.Code)
 	if err != nil {
 		return err
 	}

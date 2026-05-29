@@ -52,10 +52,11 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 
 	mux.Handle("GET /password-reset", rw.handlerHtml(rw.handleChallengeUI(
 		challengeUIConfig{
-			tokenName:   "reset_token",
-			codeName:    "reset_code_tmp",
-			codeMaxAge:  300,
-			tokenMaxAge: 900,
+			tokenName:     "reset_token",
+			codeName:      "reset_code_tmp",
+			codeMaxAge:    300,
+			tokenMaxAge:   900,
+			challengeType: email.ChallengeReset,
 			pageKey: templates.TemplateKey{
 				Kind: "page",
 				Name: "auth/reset",
@@ -64,10 +65,11 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 
 	mux.Handle("GET /account-verify", rw.handlerHtml(rw.handleChallengeUI(
 		challengeUIConfig{
-			tokenName:   "verify_token",
-			codeName:    "verify_code_tmp",
-			codeMaxAge:  300,
-			tokenMaxAge: 900,
+			tokenName:     "verify_token",
+			codeName:      "verify_code_tmp",
+			codeMaxAge:    300,
+			tokenMaxAge:   900,
+			challengeType: email.ChallengeVerify,
 			pageKey: templates.TemplateKey{
 				Kind: "page",
 				Name: "auth/verify",
@@ -157,7 +159,7 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	)
 	mux.Handle("POST /api/auth/reset/init", rw.handlerHtml(InitReset, authApiStackQuantize...))
 
-	resetChallengeStack := append([]web.Middleware{rw.authHandler.Middleware}, authApiStackQuantize...)
+	resetChallengeStack := append(authApiStackQuantize, rw.authHandler.Middleware)
 	mux.Handle("POST /api/auth/reset/confirm", rw.handlerHtml(rw.authHandler.ConfirmReset, resetChallengeStack...))
 
 	mux.Handle("POST /api/auth/reset/check", rw.handlerHtml(rw.authHandler.CheckCodeReset, authApiStackQuantize...))
