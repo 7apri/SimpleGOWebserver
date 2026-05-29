@@ -561,7 +561,6 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 .side-left-info-names{
     overflow: scroll;
-    max-width: 30%;
 }
 .pfp {
   border-radius: 50%;

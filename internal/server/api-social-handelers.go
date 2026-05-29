@@ -17,14 +17,22 @@ func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *we
 	}
 	followed, err := rw.socialWrapper.GetProfileByUsername(ctx, username)
 	if err != nil {
-		return web.NewError(http.StatusNotFound, "User not found", err, nil)
+		return web.NewError(http.StatusNotFound, "user_not_found", err, nil)
+	}
+	if follower.ID == followed.ID {
+		return web.NewError(http.StatusBadRequest, "cant_follow_yourself", err, nil)
 	}
 	isFollowed, err := rw.socialWrapper.ToggleFollow(ctx, follower.ID, followed.ID)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "", err, nil)
 	}
+	followers, err := rw.socialWrapper.GetRealTimeFollowerCount(ctx, followed.ID)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "", err, nil)
+	}
 	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
-		IsFollowed bool
-		Username   string
-	}{IsFollowed: isFollowed, Username: username})
+		IsFollowed    bool
+		Username      string
+		FollowerCount int
+	}{IsFollowed: isFollowed, Username: username, FollowerCount: followers})
 }

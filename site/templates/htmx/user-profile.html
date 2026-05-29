@@ -21,12 +21,19 @@ name : user-profile
             <div class="pfp grd pli-c bdr-low bg-surface-container txt-2xl">{{capitalize (firstChar .Profile.DisplayName) }}</div>
             {{ end }}
         </div>
-        <button 
+        {{ if eq .Status "self" }}
+        <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
+        {{ else }}
+        <button
         class="px-md py-sm"
         hx-post="/{{ .Profile.Username }}/follow" 
         hx-target="this" 
         hx-swap="outerHTML">
                 {{ if eq .Status "following" }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
         </button>
+        {{ end }}
+    </div>
+    <div>
+        <span id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span>
     </div>
 </div>

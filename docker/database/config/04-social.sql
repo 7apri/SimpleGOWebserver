@@ -26,9 +26,10 @@ CREATE TABLE follows (
     follower_id    UUID REFERENCES users(id) ON DELETE CASCADE,
     followed_id    UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK(follower_id != followed_id),
     PRIMARY KEY (follower_id, followed_id)
 );
-CREATE INDEX follows_followed_id_idx ON follows (followed_id);
+CREATE INDEX follows_followed_id_idx ON follows(followed_id);
 
 CREATE TABLE reposts (
     user_id    UUID REFERENCES users(id) ON DELETE CASCADE,

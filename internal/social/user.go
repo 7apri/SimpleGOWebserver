@@ -28,32 +28,65 @@ func (p *UserProfile) GetUpdatedAtString() string {
 }
 
 func (s *SocialWrapper) GetProfileByUsername(ctx context.Context, username string) (*UserProfile, error) {
-	cacheKey := "user:profile:" + username
+	var userID uuid.UUID
+	uuidKey := "user:uuid:" + username
 
-	var profile UserProfile
-	err := s.redis.Get(ctx, cacheKey).Scan(&profile)
+	idBytes, err := s.redis.Get(ctx, uuidKey).Bytes()
 	if err == nil {
-		return &profile, nil
+		userID, _ = uuid.ParseBytes(idBytes)
+	} else {
+		err = s.pool.QueryRow(ctx, "SELECT id FROM users WHERE username = $1 AND deleted_at IS NULL", username).Scan(&userID)
+		if err != nil {
+			return nil, err
+		}
+		s.redis.Set(ctx, uuidKey, userID.String(), 24*time.Hour)
 	}
 
-	err = s.pool.QueryRow(ctx, `
-        SELECT id, username, display_name, avatar_url, banner_url, bio, 
-               followers_count, following_count, created_at, updated_at
-        FROM users 
-        WHERE username = $1 AND deleted_at IS NULL`, username).Scan(
-		&profile.ID, &profile.Username, &profile.DisplayName,
-		&profile.AvatarURL, &profile.BannerURL, &profile.Bio,
-		&profile.FollowersCount, &profile.FollowingCount, &profile.CreatedAt, &profile.UpdatedAt,
-	)
+	return s.GetProfileByID(ctx, userID)
+}
+func (s *SocialWrapper) GetProfileByID(ctx context.Context, userID uuid.UUID) (*UserProfile, error) {
+	profileKey := "user:profile:" + userID.String()
+	var profile UserProfile
+
+	profileBytes, err := s.redis.Get(ctx, profileKey).Bytes()
 	if err != nil {
-		return nil, err
+		err = s.pool.QueryRow(ctx, `
+			SELECT id, username, display_name, avatar_url, banner_url, bio, 
+				   followers_count, following_count, created_at, updated_at
+			FROM users 
+			WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(
+			&profile.ID, &profile.Username, &profile.DisplayName,
+			&profile.AvatarURL, &profile.BannerURL, &profile.Bio,
+			&profile.FollowersCount, &profile.FollowingCount, &profile.CreatedAt, &profile.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		data, _ := sonic.Marshal(profile)
+		s.redis.Set(ctx, profileKey, data, 1*time.Hour)
+	} else {
+		_ = sonic.Unmarshal(profileBytes, &profile)
 	}
 
-	data, err := sonic.Marshal(profile)
-	if err != nil {
-		return nil, err
+	pipe := s.redis.Pipeline()
+	followersCurCmd := pipe.HGet(ctx, KeyFollowers, userID.String())
+	followersProcCmd := pipe.HGet(ctx, KeyFollowers+":proc", userID.String())
+	followingCurCmd := pipe.HGet(ctx, KeyFollowing, userID.String())
+	followingProcCmd := pipe.HGet(ctx, KeyFollowing+":proc", userID.String())
+	_, _ = pipe.Exec(ctx)
+
+	if v, err := followersCurCmd.Int(); err == nil {
+		profile.FollowersCount += v
 	}
-	s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
+	if v, err := followersProcCmd.Int(); err == nil {
+		profile.FollowersCount += v
+	}
+	if v, err := followingCurCmd.Int(); err == nil {
+		profile.FollowingCount += v
+	}
+	if v, err := followingProcCmd.Int(); err == nil {
+		profile.FollowingCount += v
+	}
 
 	return &profile, nil
 }
@@ -63,4 +96,11 @@ func (s *SocialWrapper) IsFollowing(ctx context.Context, followerID, followedID 
 	}
 	err = s.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND followed_id = $2)", followerID, followedID).Scan(&isFollowing)
 	return isFollowing, err
+}
+func (s *SocialWrapper) GetRealTimeFollowerCount(ctx context.Context, followedID uuid.UUID) (int, error) {
+	profile, err := s.GetProfileByID(ctx, followedID)
+	if err != nil {
+		return 0, err
+	}
+	return profile.FollowersCount, nil
 }

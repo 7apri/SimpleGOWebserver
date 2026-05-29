@@ -85,6 +85,14 @@ func (s *SocialWrapper) processMetric(ctx context.Context, mainKey, query string
 	}
 	send()
 
+	if mainKey == KeyFollowers || mainKey == KeyFollowing {
+		pipe := s.redis.Pipeline()
+		for idStr := range counts {
+			pipe.Del(ctx, "user:profile:"+idStr)
+		}
+		_, _ = pipe.Exec(ctx)
+	}
+
 	s.redis.Del(ctx, procKey)
 }
 

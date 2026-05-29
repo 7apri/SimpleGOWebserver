@@ -77,17 +77,19 @@ layout: page
         </div>
         <div class="side-left-info">
             {{ with .Data }}
-            <button class="bg-none flx ali-c gap-md" style="--icon-size:2rem" id="side-left-info-more-btn">
-                {{ with .AvatarURL }}
-                <img class="pfp" src="{{.}}"/>
-                {{ else }}
-                <div class="pfp grd pli-c bdr-low txt-lg">
-                    {{capitalize (firstChar .DisplayName) }}
-                </div>
-                {{ end }}
-                <div class="side-left-info-names">
-                    <p class="txt-xl">{{ .DisplayName }}</p>
-                    <p style="font-style: italic;">@{{ .Username }}</p>
+            <button class="bg-none flx ali-c j-spcBetween fil-x" style="--icon-size:2rem" id="side-left-info-more-btn">
+                <div class="flx gap-md">
+                    {{ with .AvatarURL }}
+                    <img class="pfp" src="{{.}}"/>
+                    {{ else }}
+                    <div class="pfp grd pli-c bdr-low txt-lg">
+                        {{capitalize (firstChar .DisplayName) }}
+                    </div>
+                    {{ end }}
+                    <div class="side-left-info-names">
+                        <p class="txt-xl">{{ .DisplayName }}</p>
+                        <p style="font-style: italic;">@{{ .Username }}</p>
+                    </div>
                 </div>
                 <svg class="icon" aria-hidden="true">
                     <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
