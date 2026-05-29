@@ -59,12 +59,21 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		slog.Error("Failed to fetch profile", "username", r.PathValue("username"), "err", err)
 		return web.NewError(http.StatusNotFound, "user_not_found", err, nil)
 	}
-	var isFollowing bool
+	var (
+		userProfile *social.UserProfile
+		isFollowing bool
+	)
 	user, ok := auth.GetUser(ctx)
-	if ok && user.ID != profile.ID {
-		isFollowing, err = rw.socialWrapper.IsFollowing(ctx, user.ID, profile.ID)
+	if ok {
+		if user.ID != profile.ID {
+			isFollowing, err = rw.socialWrapper.IsFollowing(ctx, user.ID, profile.ID)
+			if err != nil {
+				slog.Error("Follow status check failed", "err", err)
+			}
+		}
+		userProfile, err = rw.socialWrapper.GetProfileByUsername(r.Context(), user.Username)
 		if err != nil {
-			slog.Error("Follow status check failed", "err", err)
+			return web.NewError(http.StatusNotFound, "user_not_found", err, nil)
 		}
 	}
 
@@ -85,16 +94,21 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 	pageMeta := templates.PageMeta{
 		Description: profile.Bio,
 		Type:        "profile",
-		Title:       profile.DisplayName + " @(" + profile.Username + ")",
+		Title:       profile.DisplayName + " (@" + profile.Username + ")",
 		URL:         consts.BaseUrlProtocol + "/" + profile.Username,
 		Image:       profile.AvatarURL,
 		Card:        "summary",
+	}
+	if pageMeta.Image == "" {
+		pageMeta.Image = consts.BaseUrlProtocol + "/static/assets/avatars/default.jpg"
 	}
 
 	return rw.templateMgr.WriteTemplateHtmx(w, r,
 		templates.TemplateKey{Kind: "page", Name: "main"},
 		templates.TemplateKey{Kind: "htmx", Name: "user-profile"},
-		profile, data, pageMeta, user.ID.String(), profile.ID.String(), string(status))
+		userProfile, data, pageMeta,
+		user.ID.String(), profile.GetUpdatedAtString(), userProfile.GetUpdatedAtString(), string(status),
+	)
 }
 
 func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {

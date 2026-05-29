@@ -2,6 +2,7 @@ package social
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -20,6 +21,10 @@ type UserProfile struct {
 	IsVerified     bool      `json:"is_verified"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+func (p *UserProfile) GetUpdatedAtString() string {
+	return strconv.FormatInt(p.UpdatedAt.Unix(), 16)
 }
 
 func (s *SocialWrapper) GetProfileByUsername(ctx context.Context, username string) (*UserProfile, error) {

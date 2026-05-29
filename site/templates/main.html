@@ -5,6 +5,7 @@ layout: page
 [[ range $script := (slice "main.js" "router.js" "user.js")]]
 [[ registerScript  $script]]
 [[ end ]]
+[[ $title := concat "{{ .Meta.Title }} |" (getBrand) ]]
 [[ $meta := (dict 
     "description"    (dict "Name" "description" "Content" "{{ .Meta.Description }}")    
     "og-type"        (dict "Property" "og:type" "Content" "{{ .Meta.Type }}") 
@@ -12,13 +13,12 @@ layout: page
     "og-url"         (dict "Property" "og:url" "Content" "{{ .Meta.URL }}")  
     "og-image"       (dict "Property" "og:image" "Content" "{{ .Meta.Image  }}")
     "twitter-card"   (dict "Name" "twitter:card" "Content" "{{ .Meta.Card }}")    
-    "twitter-title"  (dict "Name" "twitter:title" "Content" "{{ .Meta.Title }}")    
+    "twitter-title"  (dict "Name" "twitter:title" "Content" $title)    
     "twitter-image"    (dict "Name" "twitter:image" "Content" "{{ .Meta.Image }}")    
     "twitter-description" (dict "Name" "twitter:description" "Content" "{{ .Meta.Description }}")    
 )]]
-[[ setData (dict "BodyAttributes" `class="body-main"` "Meta" $meta "Title" "{{ .Meta.Title }}") ]]
+[[ setData (dict "BodyAttributes" `class="body-main"` "Meta" $meta "Title" $title) ]]
 <aside class="side-left">
-    {{ .Meta }}
     <div class="side-container flx col j-spcBetween">
         <div>
             <a hx-get="/" hx-push-url="true" hx-target="#main" style="--icon-size:2rem" class="flx ali-c mb-md">

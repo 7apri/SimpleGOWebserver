@@ -2,13 +2,24 @@
 kind : htmx
 name : user-profile
 ---
-[[ setData (dict "Meta" (dict 
-    "og-description" (dict "Property" "og:description" "Content" "hjakjhdgahjdgja")  
-))]]
-<header>
-    <a id="back-btn" class="crs-pointer">
+<header class="user-profile-header">
+    <a id="back-btn" class="crs-pointer grd pli-c">
         <svg class="icon" aria-hidden="true">
             <use href="[[ asset "/static/assets/iconBundle.svg" ]]#arrow-left"></use>
         </svg>
     </a>
 </header>
+<div style="--pfp-size:6.5rem">
+    <img src="{{ or .Profile.BannerURL "https://cdn.sanity.io/images/599r6htc/regionalized/858bb9c294615c07c379587bb8a8fdb53a51e678-1440x810.png?q=75&fit=max&auto=format&dpr=2" }}" class="fil-x" style="height: 200px;"/>
+    <div class="pos-rel">
+        <div class="user-profile-pfp-container">
+            {{ with .Profile.AvatarURL }}
+            <img class="pfp" src="{{.}}"/>
+            {{ else }}
+            <div class="pfp grd pli-c bdr-low bg-surface-container txt-lg">
+                {{capitalize (firstChar .Profile.DisplayName) }}
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</div>

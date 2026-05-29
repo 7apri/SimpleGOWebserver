@@ -222,7 +222,7 @@ type AccessTokenOptions struct {
 }
 
 func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, opt AccessTokenOptions) (*UserClaims, error) {
-	access, exp, claims, err := h.secret.GenerateAccess(user, opt)
+	access, _, claims, err := h.secret.GenerateAccess(user, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,6 @@ func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, o
 		Name:     "access_token",
 		Value:    access,
 		MaxAge:   0,
-		Expires:  exp,
 		HttpOnly: true,
 		Secure:   true,
 		Path:     "/",

@@ -22,7 +22,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api/auth/",
+		Path:     "/",
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
