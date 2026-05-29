@@ -388,6 +388,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 .transition-all { transition: all 0.3s ease;   }
 
 .crs-text { cursor: text;}
+.crs-pointer { cursor: pointer;}
 
 #lang-menu {
     transform: translateX(120%);

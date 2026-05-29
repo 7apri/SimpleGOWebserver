@@ -2,4 +2,10 @@
 kind : htmx
 name : user-profile
 ---
-{{ . }}
+<header>
+    <a id="back-btn" class="crs-pointer">
+        <svg class="icon" aria-hidden="true">
+            <use href="[[ asset "/static/assets/iconBundle.svg" ]]#arrow-left"></use>
+        </svg>
+    </a>
+</header>

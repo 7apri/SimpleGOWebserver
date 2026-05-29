@@ -97,6 +97,12 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 			}
 			return ""
 		},
+		"getBaseUrlProtocol": func() string {
+			return consts.BaseUrlProtocol
+		},
+		"getBrand": func() string {
+			return consts.Brand
+		},
 	}
 }
 func (mgr *TemplateManager) funcMapExec(lang i18n.Lang) template.FuncMap {
@@ -314,9 +320,6 @@ func (mgr *TemplateManager) funcMapBake(e *bakeEnv) template.FuncMap {
 				bank = make([]string, 0)
 			}
 			return bank
-		},
-		"getBaseUrlProtocol": func() string {
-			return consts.BaseUrlProtocol
 		},
 	}
 	maps.Copy(funcs, mgr.funcMapBase())
