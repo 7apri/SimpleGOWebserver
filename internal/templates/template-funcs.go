@@ -63,6 +63,12 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 			}
 			return dict, nil
 		},
+		"mergeDicts": func(main map[string]any, merged ...map[string]any) map[string]any {
+			for _, m := range merged {
+				maps.Copy(main, m)
+			}
+			return main
+		},
 		"slice": func(args ...any) []any {
 			return args
 		},

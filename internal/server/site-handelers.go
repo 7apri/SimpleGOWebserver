@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/social"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
@@ -27,7 +28,7 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	if profile != nil {
 		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
 	}
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, profile, meta)
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, profile, templates.PageMeta{}, meta)
 }
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -81,13 +82,24 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		Profile: profile,
 		Status:  status,
 	}
+	pageMeta := templates.PageMeta{
+		Description: profile.Bio,
+		Type:        "profile",
+		Title:       profile.DisplayName + " @(" + profile.Username + ")",
+		URL:         consts.BaseUrlProtocol + "/" + profile.Username,
+		Image:       profile.AvatarURL,
+		Card:        "summary",
+	}
 
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "user-profile"}, profile, data, user.ID.String(), profile.ID.String(), string(status))
+	return rw.templateMgr.WriteTemplateHtmx(w, r,
+		templates.TemplateKey{Kind: "page", Name: "main"},
+		templates.TemplateKey{Kind: "htmx", Name: "user-profile"},
+		profile, data, pageMeta, user.ID.String(), profile.ID.String(), string(status))
 }
 
 func (rw *RouteWrapper) serveHtmx(bodyName, fragmentName string) http.Handler {
 	return rw.handlerHtml(func(w http.ResponseWriter, r *http.Request) *web.WebError {
-		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, nil, nil)
+		return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: bodyName}, templates.TemplateKey{Kind: "htmx", Name: fragmentName}, nil, nil, templates.PageMeta{})
 	})
 }
 func (rw *RouteWrapper) serveHtml(name string) http.Handler {

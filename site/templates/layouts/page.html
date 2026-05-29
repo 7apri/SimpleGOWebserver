@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     
-    [[ $title := coalesce getTitleBrand .Data.Title ]]
-    [[ $desc  := coalesce getDesc .Data.Description ]]
-    <title>[[ $title ]]</title>
-    <meta property="og:title"       content="[[ $title ]]">
-    <meta property="og:description" content="[[ $desc ]]">
-    <meta name="description"        content="[[ $desc ]]">
-    <meta property="og:type"  content=[[ coalesce .Data.Type "website" ]]>
-    <meta property="og:image" content="[[ coalesce .Data.Image (asset "/static/assets/og-image.png") ]]">
-    
+    [[ $title := coalesce .Data.Title getTitleBrand ]]
+    [[ $desc  := getDesc ]]
+    <title id="title">[[ $title ]]</title>
+    <meta  id="og-title" property="og:title" content="[[ $title ]]">
+    [[ $defaultMeta := (dict 
+        "og-description" (dict "Property" "og:description" "Content" $desc)  
+        "description"    (dict "Name" "description" "Content" $desc) 
+        "og-type"        (dict "Property" "og:type" "Content" "website") 
+        "og-image"       (dict "Property" "og:image" "Content" (asset "/static/assets/og-image.png"))
+    )]]
+    [[ range $id, $data := (mergeDicts $defaultMeta .Data.Meta )]]
+    <meta id="[[ $id ]]"[[ with $data.Property ]] property="[[.]]"[[end]][[ with $data.Name ]] name="[[.]]"[[end]] content="[[ $data.Content ]]">
+    [[ end ]]
+
     <meta name="theme-color"  content="#222831" id="theme-color">
     <meta name="color-scheme" content="dark light">
     <script>

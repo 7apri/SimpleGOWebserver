@@ -116,12 +116,22 @@ func (mgr *TemplateManager) WriteTemplate(w io.Writer, lang string, key Template
 	return nil
 }
 
+type PageMeta struct {
+	Description string
+	Type        string
+	Title       string
+	URL         string
+	Image       string
+	Card        string
+}
+
 type HtmxBodyPageData struct {
 	Body template.HTML
+	Meta PageMeta
 	Data any
 }
 
-func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, dataBody, dataFragment any, meta ...string) *web.WebError {
+func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Request, body TemplateKey, fragment TemplateKey, dataBody, dataFragment any, pageMeta PageMeta, meta ...string) *web.WebError {
 	lang := i18n.GetLangFromReq(r)
 	w.Header().Add("Vary", "HX-Request")
 
@@ -157,6 +167,7 @@ func (mgr *TemplateManager) WriteTemplateHtmx(w http.ResponseWriter, r *http.Req
 		b.Reset()
 		if err := tmplBody.Execute(b, HtmxBodyPageData{
 			Body: body,
+			Meta: pageMeta,
 			Data: dataBody,
 		}); err != nil {
 			return web.NewError(http.StatusInternalServerError, "internal", err, tmplBody)
