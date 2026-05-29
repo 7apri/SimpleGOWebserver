@@ -11,9 +11,9 @@ name : user-profile
     </a>
     <span>[[capitalize (tr "phrase:profile") ]] {{ .Profile.DisplayName }}</span>
 </header>
-<div>
-    <img src="{{ or .Profile.BannerURL "https://cdn.sanity.io/images/599r6htc/regionalized/858bb9c294615c07c379587bb8a8fdb53a51e678-1440x810.png?q=75&fit=max&auto=format&dpr=2" }}" class="fil-x" style="height: 200px;"/>
-    <div class="flx j-spcBetween ali-s">
+<img src="{{ or .Profile.BannerURL "https://cdn.sanity.io/images/599r6htc/regionalized/858bb9c294615c07c379587bb8a8fdb53a51e678-1440x810.png?q=75&fit=max&auto=format&dpr=2" }}" class="fil-x" style="height: 200px;"/>
+<div class="px-md">
+    <div class="flx j-end ali-c gap-md pos-rel mt-sm mb-md">
         <div class="user-profile-pfp-container">
             {{ with .Profile.AvatarURL }}
             <img class="pfp" src="{{.}}"/>
@@ -21,19 +21,34 @@ name : user-profile
             <div class="pfp grd pli-c bdr-low bg-surface-container txt-2xl">{{capitalize (firstChar .Profile.DisplayName) }}</div>
             {{ end }}
         </div>
+        <button class="grd pli-c bg-surface-container p-sm bdr-rad-circle">
+            <svg class="icon" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
+            </svg>
+        </button>
         {{ if eq .Status "self" }}
         <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
         {{ else }}
         <button
-        class="px-md py-sm"
+        class="user-profile-follow-btn"
+        {{ if eq .Status "not_following" }}
+        not-following
+        {{ end }}
         hx-post="/{{ .Profile.Username }}/follow" 
-        hx-target="this" 
+        hx-target="this"
         hx-swap="outerHTML">
                 {{ if eq .Status "following" }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
         </button>
         {{ end }}
     </div>
-    <div>
-        <span id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span>
+    <p class="txt-xl fw-bold">{{ .Profile.DisplayName }}</p>
+    <p class="txt-muted">@{{ .Profile.Username }}</p>
+    {{ with .Profile.Bio }}
+    <p>{{ . }}</p>
+    {{ else }}
+    {{ end }}    
+    <div class="flx gap-md mt-sm">
+        <p><span id="user-profile-count-following">{{ .Profile.FollowingCount }}</span> [[ tr "phrase:following" ]]</p>
+        <p><span id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span> [[ tr "phrase:followers" ]]</p>
     </div>
 </div>

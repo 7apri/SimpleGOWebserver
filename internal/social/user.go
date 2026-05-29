@@ -24,6 +24,9 @@ type UserProfile struct {
 }
 
 func (p *UserProfile) GetUpdatedAtString() string {
+	if p == nil {
+		return ""
+	}
 	return strconv.FormatInt(p.UpdatedAt.Unix(), 16)
 }
 

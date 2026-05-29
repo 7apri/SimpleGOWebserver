@@ -50,6 +50,7 @@ const (
 	StatusFollowing RelationshipStatus = "following"
 	StatusNotFollow RelationshipStatus = "not_following"
 	StatusBlocked   RelationshipStatus = "blocked"
+	StatusGuest     RelationshipStatus = "guest"
 )
 
 func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -63,6 +64,7 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		userProfile *social.UserProfile
 		isFollowing bool
 	)
+	var status RelationshipStatus
 	user, ok := auth.GetUser(ctx)
 	if ok {
 		if user.ID != profile.ID {
@@ -75,13 +77,14 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		if err != nil {
 			return web.NewError(http.StatusNotFound, "user_not_found", err, nil)
 		}
-	}
-
-	status := StatusNotFollow
-	if user.ID == profile.ID {
-		status = StatusSelf
-	} else if isFollowing {
-		status = StatusFollowing
+		status = StatusNotFollow
+		if user.ID == profile.ID {
+			status = StatusSelf
+		} else if isFollowing {
+			status = StatusFollowing
+		}
+	} else {
+		status = StatusGuest
 	}
 
 	data := struct {
@@ -107,7 +110,7 @@ func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *w
 		templates.TemplateKey{Kind: "page", Name: "main"},
 		templates.TemplateKey{Kind: "htmx", Name: "user-profile"},
 		userProfile, data, pageMeta,
-		user.ID.String(), profile.GetUpdatedAtString(), userProfile.GetUpdatedAtString(), string(status),
+		profile.GetUpdatedAtString(), userProfile.GetUpdatedAtString(), string(status),
 	)
 }
 
