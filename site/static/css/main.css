@@ -600,6 +600,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
     padding:  var(--s-sm) var(--s-md);
     width: 15ch;
 }
+button.reverse-colors,
 .user-profile-follow-btn[not-following]{
     color: var(--surface);
     background-color: var(--on-surface);
@@ -621,4 +622,17 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
   height: 2px;
   width: 50%;
   background-color: var(--primary);
+}
+.post-input{
+    min-height: var(--pfp-size);
+    word-wrap: break-word;
+    max-width: 450px;
+    padding: var(--s-sm);
+    border: none;
+    border-radius: 5px;
+}
+.post-input:empty::before {
+  content: attr(aria-placeholder);
+  color: var(--on-surface-muted);
+  pointer-events: none;
 }

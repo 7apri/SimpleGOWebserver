@@ -18,6 +18,19 @@ name : home
 <section class="my-md bg-surface-container bdr-rad-md p-md flx gap-sm" style="--pfp-size:3rem">
     <img class="pfp" src="{{ .AvatarURL }}" >
     <div class="fil-x">
-        <input class="fil-x" style="height: var(--pfp-size);"/>
+        <div
+        class="post-input"
+        aria-placeholder="[[ capitalize (tr "plh:posts:post" ) ]]"
+        contenteditable="true" 
+        role="textbox"
+        ></div>
+        <div class="flx j-spcBetween">
+            <div>
+
+            </div>
+            <button class="px-md py-sm reverse-colors deform">
+                [[ capitalize (tr "phrase:post") ]]
+            </button>
+        </div>
     </div>
 </section>
