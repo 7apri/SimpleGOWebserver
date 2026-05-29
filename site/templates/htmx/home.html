@@ -3,4 +3,21 @@ kind   : htmx
 layout : htmx
 name : home
 ---
-hewo
+<header>
+    <nav>
+        <ul class="flx j-spcBetween">
+            <li class="posts-tab lighten" aria-selected="true">
+                 <span>[[ capitalize (tr "phrase:global") ]]</span>
+            </li>
+            <li class="posts-tab lighten" > 
+                <span>[[ capitalize (tr "phrase:following") ]]</span>
+            </li>
+        </ul>
+    </nav>
+</header>
+<section class="my-md bg-surface-container bdr-rad-md p-md flx gap-sm" style="--pfp-size:3rem">
+    <img class="pfp" src="{{ .AvatarURL }}" >
+    <div class="fil-x">
+        <input class="fil-x" style="height: var(--pfp-size);"/>
+    </div>
+</section>

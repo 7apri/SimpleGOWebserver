@@ -26,19 +26,21 @@ name : user-profile
                 <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
             </svg>
         </button>
-        {{ if eq .Status "self" }}
-        <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
-        {{ else }}
-        <button
-        class="user-profile-follow-btn"
-        {{ if eq .Status "not_following" }}
-        not-following
-        {{ end }}
-        hx-post="/{{ .Profile.Username }}/follow" 
-        hx-target="this"
-        hx-swap="outerHTML">
-                {{ if eq .Status "following" }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
-        </button>
+        {{ if ne .Status "guest" }}
+            {{ if eq .Status "self" }}
+            <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
+            {{ else }}
+            <button
+            class="user-profile-follow-btn"
+            {{ if eq .Status "not_following" }}
+            not-following
+            {{ end }}
+            hx-post="/{{ .Profile.Username }}/follow" 
+            hx-target="this"
+            hx-swap="outerHTML">
+                    {{ if eq .Status "following" }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
+            </button>
+            {{ end }}
         {{ end }}
     </div>
     <p class="txt-xl fw-bold">{{ .Profile.DisplayName }}</p>
@@ -47,8 +49,28 @@ name : user-profile
     <p>{{ . }}</p>
     {{ else }}
     {{ end }}    
-    <div class="flx gap-md mt-sm">
-        <p><span id="user-profile-count-following">{{ .Profile.FollowingCount }}</span> [[ tr "phrase:following" ]]</p>
-        <p><span id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span> [[ tr "phrase:followers" ]]</p>
+    <div class="flx gap-md my-md">
+        <p class="txt-muted"><span class="txt-normal fw-bold" id="user-profile-count-following">{{ .Profile.FollowingCount }}</span> [[ tr "phrase:following" ]]</p>
+        <p class="txt-muted"><span class="txt-normal fw-bold" id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span> [[ tr "phrase:followers" ]]</p>
+    </div>
+    <nav>
+        <ul class="flx j-spcBetween">
+            [[ range (slice 
+            (  dict 
+                "Text" "navigation/text:posts"
+                "Get"  "/{{ .Profile.Username }}"
+            ) (dict 
+                "Text" "navigation/text:replies" 
+                "Get"  "/{{ .Profile.Username }}/replies"
+            ))]]
+            <li class="flx-1 flx txt-center bg-surface lighten p-md ">
+                <a class="flx-1 crs-pointer" hx-get="[[ .Get ]]" hx-push-url="true">
+                [[capitalize ( tr .Text )]]
+                </a>
+            </li>
+            [[ end ]]
+        </ul>
+    </nav>
+    <div>
     </div>
 </div>

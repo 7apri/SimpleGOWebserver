@@ -110,7 +110,7 @@ layout: page
                 </a>
             </div>
             {{ else }}
-            <div class="flx col gap-sm">
+            <div class="flx col gap-sm p-sm">
                 <a href="/sign-in">[[capitalize (tr "phrase:sign_in") ]]</a>
                 <a href="/sign-up">[[capitalize (tr "phrase:sign_up") ]]</a>
             </div>
@@ -121,7 +121,7 @@ layout: page
         </div>
     </div>
 </aside>
-<main id="main" style="height: 2000px;">
+<main id="main">
     {{ .Body }}
 </main>
 <aside class="side-right">
