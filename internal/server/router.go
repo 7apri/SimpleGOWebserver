@@ -43,6 +43,10 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("GET /", rw.handlerHtml(rw.HandleRoot, baseStack...))
 	mux.Handle("GET /{username}", rw.handlerHtml(rw.HandleProfile, baseStack...))
 	mux.Handle("POST /{username}/follow", rw.handlerHtml(rw.HandleFollow, protectedStack...))
+
+	mux.Handle("GET  /posts", rw.handlerHtml(rw.HandleGetFeed, baseStack...))
+	mux.Handle("POST /posts", rw.handlerHtml(rw.HandleGetFeed, baseStack...))
+
 	mux.Handle("GET /explore", web.Chain(rw.serveHtmx("main", "explore"), baseStack...))
 
 	mux.Handle("GET /sign-in", web.Chain(rw.serveHtml("auth/login"), baseStack...))

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type PostAuthor struct {
@@ -13,6 +14,10 @@ type PostAuthor struct {
 	Username    string
 	DisplayName string
 	AvatarURL   string
+}
+
+func (p *UserProfile) MapToAuthor() PostAuthor {
+
 }
 
 type Post struct {
@@ -39,27 +44,29 @@ func (s *SocialWrapper) CreateUnifiedPost(ctx context.Context, p CreatePostParam
 	}
 	defer tx.Rollback(ctx)
 
-	var postID uuid.UUID
-	var createdAt time.Time
+	postID, err := uuid.NewV7()
+	if err != nil {
+		return Post{}, err
+	}
+	var (
+		createdAt time.Time
+	)
 
-	// 1. Insert the actual post (works for standard, reply, and quote)
 	err = tx.QueryRow(ctx, `
-        INSERT INTO posts (user_id, content, media_urls, parent_id, quote_id) 
-        VALUES ($1, $2, $3, $4, $5) 
-        RETURNING id, created_at`,
-		p.Author.ID, p.Content, p.MediaURLs, p.ParentID, p.QuoteID,
-	).Scan(&postID, &createdAt)
+        INSERT INTO posts (id, user_id, content, media_urls, parent_id, quote_id) 
+        VALUES ($1, $2, $3, $4, $5, $6) 
+        RETURNING created_at`,
+		postID, p.Author.ID, p.Content, p.MediaURLs, p.ParentID, p.QuoteID,
+	).Scan(&createdAt)
 	if err != nil {
 		return Post{}, err
 	}
 
-	// 2. Increment the Author's total post count
 	_, err = tx.Exec(ctx, `UPDATE users SET posts_count = posts_count + 1 WHERE id = $1`, p.Author.ID)
 	if err != nil {
 		return Post{}, err
 	}
 
-	// 3. If it's a Reply, increment the parent's reply count
 	if p.ParentID != nil {
 		_, err = tx.Exec(ctx, `UPDATE posts SET replies_count = replies_count + 1 WHERE id = $1`, *p.ParentID)
 		if err != nil {
@@ -67,7 +74,6 @@ func (s *SocialWrapper) CreateUnifiedPost(ctx context.Context, p CreatePostParam
 		}
 	}
 
-	// 4. If it's a Quote, increment the quoted post's quote count
 	if p.QuoteID != nil {
 		_, err = tx.Exec(ctx, `UPDATE posts SET quotes_count = quotes_count + 1 WHERE id = $1`, *p.QuoteID)
 		if err != nil {
@@ -84,47 +90,98 @@ func (s *SocialWrapper) CreateUnifiedPost(ctx context.Context, p CreatePostParam
 		Author:    p.Author,
 		Content:   p.Content,
 		CreatedAt: createdAt,
-		// MediaURLs could be added to your Post struct if you want to render them immediately
 	}, nil
 }
 
-func (s *SocialWrapper) ToggleLike(ctx context.Context, userID, postID uuid.UUID) (bool, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer tx.Rollback(ctx)
+type FeedPost struct {
+	ID           uuid.UUID
+	Content      string
+	MediaURLs    []string
+	LikesCount   int
+	RepostsCount int
+	RepliesCount int
+	CreatedAt    time.Time
+	Author       PostAuthor
+	IsLiked      bool
+	IsReposted   bool
+}
 
-	var liked bool
-	tag, err := tx.Exec(ctx, `
-		DELETE FROM likes 
-		WHERE user_id = $1 AND post_id = $2`,
-		userID, postID)
+func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UUID, cursor uuid.UUID, limit int) ([]FeedPost, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT 
+			p.id, p.content, p.media_urls, p.created_at,
+			p.likes_count, p.reposts_count, p.replies_count,
+			u.id, u.username, u.display_name, u.avatar_url,
+			EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND post_id = p.id) as is_liked,
+			EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND post_id = p.id) as is_reposted
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.parent_id IS NULL 
+		  AND p.deleted_at IS NULL
+		  AND ($2::uuid IS NULL OR p.id < $2)
+		ORDER BY p.id DESC
+		LIMIT $3`,
+		currentUserID, cursor, limit,
+	)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
+	defer rows.Close()
 
+	var posts []FeedPost
 	pipe := s.redis.Pipeline()
 
-	if tag.RowsAffected() > 0 {
-		liked = false
-		pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), -1)
-	} else {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO likes (user_id, post_id) 
-			VALUES ($1, $2)`,
-			userID, postID)
+	type deltaCmds struct {
+		likes       *redis.StringCmd
+		likesProc   *redis.StringCmd
+		reposts     *redis.StringCmd
+		repostsProc *redis.StringCmd
+	}
+	cmds := make(map[uuid.UUID]deltaCmds)
+
+	for rows.Next() {
+		var fp FeedPost
+		err := rows.Scan(
+			&fp.ID, &fp.Content, &fp.MediaURLs, &fp.CreatedAt,
+			&fp.LikesCount, &fp.RepostsCount, &fp.RepliesCount,
+			&fp.Author.ID, &fp.Author.Username, &fp.Author.DisplayName, &fp.Author.AvatarURL,
+			&fp.IsLiked, &fp.IsReposted,
+		)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		liked = true
-		pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), 1)
+		posts = append(posts, fp)
+
+		idStr := fp.ID.String()
+		cmds[fp.ID] = deltaCmds{
+			likes:       pipe.HGet(ctx, KeyPostLikes, idStr),
+			likesProc:   pipe.HGet(ctx, KeyPostLikes+":proc", idStr),
+			reposts:     pipe.HGet(ctx, KeyPostReposts, idStr),
+			repostsProc: pipe.HGet(ctx, KeyPostReposts+":proc", idStr),
+		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return false, err
+	if len(posts) > 0 {
+		_, _ = pipe.Exec(ctx)
 	}
 
-	_, err = pipe.Exec(ctx)
-	return liked, err
+	for i := range posts {
+		id := posts[i].ID
+		if c, exists := cmds[id]; exists {
+			if val, err := c.likes.Int(); err == nil {
+				posts[i].LikesCount += val
+			}
+			if val, err := c.likesProc.Int(); err == nil {
+				posts[i].LikesCount += val
+			}
+			if val, err := c.reposts.Int(); err == nil {
+				posts[i].RepostsCount += val
+			}
+			if val, err := c.repostsProc.Int(); err == nil {
+				posts[i].RepostsCount += val
+			}
+		}
+	}
+
+	return posts, nil
 }

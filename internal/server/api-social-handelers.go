@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/social"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
+	"github.com/google/uuid"
 )
 
 func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -35,4 +37,45 @@ func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *we
 		Username      string
 		FollowerCount int
 	}{IsFollowed: isFollowed, Username: username, FollowerCount: followers})
+}
+
+func (rw *RouteWrapper) HandleCreatePost(w http.ResponseWriter, r *http.Request) *web.WebError {
+	ctx := r.Context()
+	user, _ := auth.GetUser(ctx)
+	profile, err := rw.socialWrapper.GetProfileByID(ctx, user.ID)
+	if err != nil{
+		return  web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+	rw.socialWrapper.CreateUnifiedPost(ctx,social.CreatePostParams{
+		Author: ,
+	})
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
+		IsFollowed    bool
+		Username      string
+		FollowerCount int
+	}{IsFollowed: isFollowed, Username: username, FollowerCount: followers})
+}
+
+func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *web.WebError {
+	ctx := r.Context()
+	var (
+		cursor,
+		userID uuid.UUID
+		err error
+	)
+	cursorStr := r.URL.Query().Get("cursor")
+	if cursorStr != "" {
+		cursor, err = uuid.Parse(cursorStr)
+		if err != nil {
+			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+		}
+	}
+	if user, ok := auth.GetUser(ctx); ok {
+		userID = user.ID
+	}
+	posts, err := rw.socialWrapper.GetGlobalFeed(ctx, userID, cursor, 20)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "feed"}, posts)
 }
