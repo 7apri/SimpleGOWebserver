@@ -63,7 +63,7 @@ name : user-profile
                 "Text" "navigation/text:replies" 
                 "Get"  "/{{ .Profile.Username }}/replies"
             ))]]
-            <li class="flx-1 flx txt-center bg-surface lighten p-md ">
+            <li class="selection-tab lighten">
                 <a class="flx-1 crs-pointer" hx-get="[[ .Get ]]" hx-push-url="true">
                 [[capitalize ( tr .Text )]]
                 </a>

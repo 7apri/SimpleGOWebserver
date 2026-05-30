@@ -6,31 +6,41 @@ name : home
 <header>
     <nav>
         <ul class="flx j-spcBetween">
-            <li class="posts-tab lighten" aria-selected="true">
+            <li class="selection-tab lighten" aria-selected="true">
                  <span>[[ capitalize (tr "phrase:global") ]]</span>
             </li>
-            <li class="posts-tab lighten" > 
+            <li class="selection-tab lighten" > 
                 <span>[[ capitalize (tr "phrase:following") ]]</span>
             </li>
         </ul>
     </nav>
 </header>
-<section class="my-md bg-surface-container bdr-rad-md p-md flx gap-sm" style="--pfp-size:3rem">
-    <img class="pfp" src="{{ .AvatarURL }}" >
+<form 
+    class="my-md bg-surface-container bdr-rad-md p-md flx gap-sm" 
+    style="--pfp-size:3rem"
+    hx-post="/posts" 
+    hx-target="#feed-container" 
+    hx-swap="afterbegin" 
+    hx-on::after-request="this.reset()"
+>
+    <img class="pfp" src="{{ .AvatarURL }}" alt="Avatar">
+    
     <div class="fil-x">
-        <div
-        class="post-input"
-        aria-placeholder="[[ capitalize (tr "plh:posts:post" ) ]]"
-        contenteditable="true" 
-        role="textbox"
-        ></div>
-        <div class="flx j-spcBetween">
-            <div>
-
-            </div>
-            <button class="px-md py-sm reverse-colors deform">
+        <textarea
+            name="content"
+            class="post-input"
+            placeholder="[[ capitalize (tr "plh:posts:post" ) ]]"
+            rows="3"
+            required
+            maxlength="280"
+        ></textarea>
+        
+        <div class="flx j-end mt-sm">
+            <button type="submit" class="px-md py-sm reverse-colors deform">
                 [[ capitalize (tr "phrase:post") ]]
             </button>
         </div>
     </div>
-</section>
+</form>
+<div id="feed-container">
+</div>

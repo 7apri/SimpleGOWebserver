@@ -25,7 +25,7 @@ var (
 	ErrDisplayNameLong    = errors.New("display_name_long")
 )
 
-var usernameBlackList = map[string]struct{}{
+var UsernameBlackList = map[string]struct{}{
 	"sign-up":        {},
 	"sign-in":        {},
 	"password-reset": {},
@@ -44,7 +44,7 @@ func validateUsername(username string) (bool, error) {
 	if username == "" || strings.Contains(username, "@") || !utf8.ValidString(username) {
 		return false, ErrUsernameInvalid
 	}
-	if _, isInvalid := usernameBlackList[username]; isInvalid {
+	if _, isInvalid := UsernameBlackList[username]; isInvalid {
 		return false, ErrUsernameBlocked
 	}
 	charCount := utf8.RuneCountInString(username)

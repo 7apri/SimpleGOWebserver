@@ -54,10 +54,14 @@ const (
 )
 
 func (rw *RouteWrapper) HandleProfile(w http.ResponseWriter, r *http.Request) *web.WebError {
+	username := r.PathValue("username")
+	if _, ok := auth.UsernameBlackList[username]; ok {
+		return web.NewError(http.StatusNotFound, "", auth.ErrUsernameBlocked, nil)
+	}
 	ctx := r.Context()
-	profile, err := rw.socialWrapper.GetProfileByUsername(ctx, r.PathValue("username"))
+	profile, err := rw.socialWrapper.GetProfileByUsername(ctx, username)
 	if err != nil {
-		slog.Error("Failed to fetch profile", "username", r.PathValue("username"), "err", err)
+		slog.Error("Failed to fetch profile", "username", username, "err", err)
 		return web.NewError(http.StatusNotFound, "user_not_found", err, nil)
 	}
 	var (

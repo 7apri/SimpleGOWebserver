@@ -606,7 +606,7 @@ button.reverse-colors,
     background-color: var(--on-surface);
 }
 
-.posts-tab{
+.selection-tab{
     flex: 1;
     text-align: center;
     cursor: pointer;
@@ -614,7 +614,7 @@ button.reverse-colors,
     position: relative;
     background-color: var(--surface);
 }
-.posts-tab[aria-selected="true"]::before {
+.selection-tab[aria-selected="true"]::before {
   content: ""; 
   position: absolute;
   bottom: 0;
@@ -625,8 +625,8 @@ button.reverse-colors,
 }
 .post-input{
     min-height: var(--pfp-size);
-    word-wrap: break-word;
-    max-width: 450px;
+    width: 100%;
+    font-size: var(--text-lg);
     padding: var(--s-sm);
     border: none;
     border-radius: 5px;
