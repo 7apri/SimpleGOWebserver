@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/social"
@@ -32,7 +33,7 @@ func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *we
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "", err, nil)
 	}
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
 		IsFollowed    bool
 		Username      string
 		FollowerCount int
@@ -40,20 +41,35 @@ func (rw *RouteWrapper) HandleFollow(w http.ResponseWriter, r *http.Request) *we
 }
 
 func (rw *RouteWrapper) HandleCreatePost(w http.ResponseWriter, r *http.Request) *web.WebError {
+	if err := r.ParseForm(); err != nil {
+		return web.NewError(http.StatusBadRequest, "parse", err, nil)
+	}
 	ctx := r.Context()
 	user, _ := auth.GetUser(ctx)
 	profile, err := rw.socialWrapper.GetProfileByID(ctx, user.ID)
-	if err != nil{
-		return  web.NewError(http.StatusInternalServerError, "database", err, nil)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
-	rw.socialWrapper.CreateUnifiedPost(ctx,social.CreatePostParams{
-		Author: ,
+
+	content := r.FormValue("content")
+	mediaURLs := r.PostForm["media_urls[]"]
+
+	var cleaned []string
+	for _, url := range mediaURLs {
+		if trimmed := strings.TrimSpace(url); trimmed != "" && strings.HasPrefix(trimmed, "http") {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+
+	post, err := rw.socialWrapper.CreatePost(ctx, social.CreatePostParams{
+		Author:    profile.MapToAuthor(),
+		Content:   content,
+		MediaURLs: cleaned,
 	})
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "follow-button"}, struct {
-		IsFollowed    bool
-		Username      string
-		FollowerCount int
-	}{IsFollowed: isFollowed, Username: username, FollowerCount: followers})
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post"}, post)
 }
 
 func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *web.WebError {
@@ -77,5 +93,5 @@ func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *w
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
-	return rw.templateMgr.WriteTemplateETag(w, r, templates.TemplateKey{Kind: "htmx", Name: "feed"}, posts)
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "feed"}, posts)
 }

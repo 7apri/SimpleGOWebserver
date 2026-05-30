@@ -42,7 +42,7 @@ type CreatePostParams struct {
 	QuoteID   *uuid.UUID
 }
 
-func (s *SocialWrapper) CreateUnifiedPost(ctx context.Context, p CreatePostParams) (Post, error) {
+func (s *SocialWrapper) CreatePost(ctx context.Context, p CreatePostParams) (Post, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Post{}, err

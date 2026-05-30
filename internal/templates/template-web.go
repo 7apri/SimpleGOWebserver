@@ -77,6 +77,29 @@ func (mgr *TemplateManager) WriteTemplateETag(w http.ResponseWriter, r *http.Req
 	return nil
 }
 
+func (mgr *TemplateManager) WriteTemplateWeb(w http.ResponseWriter, r *http.Request, key TemplateKey, data any) *web.WebError {
+	lang := i18n.GetLangFromReq(r)
+
+	tmpl := mgr.Get(lang, key)
+	if tmpl == nil {
+		return web.NewError(http.StatusNotFound, "not_found", nil, key)
+	}
+
+	b := mgr.bufferPool.Get()
+	defer mgr.bufferPool.Put(b)
+
+	if err := tmpl.Execute(b, data); err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, key)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+	_, err := w.Write(b.Bytes())
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "write_failed", err, nil)
+	}
+	return nil
+}
+
 func (mgr *TemplateManager) WriteTemplateSpecific(w http.ResponseWriter, tmpl *TemplateWrapper, data any) *web.WebError {
 	b := mgr.bufferPool.Get()
 	defer mgr.bufferPool.Put(b)
