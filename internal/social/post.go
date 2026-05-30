@@ -17,7 +17,12 @@ type PostAuthor struct {
 }
 
 func (p *UserProfile) MapToAuthor() PostAuthor {
-
+	return PostAuthor{
+		ID:          p.ID,
+		Username:    p.Username,
+		DisplayName: p.DisplayName,
+		AvatarURL:   p.AvatarURL,
+	}
 }
 
 type Post struct {
