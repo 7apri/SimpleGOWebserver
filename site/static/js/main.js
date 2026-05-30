@@ -5,11 +5,14 @@ document.addEventListener('htmx:configRequest', (event) => {
         event.preventDefault();
     }
 });
-
-const enter = () =>{
-    console.log("enter home");
+const postInputResize = (e) =>{
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+}
+const enterHome = () =>{
+    document.querySelector(".post-input").addEventListener("input", postInputResize)
 };
 RegisterPath("/", {
-    enter: enter,
+    enter: enterHome,
     exit: () => console.log("exit home")
 })

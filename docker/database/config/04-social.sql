@@ -12,15 +12,23 @@ CREATE TABLE posts (
     replies_count  INT NOT NULL DEFAULT 0 CHECK (replies_count >= 0),
     quotes_count   INT NOT NULL DEFAULT 0 CHECK (quotes_count >= 0),
 
-    language      VARCHAR(5) DEFAULT 'en',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at    TIMESTAMPTZ DEFAULT NULL
+
+    CONSTRAINT post_has_content CHECK (
+        length(trim(content)) > 0 OR 
+        array_length(media_urls, 1) > 0 OR 
+        quote_id IS NOT NULL
+    )
 );
 
 CREATE INDEX posts_user_id_idx ON posts (user_id) WHERE deleted_at IS NULL;
 CREATE INDEX posts_parent_id_idx ON posts (parent_id) WHERE parent_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX posts_created_at_idx ON posts (created_at DESC);
+
+CREATE INDEX posts_user_created_idx ON posts (user_id, created_at DESC);
+CREATE INDEX posts_parent_created_idx ON posts (parent_id, created_at ASC);
 
 CREATE TABLE follows (
     follower_id    UUID REFERENCES users(id) ON DELETE CASCADE,
