@@ -73,6 +73,7 @@ func (rw *RouteWrapper) HandleCreatePost(w http.ResponseWriter, r *http.Request)
 }
 
 func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *web.WebError {
+	const limit = 20
 	ctx := r.Context()
 	var (
 		cursor,
@@ -89,9 +90,48 @@ func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *w
 	if user, ok := auth.GetUser(ctx); ok {
 		userID = user.ID
 	}
-	posts, err := rw.socialWrapper.GetGlobalFeed(ctx, userID, cursor, 20)
+	posts, err := rw.socialWrapper.GetGlobalFeed(ctx, userID, cursor, limit)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
-	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "feed"}, posts)
+	data := struct {
+		Posts      []social.FeedPost
+		NextCursor *uuid.UUID
+	}{
+		Posts: posts,
+	}
+	if len(posts) >= limit {
+		id := posts[len(posts)-1].ID
+		data.NextCursor = &id
+	}
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "feed"}, data)
+}
+
+func (rw *RouteWrapper) HandleLikePost(w http.ResponseWriter, r *http.Request) *web.WebError {
+	IdString := r.PathValue("username")
+	postID, err := uuid.Parse(IdString)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+	ctx := r.Context()
+	user, _ := auth.GetUser(ctx)
+	isLiked, err := rw.socialWrapper.ToggleLike(ctx, user.ID, postID)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+	postLikes, err := rw.socialWrapper.GetPostLikes(ctx, postID)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+
+	data := struct {
+		PostID  uuid.UUID
+		Likes   int64
+		IsLiked bool
+	}{
+		PostID:  postID,
+		Likes:   postLikes,
+		IsLiked: isLiked,
+	}
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-like-btn"}, data)
 }

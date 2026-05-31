@@ -2,6 +2,13 @@
 name : feed
 kind : htmx 
 ---
-{{ range $_, $post :=  . }}
-{{ $post }}
+{{ $sentinelIndex := -1 }}
+{{ if ne .NextCursor nil}}
+    {{ $sentinelIndex = sub (len $.Posts) 4 }}
 {{ end }}
+{{ range $i, $post :=  .Posts -}}
+    {{ $isSentinel := eq $i $sentinelIndex}}
+    {{ with $post }}
+        [[ import "htmx/components/post.html" `{{ if $isSentinel }} hx-get="/posts?cursor={{ $.NextCursor }}" hx-trigger="intersect once" hx-swap="afterend" hx-target="this"{{ end }}`]]
+    {{ end }}
+{{- end }}

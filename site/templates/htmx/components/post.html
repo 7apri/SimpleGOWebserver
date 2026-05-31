@@ -2,4 +2,25 @@
 name : post
 kind : htmx 
 ---
-{{ . }}
+<article class="post-card"[[ if .Data ]] [[ .Data ]][[ end ]]>
+    <header>
+        <img src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}">
+        <a href="/u/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
+    </header>
+    <section class="post-content">
+        <p>{{ .Content }}</p>
+        {{ range .MediaURLs }}
+            {{ $type := getMediaType . }}
+            
+            {{ if eq $type "image" }}
+                <img src="{{ . }}" alt="User uploaded image" loading="lazy">
+            {{ else if eq $type "video" }}
+                <video src="{{ . }}" controls preload="metadata"></video>
+            {{ end }}
+        {{ end }}
+    </section>
+    <footer>
+        <button hx-post="/posts/{{ .ID }}/like" hx-swap="outerHTML">Like ({{ .LikesCount }})</button>
+        <button hx-post="/posts/{{ .ID }}/repost">Repost ({{ .RepostsCount }})</button>
+    </footer>
+</article>

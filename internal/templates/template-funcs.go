@@ -75,6 +75,9 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 		"seq": func(n int) []struct{} {
 			return make([]struct{}, n)
 		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
 		"printy": func(from string, data ...any) string {
 			slog.Info("printy",
 				slog.Group("params",
@@ -108,6 +111,19 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 		},
 		"getBrand": func() string {
 			return consts.Brand
+		},
+		"getMediaType": func(url string) string {
+			lower := strings.ToLower(url)
+
+			if strings.Contains(lower, "youtube.com") || strings.Contains(lower, "youtu.be") {
+				return "youtube"
+			}
+
+			if strings.HasSuffix(lower, ".mp4") || strings.HasSuffix(lower, ".webm") || strings.HasSuffix(lower, ".mov") {
+				return "video"
+			}
+
+			return "image"
 		},
 	}
 }

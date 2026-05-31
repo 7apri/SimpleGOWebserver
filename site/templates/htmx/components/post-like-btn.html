@@ -1,0 +1,5 @@
+<button hx-post="/posts/{{ .PostID }}/like"  
+        hx-swap="outerHTML" 
+        class="like-btn {{ if .IsLiked }}active{{ end }}">
+    {{ if .IsLiked }}Unlike{{ else }}Like{{ end }} ({{ .Count }})
+</button>

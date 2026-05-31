@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -107,26 +108,43 @@ type FeedPost struct {
 }
 
 func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UUID, cursor uuid.UUID, limit int) ([]FeedPost, error) {
-	rows, err := s.pool.Query(ctx, `
+	var rows pgx.Rows
+	var err error
+
+	if cursor == uuid.Nil {
+		rows, err = s.pool.Query(ctx, `
 		SELECT 
+		p.id, p.content, p.media_urls, p.created_at,
+		p.likes_count, p.reposts_count, p.replies_count,
+		u.id, u.username, u.display_name, u.avatar_url,
+		EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND post_id = p.id) as is_liked,
+		EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND post_id = p.id) as is_reposted
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.parent_id IS NULL 
+		AND p.deleted_at IS NULL
+		ORDER BY p.id DESC
+		LIMIT $2`, currentUserID, limit)
+	} else {
+		rows, err = s.pool.Query(ctx, `
+			SELECT 
 			p.id, p.content, p.media_urls, p.created_at,
 			p.likes_count, p.reposts_count, p.replies_count,
 			u.id, u.username, u.display_name, u.avatar_url,
 			EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND post_id = p.id) as is_liked,
 			EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND post_id = p.id) as is_reposted
-		FROM posts p
-		JOIN users u ON p.user_id = u.id
-		WHERE p.parent_id IS NULL 
-		  AND p.deleted_at IS NULL
-		  AND ($2::uuid IS NULL OR p.id < $2)
-		ORDER BY p.id DESC
-		LIMIT $3`,
-		currentUserID, cursor, limit,
-	)
+			FROM posts p
+			JOIN users u ON p.user_id = u.id
+			WHERE p.parent_id IS NULL 
+			AND p.deleted_at IS NULL
+			AND p.id < $2
+			ORDER BY p.id DESC
+			LIMIT $3`, currentUserID, cursor, limit)
+	}
+	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var posts []FeedPost
 	pipe := s.redis.Pipeline()
@@ -184,4 +202,19 @@ func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UU
 	}
 
 	return posts, nil
+}
+
+func (s *SocialWrapper) GetPostLikes(ctx context.Context, postID uuid.UUID) (int64, error) {
+	var base int64
+	err := s.pool.QueryRow(ctx, "SELECT likes_count FROM posts WHERE id = $1", postID).Scan(&base)
+	if err != nil {
+		return 0, err
+	}
+
+	delta, err := s.redis.HGet(ctx, KeyPostLikes, postID.String()).Int64()
+	if err != nil && err != redis.Nil {
+		return 0, err
+	}
+
+	return base + delta, nil
 }
