@@ -27,10 +27,16 @@ func (p *UserProfile) MapToAuthor() PostAuthor {
 }
 
 type Post struct {
-	ID        uuid.UUID
-	Author    PostAuthor
-	Content   string
-	CreatedAt time.Time
+	ID           uuid.UUID
+	Content      string
+	MediaURLs    []string
+	LikesCount   int
+	RepostsCount int
+	RepliesCount int
+	CreatedAt    time.Time
+	Author       PostAuthor
+	IsLiked      bool
+	IsReposted   bool
 }
 
 var ErrPostCreate = errors.New("failed_post_create")
@@ -88,26 +94,14 @@ func (s *SocialWrapper) CreatePost(ctx context.Context, p CreatePostParams) (Pos
 
 	return Post{
 		ID:        postID,
-		Author:    p.Author,
 		Content:   p.Content,
+		MediaURLs: p.MediaURLs,
+		Author:    p.Author,
 		CreatedAt: createdAt,
 	}, nil
 }
 
-type FeedPost struct {
-	ID           uuid.UUID
-	Content      string
-	MediaURLs    []string
-	LikesCount   int
-	RepostsCount int
-	RepliesCount int
-	CreatedAt    time.Time
-	Author       PostAuthor
-	IsLiked      bool
-	IsReposted   bool
-}
-
-func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UUID, cursor uuid.UUID, limit int) ([]FeedPost, error) {
+func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UUID, cursor uuid.UUID, limit int) ([]Post, error) {
 	var rows pgx.Rows
 	var err error
 
@@ -146,7 +140,7 @@ func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UU
 		return nil, err
 	}
 
-	var posts []FeedPost
+	var posts []Post
 	pipe := s.redis.Pipeline()
 
 	type deltaCmds struct {
@@ -158,20 +152,20 @@ func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UU
 	cmds := make(map[uuid.UUID]deltaCmds)
 
 	for rows.Next() {
-		var fp FeedPost
+		var p Post
 		err := rows.Scan(
-			&fp.ID, &fp.Content, &fp.MediaURLs, &fp.CreatedAt,
-			&fp.LikesCount, &fp.RepostsCount, &fp.RepliesCount,
-			&fp.Author.ID, &fp.Author.Username, &fp.Author.DisplayName, &fp.Author.AvatarURL,
-			&fp.IsLiked, &fp.IsReposted,
+			&p.ID, &p.Content, &p.MediaURLs, &p.CreatedAt,
+			&p.LikesCount, &p.RepostsCount, &p.RepliesCount,
+			&p.Author.ID, &p.Author.Username, &p.Author.DisplayName, &p.Author.AvatarURL,
+			&p.IsLiked, &p.IsReposted,
 		)
 		if err != nil {
 			return nil, err
 		}
-		posts = append(posts, fp)
+		posts = append(posts, p)
 
-		idStr := fp.ID.String()
-		cmds[fp.ID] = deltaCmds{
+		idStr := p.ID.String()
+		cmds[p.ID] = deltaCmds{
 			likes:       pipe.HGet(ctx, KeyPostLikes, idStr),
 			likesProc:   pipe.HGet(ctx, KeyPostLikes+":proc", idStr),
 			reposts:     pipe.HGet(ctx, KeyPostReposts, idStr),
@@ -212,6 +206,21 @@ func (s *SocialWrapper) GetPostLikes(ctx context.Context, postID uuid.UUID) (int
 	}
 
 	delta, err := s.redis.HGet(ctx, KeyPostLikes, postID.String()).Int64()
+	if err != nil && err != redis.Nil {
+		return 0, err
+	}
+
+	return base + delta, nil
+}
+
+func (s *SocialWrapper) GetPostReposts(ctx context.Context, postID uuid.UUID) (int64, error) {
+	var base int64
+	err := s.pool.QueryRow(ctx, "SELECT reposts_count FROM posts WHERE id = $1", postID).Scan(&base)
+	if err != nil {
+		return 0, err
+	}
+
+	delta, err := s.redis.HGet(ctx, KeyPostReposts, postID.String()).Int64()
 	if err != nil && err != redis.Nil {
 		return 0, err
 	}

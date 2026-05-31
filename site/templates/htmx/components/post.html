@@ -20,7 +20,19 @@ kind : htmx
         {{ end }}
     </section>
     <footer>
-        <button hx-post="/posts/{{ .ID }}/like" hx-swap="outerHTML">Like ({{ .LikesCount }})</button>
-        <button hx-post="/posts/{{ .ID }}/repost">Repost ({{ .RepostsCount }})</button>
+        <button hx-post="/posts/{{ .ID }}/like"  
+                hx-swap="outerHTML"
+                class="post-like-btn"
+                aria-checked="{{ if .IsLiked }}true{{ else }}false{{ end }}"
+                aria-label="{{ if .IsLiked }}[[capitalize (tr "phrase:unlike")]]{{ else }}[[capitalize (tr "phrase:like")]]{{ end }}">
+                {{ .LikesCount }}
+        </button>
+        <button hx-post="/posts/{{ .ID }}/repost"  
+                hx-swap="outerHTML"
+                class="post-repost-btn"
+                aria-checked=".IsReposted"
+                aria-label="{{ if .IsReposted }}[[capitalize (tr "phrase:unrepost")]]{{ else }}[[capitalize (tr "phrase:repost")]]{{ end }}">
+                {{ .RepostsCount }}
+        </button>
     </footer>
 </article>

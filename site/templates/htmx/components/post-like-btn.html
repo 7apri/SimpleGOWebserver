@@ -1,5 +1,11 @@
+---
+kind : htmx
+name : post-like-btn
+---
 <button hx-post="/posts/{{ .PostID }}/like"  
-        hx-swap="outerHTML" 
-        class="like-btn {{ if .IsLiked }}active{{ end }}">
-    {{ if .IsLiked }}Unlike{{ else }}Like{{ end }} ({{ .Count }})
+        hx-swap="outerHTML"
+        class="post-like-btn"
+        aria-checked="{{ if .IsLiked }}true{{ else }}false{{ end }}"
+        aria-label="{{ if .IsLiked }}[[capitalize (tr "phrase:unlike")]]{{ else }}[[capitalize (tr "phrase:like")]]{{ end }}">
+        {{ .Likes }}
 </button>

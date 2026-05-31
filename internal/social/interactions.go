@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -23,7 +24,7 @@ var syncQueries = map[string]string{
 	KeyFollowers: "UPDATE users SET followers_count = followers_count + $1 WHERE id = $2",
 	KeyFollowing: "UPDATE users SET following_count = following_count + $1 WHERE id = $2",
 
-	KeyPostLikes:   "UPDATE posts SET like_count = like_count + $1 WHERE id = $2",
+	KeyPostLikes:   "UPDATE posts SET likes_count = likes_count + $1 WHERE id = $2",
 	KeyPostReposts: "UPDATE posts SET reposts_count = reposts_count + $1 WHERE id = $2",
 }
 
@@ -172,10 +173,10 @@ func (s *SocialWrapper) ToggleRepost(ctx context.Context, userID, postID uuid.UU
 	return reposted, err
 }
 
-func (s *SocialWrapper) ToggleLike(ctx context.Context, userID, postID uuid.UUID) (bool, error) {
+func (s *SocialWrapper) ToggleLike(ctx context.Context, userID, postID uuid.UUID) (bool, int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -185,30 +186,31 @@ func (s *SocialWrapper) ToggleLike(ctx context.Context, userID, postID uuid.UUID
 		WHERE user_id = $1 AND post_id = $2`,
 		userID, postID)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	pipe := s.redis.Pipeline()
+	var cmd *redis.IntCmd
 
 	if tag.RowsAffected() > 0 {
 		liked = false
-		pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), -1)
+		cmd = pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), -1)
 	} else {
 		_, err = tx.Exec(ctx, `
 			INSERT INTO likes (user_id, post_id) 
 			VALUES ($1, $2)`,
 			userID, postID)
 		if err != nil {
-			return false, err
+			return false, 0, err
 		}
 		liked = true
-		pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), 1)
+		cmd = pipe.HIncrBy(ctx, KeyPostLikes, postID.String(), 1)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	_, err = pipe.Exec(ctx)
-	return liked, err
+	return liked, cmd.Val(), err
 }

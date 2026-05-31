@@ -154,23 +154,28 @@ button{
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
 }
+.htmx-request.effect,
 .loading {
     color: transparent !important;
     position: relative;
     pointer-events: none;
 }
+.htmx-request.effect::after,
 .loading::after {
     animation: spin 0.6s linear infinite;
-    border: 2px solid var(--load-color, var(--on-surface));
+    border: var(--loading-border-width,2px) solid var(--load-color, var(--on-surface));
     border-top-color: transparent;
     border-radius: 50%;
     position: absolute;
     content: "";
-    height: 1.2rem; width: 1.2rem;
-    top: calc(50% - 0.6rem);
-    left: calc(50% - 0.6rem);
+    height: var(--size,1.2rem); width:  var(--size,1.2rem);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 li{ list-style: none; }

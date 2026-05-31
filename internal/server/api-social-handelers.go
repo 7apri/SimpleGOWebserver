@@ -87,7 +87,8 @@ func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *w
 			return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 		}
 	}
-	if user, ok := auth.GetUser(ctx); ok {
+	user, ok := auth.GetUser(ctx)
+	if ok {
 		userID = user.ID
 	}
 	posts, err := rw.socialWrapper.GetGlobalFeed(ctx, userID, cursor, limit)
@@ -95,10 +96,12 @@ func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *w
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 	data := struct {
-		Posts      []social.FeedPost
+		Posts      []social.Post
+		IsLoggedIn bool
 		NextCursor *uuid.UUID
 	}{
-		Posts: posts,
+		IsLoggedIn: ok,
+		Posts:      posts,
 	}
 	if len(posts) >= limit {
 		id := posts[len(posts)-1].ID
@@ -108,14 +111,14 @@ func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *w
 }
 
 func (rw *RouteWrapper) HandleLikePost(w http.ResponseWriter, r *http.Request) *web.WebError {
-	IdString := r.PathValue("username")
-	postID, err := uuid.Parse(IdString)
+	postID, err := uuid.Parse(r.PathValue("postID"))
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
 	}
 	ctx := r.Context()
 	user, _ := auth.GetUser(ctx)
-	isLiked, err := rw.socialWrapper.ToggleLike(ctx, user.ID, postID)
+
+	isLiked, _, err := rw.socialWrapper.ToggleLike(ctx, user.ID, postID)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
@@ -134,4 +137,33 @@ func (rw *RouteWrapper) HandleLikePost(w http.ResponseWriter, r *http.Request) *
 		IsLiked: isLiked,
 	}
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-like-btn"}, data)
+}
+
+func (rw *RouteWrapper) HandleRepostPost(w http.ResponseWriter, r *http.Request) *web.WebError {
+	postID, err := uuid.Parse(r.PathValue("postID"))
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+	ctx := r.Context()
+	user, _ := auth.GetUser(ctx)
+
+	isReposted, err := rw.socialWrapper.ToggleRepost(ctx, user.ID, postID)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+	count, err := rw.socialWrapper.GetPostReposts(ctx, postID)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database", err, nil)
+	}
+
+	data := struct {
+		PostID    uuid.UUID
+		Count     int64
+		IsChecked bool
+	}{
+		PostID:    postID,
+		Count:     count,
+		IsChecked: isReposted,
+	}
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-repost-btn"}, data)
 }

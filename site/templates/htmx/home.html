@@ -41,8 +41,9 @@ name : home
         </div>
     </div>
 </form>
-<section id="feed-container" 
-     hx-get="/posts" 
-     hx-trigger="load" 
-     hx-swap="beforeend">
+<section id="feed-container" class="effect"
+    style="--size:40px;--loading-border-width:4px; min-height: 40px;"
+    hx-get="/posts" 
+    hx-trigger="load" 
+    hx-swap="beforeend">
 </section>
