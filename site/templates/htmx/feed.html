@@ -1,0 +1,7 @@
+---
+name : feed
+kind : htmx 
+---
+{{ range $_, $post :=  . }}
+{{ $post }}
+{{ end }}

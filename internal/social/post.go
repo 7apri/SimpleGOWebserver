@@ -67,11 +67,6 @@ func (s *SocialWrapper) CreatePost(ctx context.Context, p CreatePostParams) (Pos
 		return Post{}, err
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE users SET posts_count = posts_count + 1 WHERE id = $1`, p.Author.ID)
-	if err != nil {
-		return Post{}, err
-	}
-
 	if p.ParentID != nil {
 		_, err = tx.Exec(ctx, `UPDATE posts SET replies_count = replies_count + 1 WHERE id = $1`, *p.ParentID)
 		if err != nil {

@@ -5,7 +5,7 @@ CREATE TABLE posts (
     quote_id      UUID REFERENCES posts(id) ON DELETE SET NULL,
 
     content       VARCHAR(280),
-    media_urls    TEXT[] NOT NULL DEFAULT '{}',
+    media_urls    TEXT[] DEFAULT '{}',
 
     likes_count    INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0),
     reposts_count  INT NOT NULL DEFAULT 0 CHECK (reposts_count >= 0),
