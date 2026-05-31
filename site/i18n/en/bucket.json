@@ -60,6 +60,9 @@
             "switch_light": "Switch to light mode",
             "switch_dark": "Switch to dark mode"
         },
+        "main.js" : {
+            "just_now": "Just now"
+        },
         "auth/components/password-input.js": {
             "hide_password" : "hide password",
             "show_password" : "show password"

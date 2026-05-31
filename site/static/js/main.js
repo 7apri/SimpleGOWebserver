@@ -22,7 +22,7 @@ class RelativeTime extends HTMLElement {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
 
-        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 60) return tr("just_now");
         
         const diffInMinutes = Math.floor(diffInSeconds / 60);
         if (diffInMinutes < 60) return `${diffInMinutes}m`;

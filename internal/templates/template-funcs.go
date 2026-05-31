@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"maps"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/7apri/SimpleGOWebserver/internal/consts"
@@ -45,6 +46,14 @@ func TemplateCoalesce(args ...any) any {
 		return arg
 	}
 	return ""
+}
+
+var youtubeIdRegex = regexp.MustCompile(`(?:v=|/embed/|youtu\.be/)([^&?/]+)`)
+var videoFormats = map[string]struct{}{
+	"mkv":  {},
+	"mp4":  {},
+	"mov":  {},
+	"webm": {},
 }
 
 func (mgr *TemplateManager) funcMapBase() template.FuncMap {
@@ -119,11 +128,21 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 				return "youtube"
 			}
 
-			if strings.HasSuffix(lower, ".mp4") || strings.HasSuffix(lower, ".webm") || strings.HasSuffix(lower, ".mov") {
+			urlSplit := strings.Split(lower, ".")
+			mediaSuffix := urlSplit[len(urlSplit)-1]
+
+			if _, ok := videoFormats[mediaSuffix]; ok {
 				return "video"
 			}
 
 			return "image"
+		},
+		"extractYoutubeID": func(url string) string {
+			matches := youtubeIdRegex.FindStringSubmatch(url)
+			if len(matches) > 1 {
+				return matches[1]
+			}
+			return ""
 		},
 	}
 }

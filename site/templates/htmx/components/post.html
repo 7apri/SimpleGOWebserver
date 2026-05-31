@@ -12,13 +12,12 @@ kind : htmx
         </div>
         {{ end }}
     </div>
-    <div class="flx col">
+    <div class="flx col fil-x">
         <header>
             <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
-            <a class="txt-muted fw-normal" href="/{{ .Author.Username }}">@{{ .Author.Username }}</a>
             <relative-time class="txt-muted" datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time>
         </header>
-        <section class="post-content">
+        <section class="fil-x">
             <p>{{ .Content }}</p>
             {{ range .MediaURLs }}
                 {{ $type := getMediaType . }}
@@ -26,8 +25,18 @@ kind : htmx
                     <img src="{{ . }}" class="post-media" alt="[[ tr "alt:post_image" ]]" loading="lazy">
                 {{ else if eq $type "video" }}
                     <video src="{{ . }}" class="post-media" controls preload="metadata"></video>
+                {{ else if eq $type "youtube" }}
+                    <div class="video-container">
+                        <iframe 
+                            src="https://www.youtube-nocookie.com/embed/{{ extractYoutubeID . }}" 
+                            title="[[ tr "title:youtube_video_player" ]]" 
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
                 {{ end }}
-                {{ end }}
+            {{ end }}
         </section>
         [[ if and .Data .Data.BeforeFooter ]][[ .Data.BeforeFooter ]][[ end ]]
         <footer class="flx j-spcBetween mt-md">

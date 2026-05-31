@@ -77,6 +77,9 @@
             "switch_light": "Přepnout na světlý režim",
             "switch_dark": "Přepnout na tmavý režim"
         },
+        "main.js" : {
+            "just_now": "Právě těď"
+        },
         "auth/components/password-input.js": {
             "hide_password" : "Schovat heslo.",
             "show_password" : "Zobrazit heslo."
