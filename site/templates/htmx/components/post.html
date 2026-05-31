@@ -2,23 +2,32 @@
 name : post
 kind : htmx 
 ---
-<article class="post-card" style="--pfp-size: 2.5rem" [[ if and .Data .Data.Attributes ]] [[ .Data.Attributes ]][[ end ]]>
-    <img class="pfp" src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}">
+<article class="post-card"[[ if and .Data .Data.Attributes ]] [[ .Data.Attributes ]][[ end ]]>
+    <div class="flx gap-md">
+        {{ if .Author.AvatarURL }}
+        <img class="pfp" src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}"/>
+        {{ else }}
+        <div class="pfp grd pli-c bdr-low txt-md">
+            {{capitalize (firstChar .Author.DisplayName) }}
+        </div>
+        {{ end }}
+    </div>
     <div class="flx col">
         <header>
-            <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }} <span class="txt-muted fw-normal">@{{ .Author.Username }}</span></a>
+            <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
+            <a class="txt-muted fw-normal" href="/{{ .Author.Username }}">@{{ .Author.Username }}</a>
+            <relative-time class="txt-muted" datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time>
         </header>
         <section class="post-content">
             <p>{{ .Content }}</p>
             {{ range .MediaURLs }}
                 {{ $type := getMediaType . }}
-                
                 {{ if eq $type "image" }}
-                    <img src="{{ . }}" alt="User uploaded image" loading="lazy">
+                    <img src="{{ . }}" class="post-media" alt="[[ tr "alt:post_image" ]]" loading="lazy">
                 {{ else if eq $type "video" }}
-                    <video src="{{ . }}" controls preload="metadata"></video>
+                    <video src="{{ . }}" class="post-media" controls preload="metadata"></video>
                 {{ end }}
-            {{ end }}
+                {{ end }}
         </section>
         [[ if and .Data .Data.BeforeFooter ]][[ .Data.BeforeFooter ]][[ end ]]
         <footer class="flx j-spcBetween mt-md">

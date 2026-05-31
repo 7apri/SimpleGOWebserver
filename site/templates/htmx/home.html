@@ -24,7 +24,16 @@ name : home
     hx-swap="afterbegin" 
     hx-on::after-request="this.reset()"
 >
-    <img class="pfp" src="{{ .AvatarURL }}" alt="Avatar">
+
+    <div class="flx gap-md">
+        {{ with .AvatarURL }}
+        <img class="pfp" src="{{.}}"/>
+        {{ else }}
+        <div class="pfp grd pli-c bdr-low txt-lg">
+            {{capitalize (firstChar .DisplayName) }}
+        </div>
+        {{ end }}
+    </div>
     
     <div class="fil-x">
         <textarea
@@ -35,7 +44,8 @@ name : home
             maxlength="280"
         ></textarea>
         
-        <div class="flx j-end mt-sm">
+        <div class="flx j-end mt-sm gap-md">
+            <input class="flx-1" name="media_urls[]" value="https://m.media-amazon.com/images/I/519Hct2QoeL.jpg"/>
             <button type="submit" class="px-md py-sm reverse-colors deform">
                 [[ capitalize (tr "phrase:post") ]]
             </button>
@@ -44,7 +54,7 @@ name : home
 </form>
 {{ end }}
 <section id="feed-container" class="effect flx col gap-md"
-    style="--size:40px;--loading-border-width:4px; min-height: 40px;"
+    style="--size:40px;--loading-border-width:4px; min-height: 40px;--pfp-size:2.5rem"
     hx-get="/posts" 
     hx-trigger="load" 
     hx-swap="beforeend">

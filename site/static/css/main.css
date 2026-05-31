@@ -654,6 +654,9 @@ button.reverse-colors,
     display: flex;
     gap: var(--s-sm);
 }
+.post-card a:hover{
+    text-decoration: underline;
+}
 .post-interaction-btn{
     background-color: transparent;
     display: inline-flex; align-items: center;
@@ -662,4 +665,13 @@ button.reverse-colors,
 }
 .post-interaction-btn[aria-checked="true"]{
     --fill-color: var(--on-surface)
+}
+.post-media {
+    max-width: 100%; 
+    max-height: 400px;
+    width: auto;
+    height: auto;
+    margin-top: var(--s-md);
+    border-radius: 8px;
+    display: block;
 }

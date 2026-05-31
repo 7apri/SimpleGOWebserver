@@ -48,8 +48,14 @@ name : user-profile
     {{ with .Profile.Bio }}
     <p>{{ . }}</p>
     {{ else }}
-    {{ end }}    
-    <div class="flx gap-md my-md">
+    {{ end }}
+    <div class="mt-md flx ali-c gap-sm txt-muted">
+        <svg class="icon" aria-hidden="true">
+            <use href="[[ asset "/static/assets/iconBundle.svg" ]]#calendar"></use>
+        </svg>
+        <p>[[capitalize (tr "phrase:joined_at") ]] <relative-time mode="absolute" datetime="{{ .Profile.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time></p>
+    </div>
+    <div class="flx gap-md mt-sm mb-md">
         <p class="txt-muted"><span class="txt-normal fw-bold" id="user-profile-count-following">{{ .Profile.FollowingCount }}</span> [[ tr "phrase:following" ]]</p>
         <p class="txt-muted"><span class="txt-normal fw-bold" id="user-profile-count-followers">{{ .Profile.FollowersCount }}</span> [[ tr "phrase:followers" ]]</p>
     </div>
