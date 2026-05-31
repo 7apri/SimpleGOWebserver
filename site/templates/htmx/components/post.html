@@ -2,37 +2,29 @@
 name : post
 kind : htmx 
 ---
-<article class="post-card"[[ if .Data ]] [[ .Data ]][[ end ]]>
-    <header>
-        <img src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}">
-        <a href="/u/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
-    </header>
-    <section class="post-content">
-        <p>{{ .Content }}</p>
-        {{ range .MediaURLs }}
-            {{ $type := getMediaType . }}
-            
-            {{ if eq $type "image" }}
-                <img src="{{ . }}" alt="User uploaded image" loading="lazy">
-            {{ else if eq $type "video" }}
-                <video src="{{ . }}" controls preload="metadata"></video>
+<article class="post-card" style="--pfp-size: 2.5rem" [[ if and .Data .Data.Attributes ]] [[ .Data.Attributes ]][[ end ]]>
+    <img class="pfp" src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}">
+    <div class="flx col">
+        <header>
+            <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }} <span class="txt-muted fw-normal">@{{ .Author.Username }}</span></a>
+        </header>
+        <section class="post-content">
+            <p>{{ .Content }}</p>
+            {{ range .MediaURLs }}
+                {{ $type := getMediaType . }}
+                
+                {{ if eq $type "image" }}
+                    <img src="{{ . }}" alt="User uploaded image" loading="lazy">
+                {{ else if eq $type "video" }}
+                    <video src="{{ . }}" controls preload="metadata"></video>
+                {{ end }}
             {{ end }}
-        {{ end }}
-    </section>
-    <footer>
-        <button hx-post="/posts/{{ .ID }}/like"  
-                hx-swap="outerHTML"
-                class="post-like-btn"
-                aria-checked="{{ if .IsLiked }}true{{ else }}false{{ end }}"
-                aria-label="{{ if .IsLiked }}[[capitalize (tr "phrase:unlike")]]{{ else }}[[capitalize (tr "phrase:like")]]{{ end }}">
-                {{ .LikesCount }}
-        </button>
-        <button hx-post="/posts/{{ .ID }}/repost"  
-                hx-swap="outerHTML"
-                class="post-repost-btn"
-                aria-checked=".IsReposted"
-                aria-label="{{ if .IsReposted }}[[capitalize (tr "phrase:unrepost")]]{{ else }}[[capitalize (tr "phrase:repost")]]{{ end }}">
-                {{ .RepostsCount }}
-        </button>
-    </footer>
+        </section>
+        [[ if and .Data .Data.BeforeFooter ]][[ .Data.BeforeFooter ]][[ end ]]
+        <footer class="flx j-spcBetween mt-md">
+            [[ import "htmx/components/post/like-btn.html" ""]]
+            [[ import "htmx/components/post/repost-btn.html" ""]]
+        </footer>
+        [[ if and .Data .Data.AfterFooter ]][[ .Data.AfterFooter ]][[ end ]]
+    </div>
 </article>

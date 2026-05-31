@@ -128,13 +128,13 @@ func (rw *RouteWrapper) HandleLikePost(w http.ResponseWriter, r *http.Request) *
 	}
 
 	data := struct {
-		PostID  uuid.UUID
-		Likes   int64
-		IsLiked bool
+		ID         uuid.UUID
+		LikesCount int64
+		IsLiked    bool
 	}{
-		PostID:  postID,
-		Likes:   postLikes,
-		IsLiked: isLiked,
+		ID:         postID,
+		LikesCount: postLikes,
+		IsLiked:    isLiked,
 	}
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-like-btn"}, data)
 }
@@ -157,13 +157,13 @@ func (rw *RouteWrapper) HandleRepostPost(w http.ResponseWriter, r *http.Request)
 	}
 
 	data := struct {
-		PostID    uuid.UUID
-		Count     int64
-		IsChecked bool
+		ID           uuid.UUID
+		RepostsCount int64
+		IsReposted   bool
 	}{
-		PostID:    postID,
-		Count:     count,
-		IsChecked: isReposted,
+		ID:           postID,
+		RepostsCount: count,
+		IsReposted:   isReposted,
 	}
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-repost-btn"}, data)
 }

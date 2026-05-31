@@ -9,6 +9,10 @@ kind : htmx
 {{ range $i, $post :=  .Posts -}}
     {{ $isSentinel := eq $i $sentinelIndex}}
     {{ with $post }}
-        [[ import "htmx/components/post.html" `{{ if $isSentinel }} hx-get="/posts?cursor={{ $.NextCursor }}" hx-trigger="intersect once" hx-swap="afterend" hx-target="this"{{ end }}`]]
-    {{ end }}
+        [[ import "htmx/components/post.html" (dict 
+            "Attributes"   `{{ if $isSentinel }} hx-get="/posts?cursor={{ $.NextCursor }}" hx-trigger="intersect once" hx-swap="afterend" hx-target="this"{{ end }}`
+            "BeforeFooter" "{{ if $.IsLoggedIn }}"
+            "AfterFooter"  "{{ end }}")  
+        ]]
+    {{ end }} 
 {{- end }}

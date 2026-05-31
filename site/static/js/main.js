@@ -10,7 +10,7 @@ const postInputResize = (e) =>{
     e.target.style.height = e.target.scrollHeight + 'px';
 }
 const enterHome = () =>{
-    document.querySelector(".post-input").addEventListener("input", postInputResize)
+    document.querySelector(".post-input")?.addEventListener("input", postInputResize)
 };
 RegisterPath("/", {
     enter: enterHome,

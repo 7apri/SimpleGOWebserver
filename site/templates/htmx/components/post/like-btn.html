@@ -2,10 +2,13 @@
 kind : htmx
 name : post-like-btn
 ---
-<button hx-post="/posts/{{ .PostID }}/like"  
+<button hx-post="/posts/{{ .ID }}/like"  
         hx-swap="outerHTML"
-        class="post-like-btn"
+        class="post-interaction-btn"
         aria-checked="{{ if .IsLiked }}true{{ else }}false{{ end }}"
         aria-label="{{ if .IsLiked }}[[capitalize (tr "phrase:unlike")]]{{ else }}[[capitalize (tr "phrase:like")]]{{ end }}">
-        {{ .Likes }}
+        <svg class="icon" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#heart"></use>
+        </svg>
+        {{ .LikesCount }}
 </button>

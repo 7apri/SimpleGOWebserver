@@ -28,7 +28,11 @@ func (rw *RouteWrapper) HandleRoot(w http.ResponseWriter, r *http.Request) *web.
 	if profile != nil {
 		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
 	}
-	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, profile, templates.PageMeta{}, meta)
+	dataFragment := struct {
+		Profile *social.UserProfile
+	}{Profile: profile}
+
+	return rw.templateMgr.WriteTemplateHtmx(w, r, templates.TemplateKey{Kind: "page", Name: "main"}, templates.TemplateKey{Kind: "htmx", Name: "home"}, profile, dataFragment, templates.PageMeta{}, meta)
 }
 
 func (rw *RouteWrapper) HandleSignUp(w http.ResponseWriter, r *http.Request) *web.WebError {

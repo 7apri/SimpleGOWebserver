@@ -15,6 +15,7 @@ name : home
         </ul>
     </nav>
 </header>
+{{ with .Profile }}
 <form 
     class="my-md bg-surface-container bdr-rad-md p-md flx gap-sm" 
     style="--pfp-size:3rem"
@@ -41,7 +42,8 @@ name : home
         </div>
     </div>
 </form>
-<section id="feed-container" class="effect"
+{{ end }}
+<section id="feed-container" class="effect flx col gap-md"
     style="--size:40px;--loading-border-width:4px; min-height: 40px;"
     hx-get="/posts" 
     hx-trigger="load" 

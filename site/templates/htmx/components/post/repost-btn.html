@@ -1,0 +1,14 @@
+---
+kind : htmx
+name : post-repost-btn
+---
+<button hx-post="/posts/{{ .ID }}/repost"  
+        hx-swap="outerHTML"
+        class="post-interaction-btn"
+        aria-checked=".IsReposted"
+        aria-label="{{ if .IsReposted }}[[capitalize (tr "phrase:unrepost")]]{{ else }}[[capitalize (tr "phrase:repost")]]{{ end }}">
+        <svg class="icon" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#repost"></use>
+        </svg>
+        {{ .RepostsCount }}
+</button>

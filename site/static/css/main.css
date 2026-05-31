@@ -579,6 +579,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 .side-left-info-names{
     overflow: scroll;
+    text-align: left;
 }
 .pfp {
   border-radius: 50%;
@@ -644,4 +645,21 @@ button.reverse-colors,
   content: attr(aria-placeholder);
   color: var(--on-surface-muted);
   pointer-events: none;
+}
+
+.post-card{
+    background-color: var(--surface-container);
+    padding: var(--s-md);
+    border-radius: 4px;
+    display: flex;
+    gap: var(--s-sm);
+}
+.post-interaction-btn{
+    background-color: transparent;
+    display: inline-flex; align-items: center;
+    gap: var(--s-sm);
+    flex: 1;
+}
+.post-interaction-btn[aria-checked="true"]{
+    --fill-color: var(--on-surface)
 }
