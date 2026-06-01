@@ -169,3 +169,46 @@ func (h *AuthHandler) HandleCreateRoom(w http.ResponseWriter, r *http.Request) *
 	w.WriteHeader(http.StatusCreated)
 	return nil
 }
+
+type RoomKeyResponse struct {
+	EncryptedKey    string `json:"encrypted_key"`
+	SenderPublicKey string `json:"sender_public_key"`
+}
+
+func (h *AuthHandler) HandleFetchRoomKey(w http.ResponseWriter, r *http.Request) *web.WebError {
+	user, ok := GetUser(r.Context())
+	if !ok {
+		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
+	}
+	roomID := r.PathValue("roomID")
+
+	deviceCookie, err := r.Cookie("device_id")
+	if err != nil {
+		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
+	defer cancel()
+
+	const q = `
+		SELECT rk.encrypted_room_key, creator_device.public_key
+		FROM room_keys rk
+		JOIN rooms r ON rk.room_id = r.id
+		JOIN user_devices creator_device ON r.created_by = creator_device.user_id 
+		WHERE rk.room_id = $1 
+		  AND rk.device_id = $2 
+		  AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
+		LIMIT 1`
+
+	var resp RoomKeyResponse
+	err = h.db.Pool.QueryRow(ctx, q, roomID, deviceCookie.Value, user.ID).Scan(
+		&resp.EncryptedKey,
+		&resp.SenderPublicKey,
+	)
+	if err != nil {
+		return web.NewError(http.StatusForbidden, "forbidden", nil, nil)
+
+	}
+
+	return web.SendJSON(w, http.StatusOK, resp)
+}

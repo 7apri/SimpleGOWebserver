@@ -187,6 +187,13 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	cryptoApiStack := append(baseStack, authRateLimit, rw.authHandler.MiddlewareBlock)
 	mux.Handle("POST /api/crypto/register", rw.handlerHtml(rw.authHandler.HandleRegisterCryptoIdentity, cryptoApiStack...))
 
+	mux.Handle("POST /api/crypto/fetch-keys", rw.handlerHtml(rw.authHandler.HandleFetchParticipantKeys, cryptoApiStack...))
+	mux.Handle("POST /api/rooms", rw.handlerHtml(rw.authHandler.HandleCreateRoom, cryptoApiStack...))
+
+	mux.Handle("GET /api/crypto/room-key/{roomID}", rw.handlerHtml(rw.authHandler.HandleFetchRoomKey, cryptoApiStack...))
+	mux.Handle("POST /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleSendMessage, cryptoApiStack...))
+	mux.Handle("GET /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleFetchMessages, cryptoApiStack...))
+
 	mux.Handle("GET /api/ws", web.MakeHandler(rw.websocketHub.HandleWS, rw.i18Mgr, nil))
 	return mux
 }

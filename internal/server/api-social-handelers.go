@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
 	"github.com/7apri/SimpleGOWebserver/internal/social"
@@ -166,4 +168,131 @@ func (rw *RouteWrapper) HandleRepostPost(w http.ResponseWriter, r *http.Request)
 		IsReposted:   isReposted,
 	}
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post-repost-btn"}, data)
+}
+
+func (rw *RouteWrapper) HandleSendMessage(w http.ResponseWriter, r *http.Request) *web.WebError {
+	user, ok := auth.GetUser(r.Context())
+	if !ok {
+		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
+	}
+	roomID := r.PathValue("roomID")
+
+	if err := r.ParseForm(); err != nil {
+		return web.NewError(http.StatusBadRequest, "invalid_form_data", nil, nil)
+	}
+
+	contentEncrypted := r.FormValue("content_encrypted")
+	nonce := r.FormValue("nonce")
+
+	if contentEncrypted == "" || nonce == "" {
+		return web.NewError(http.StatusBadRequest, "missing_cryptographic_payload", nil, nil)
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
+	defer cancel()
+
+	const q = `
+		INSERT INTO messages (room_id, sender_id, content_encrypted, nonce, key_version)
+		SELECT $1, $2, $3, $4, 1
+		WHERE EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $2)
+		RETURNING id, created_at`
+
+	var msgID uuid.UUID
+	var createdAt time.Time
+
+	err := rw.database.Pool.QueryRow(ctx, q, roomID, user.ID, contentEncrypted, nonce).Scan(&msgID, &createdAt)
+	if err != nil {
+		return web.NewError(http.StatusForbidden, "forbidden", nil, nil)
+	}
+
+	data := map[string]interface{}{
+		"ID":               msgID,
+		"SenderUsername":   user.Username,
+		"CreatedAt":        createdAt,
+		"ContentEncrypted": contentEncrypted,
+		"Nonce":            nonce,
+		"RoomID":           roomID,
+	}
+
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message"}, data)
+}
+
+type MessageRow struct {
+	ID               uuid.UUID
+	SenderUsername   string
+	ContentEncrypted string
+	Nonce            string
+	RoomID           uuid.UUID
+	CreatedAt        time.Time
+}
+
+func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Request) *web.WebError {
+	user, ok := auth.GetUser(r.Context())
+	if !ok {
+		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
+	}
+	roomID := r.PathValue("roomID")
+
+	since := r.URL.Query().Get("since")
+	cursor := r.URL.Query().Get("cursor")
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
+	defer cancel()
+
+	var q string
+	var args []interface{}
+
+	if since != "" {
+		q = `
+            SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.room_id = $1 AND m.created_at > $2
+              AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
+            ORDER BY m.created_at ASC`
+		args = []interface{}{roomID, since, user.ID}
+	} else {
+		if cursor == "" {
+			cursor = time.Now().Format(time.RFC3339)
+		}
+		q = `
+            SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.room_id = $1 AND m.created_at < $2
+              AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
+            ORDER BY m.created_at DESC
+            LIMIT 20`
+		args = []interface{}{roomID, cursor, user.ID}
+	}
+
+	rows, err := rw.database.Pool.Query(ctx, q, args...)
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "database error", nil, nil)
+	}
+	defer rows.Close()
+
+	var messages []MessageRow
+	for rows.Next() {
+		var m MessageRow
+		if err := rows.Scan(&m.ID, &m.SenderUsername, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt); err == nil {
+			messages = append(messages, m)
+		}
+	}
+
+	isPolling := since != ""
+
+	if isPolling && len(messages) > 0 {
+		_, _ = rw.database.Pool.Exec(ctx,
+			"UPDATE room_participants SET last_read_at = NOW() WHERE room_id = $1 AND user_id = $2",
+			roomID, user.ID)
+
+		latest := messages[len(messages)-1].CreatedAt
+		w.Header().Set("X-Latest-Timestamp", latest.Format(time.RFC3339))
+	}
+
+	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message-list"}, map[string]interface{}{
+		"Messages":  messages,
+		"IsPolling": isPolling,
+	})
 }

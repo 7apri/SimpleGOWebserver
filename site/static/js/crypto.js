@@ -164,7 +164,7 @@ window.CryptoEngine = {
                     encrypted_room_key: base64EncryptedRoomKey
                 });
             } catch (err) {
-                console.error(`Skipping broken device payload for device ${device.device_id}:`, err);
+                console.error(`skipping broken device payload for device ${device.device_id}:`, err);
             }
         }
 
@@ -186,9 +186,50 @@ window.CryptoEngine = {
             
             htmx.ajax('GET', parsedUrl.pathname, { target: 'body' });
         }
+    },
+    async ensureRoomKeyCached(roomId) {
+        const cachedKey = await cryptoDB.get(`room_key_${roomId}`);
+        if (cachedKey) return true;
+
+        const response = await fetch(`/api/crypto/room-key/${roomId}`);
+        if (!response.ok) return false;
+        
+        const data = await response.json();
+        if (!data.encrypted_key) return false;
+
+        const ourKeyPair = await cryptoDB.get('identity_keypair');
+        const serverDevicePublicBytes = Uint8Array.from(atob(data.sender_public_key), c => c.charCodeAt(0));
+        
+        const senderPublicKey = await window.crypto.subtle.importKey(
+            "raw", serverDevicePublicBytes, { name: "ECDH", namedCurve: "P-256" }, true, []
+        );
+
+        const sharedSecretKey = await window.crypto.subtle.deriveKey(
+            { name: "ECDH", public: senderPublicKey },
+            ourKeyPair.privateKey,
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["decrypt"]
+        );
+
+        const combinedBytes = Uint8Array.from(atob(data.encrypted_key), c => c.charCodeAt(0));
+        const iv = combinedBytes.slice(0, 12);
+        const ciphertext = combinedBytes.slice(12);
+
+        const decryptedRawBuffer = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv },
+            sharedSecretKey,
+            ciphertext
+        );
+
+        const roomCryptoKey = await window.crypto.subtle.importKey(
+            "raw", decryptedRawBuffer, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
+        );
+
+        await cryptoDB.set(`room_key_${roomId}`, roomCryptoKey);
+        return true;
     }
 };
-
 
 class EncryptedMessage extends HTMLElement {
     async connectedCallback() {
