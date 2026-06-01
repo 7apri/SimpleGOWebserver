@@ -2,7 +2,7 @@
 layout: page
 ---
 [[ registerScriptGlobal "htmx.min.js"  ]]
-[[ range $script := (slice "main.js" "router.js" "user.js")]]
+[[ range $script := (slice "main.js" "router.js" "user.js" "crypto.js")]]
 [[ registerScript  $script]]
 [[ end ]]
 [[ $title := concat "{{ .Meta.Title }} |" (getBrand) ]]

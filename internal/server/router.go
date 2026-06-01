@@ -184,7 +184,9 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("POST /api/auth/e/finalize", rw.handlerHtml(rw.authHandler.FinalizeExternal, authExtApiStack...))
 	mux.Handle("GET  /api/auth/e/cancel", rw.handlerHtml(rw.authHandler.CancelPendingAuth, authExtApiStack...))
 
-	//web.RecoveryM
+	cryptoApiStack := append(baseStack, authRateLimit, rw.authHandler.MiddlewareBlock)
+	mux.Handle("POST /api/crypto/register", rw.handlerHtml(rw.authHandler.HandleRegisterCryptoIdentity, cryptoApiStack...))
+
 	mux.Handle("GET /api/ws", web.MakeHandler(rw.websocketHub.HandleWS, rw.i18Mgr, nil))
 	return mux
 }

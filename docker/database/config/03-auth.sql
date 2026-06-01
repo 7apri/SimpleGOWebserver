@@ -1,3 +1,12 @@
+CREATE TABLE user_devices (
+    device_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    public_key TEXT NOT NULL,
+    device_name TEXT DEFAULT 'Unknown Browser', 
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE refresh_sessions (
     device_id UUID REFERENCES user_devices(device_id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

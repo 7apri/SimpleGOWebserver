@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/consts"
-	"github.com/7apri/SimpleGOWebserver/internal/email"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -256,16 +255,26 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 	if options.RotateCSRF {
 		setCSRFCookie(w)
 	}
-
 	claims, err := h.issueAccessToken(w, user, options.AccessTokenOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	var deviceID uuid.UUID
-	deviceCookie, err := r.Cookie("device_id")
-	if err == nil {
-		deviceID, _ = uuid.Parse(deviceCookie.Value)
+	var (
+		deviceID      uuid.UUID
+		mustSetCookie bool
+	)
+	if cookie, err := r.Cookie("device_id"); err == nil {
+		deviceID, _ = uuid.Parse(cookie.Value)
+	}
+
+	if deviceID == uuid.Nil {
+		var err error
+		deviceID, err = uuid.NewRandom()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate device id: %w", err)
+		}
+		mustSetCookie = true
 	}
 
 	refresh, err := GenerateRandomString(32)
@@ -274,88 +283,71 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 	}
 	refreshHash := HashString(refresh)
 	ip := web.GetClientIP(r)
+	ua := useragent.Parse(r.UserAgent())
+	deviceName := ua.Name + " on " + ua.OS
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	tx, err := h.db.Pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin tx: %w", err)
+		return nil, fmt.Errorf("failed to start tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	if deviceID != uuid.Nil {
-		ua := useragent.Parse(r.UserAgent())
-		deviceName := ua.Name + " on " + ua.OS
+	var (
+		isNewDevice bool
+		publicKey   string
+	)
 
-		const upsertDeviceQuery = `
-            INSERT INTO user_devices (device_id, user_id, public_key, device_name)
-            VALUES ($1, $2, 'PENDING', $3)
-            ON CONFLICT (device_id) DO UPDATE SET last_seen = NOW()
-            RETURNING public_key, (user_devices.created_at = user_devices.last_seen) AS is_new_device`
+	const upsertDevice = `
+		INSERT INTO user_devices (device_id, user_id, public_key, device_name)
+		VALUES ($1, $2, 'PENDING', $3)
+		ON CONFLICT (device_id) DO UPDATE SET last_seen = NOW()
+		RETURNING public_key, (user_devices.created_at = user_devices.last_seen)`
 
-		var (
-			publicKey   string
-			isNewDevice bool
-		)
-
-		err = h.db.Pool.QueryRow(ctx, upsertDeviceQuery, deviceID, user.ID, deviceName).Scan(&publicKey, &isNewDevice)
-		if err != nil {
-			return nil, fmt.Errorf("failed to upsert device: %w", err)
-		}
-
-		if publicKey == "PENDING" {
-			w.Header().Set("HX-Trigger", "register-crypto-identity")
-		}
-
-		if isNewDevice && options.SendEmail {
-			go func(userID uuid.UUID, dName, clientIP string) {
-				emailCtx, cancelEmail := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancelEmail()
-
-				var usrDetail email.UserDetail
-				const userQuery = `SELECT email, username, settings->>'lang' FROM users WHERE id = $1`
-
-				if err := h.db.Pool.QueryRow(emailCtx, userQuery, userID).Scan(&usrDetail.Email, &usrDetail.Username, &usrDetail.Lang); err == nil {
-					h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
-						Device:     dName,
-						IP:         clientIP,
-						Time:       time.Now().Format(time.RFC3339),
-						SecureLink: "not implemented yet",
-					}, usrDetail)
-				}
-			}(user.ID, deviceName, ip)
-		}
+	err = tx.QueryRow(ctx, upsertDevice, deviceID, user.ID, deviceName).Scan(&publicKey, &isNewDevice)
+	if err != nil {
+		return nil, fmt.Errorf("device upsert: %w", err)
 	}
 
-	const insertSessionQuery = `
+	const insertSession = `
         INSERT INTO refresh_sessions 
         (user_id, token_hash, expires_at, ip_address, remember_me, device_id) 
         VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err = h.db.Pool.Exec(ctx, insertSessionQuery,
-		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, options.Remember,
-		restoreNilUUID(deviceID))
+	_, err = tx.Exec(ctx, insertSession,
+		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, options.Remember, restoreNilUUID(deviceID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to save refresh session: %w", err)
+		return nil, fmt.Errorf("session insert: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit failed: %w", err)
+	}
+
+	if mustSetCookie {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "device_id",
+			Value:    deviceID.String(),
+			MaxAge:   31536000,
+			Path:     "/",
+			HttpOnly: false,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+
+	if isNewDevice && options.SendEmail {
+		// add email thingy here
 	}
 
 	const refreshDuration = 30 * 24 * time.Hour
-	var (
-		maxAge = 0
-		expiry = time.Time{}
-	)
-
-	if options.Remember {
-		maxAge = int(refreshDuration.Seconds())
-		expiry = time.Now().Add(refreshDuration)
-	}
-
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refresh,
-		MaxAge:   maxAge,
-		Expires:  expiry,
+		MaxAge:   int(refreshDuration.Seconds()),
+		Expires:  time.Now().Add(refreshDuration),
 		HttpOnly: true,
 		Secure:   true,
 		Path:     "/",
