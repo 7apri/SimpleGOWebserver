@@ -16,6 +16,7 @@ func SendJSON(w http.ResponseWriter, status int, data any) *WebError {
 	}
 	return nil
 }
+
 func GetClientIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip

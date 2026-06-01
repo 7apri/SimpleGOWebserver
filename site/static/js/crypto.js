@@ -1,7 +1,6 @@
 const CRYPTO_DB = 'AppCryptoDatabase';
 const KEY_STORE = 'identity_keys';
 
-// Global cache to prevent constant connection spawning
 let cachedDBInstance = null;
 
 const cryptoDB = {
@@ -23,7 +22,7 @@ const cryptoDB = {
             const tx = db.transaction(KEY_STORE, 'readonly');
             const req = tx.objectStore(KEY_STORE).get(key);
             req.onsuccess = () => resolve(req.result);
-            tx.onabort = tx.onerror = () => resolve(null); // Fail safely
+            tx.onabort = tx.onerror = () => resolve(null);
         });
     },
     async set(key, val) {
@@ -38,7 +37,7 @@ const cryptoDB = {
 };
 
 window.CryptoEngine = {
-    isRegistering: false, // Prevents duplicate network requests fighting each other
+    isRegistering: false,
 
     async initDeviceCookie() {
         let deviceId = await cryptoDB.get('device_id');
@@ -62,15 +61,12 @@ window.CryptoEngine = {
         
         const deviceId = await this.initDeviceCookie();
         
-        // HARSH FIX: Don't trust the client-side access_token cookie.
-        // Instead, check for the device_id server state. If the user is logged out,
-        // the registration fetch will fail gracefully with a 401 anyway.
-        let keyPair = await cryptoDB.get('identity_keypair');
+        let keyPair = await cryptoDB.get('identity_keypair'); 
         
         if (!keyPair) {
             this.isRegistering = true;
             try {
-                console.log("🔒 Generating new cryptographic device identity...");
+                console.log("generating new cryptographic device identity...");
                 keyPair = await window.crypto.subtle.generateKey(
                     { name: "ECDH", namedCurve: "P-256" },
                     true,
@@ -102,26 +98,149 @@ window.CryptoEngine = {
             });
 
             if (response.ok) {
-                console.log("✅ Cryptographic identity securely locked to server session.");
+                console.log("cryptographic identity securely locked to server session.");
             } else if (response.status === 401 || response.status === 403) {
-                // User is not logged in or token expired. 
-                // Wipe the un-uploaded keypair so it regenerates properly when they actually log in.
                 await cryptoDB.set('identity_keypair', null);
             }
         } catch (err) {
-            console.error("🚨 Network error while registering crypto identity:", err);
+            console.error("network error while registering crypto identity:", err);
+        }
+    },
+    async createEncryptedRoom(roomType, roomName, participantUserIds) {
+        const roomKey = await window.crypto.subtle.generateKey(
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+        );
+
+        const keyResponse = await fetch('/api/crypto/fetch-keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_ids: participantUserIds })
+        });
+        const targetDevices = await keyResponse.json();
+
+        const ourKeyPair = await cryptoDB.get('identity_keypair');
+        if (!ourKeyPair) throw new Error("Our device identity is missing");
+
+        const encryptedKeysPayload = [];
+
+        const rawRoomKeyBytes = await window.crypto.subtle.exportKey("raw", roomKey);
+
+        for (const device of targetDevices) {
+            try {
+                const devicePublicBytes = Uint8Array.from(atob(device.public_key), c => c.charCodeAt(0));
+                const devicePublicKey = await window.crypto.subtle.importKey(
+                    "raw",
+                    devicePublicBytes,
+                    { name: "ECDH", namedCurve: "P-256" },
+                    true,
+                    []
+                );
+
+                const sharedSecretKey = await window.crypto.subtle.deriveKey(
+                    { name: "ECDH", public: devicePublicKey },
+                    ourKeyPair.privateKey,
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt"]
+                );
+
+                const iv = window.crypto.getRandomValues(new Uint8Array(12)); 
+                const encryptedKeyBuffer = await window.crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv: iv },
+                    sharedSecretKey,
+                    rawRoomKeyBytes
+                );
+
+                const combined = new Uint8Array(iv.length + encryptedKeyBuffer.byteLength);
+                combined.set(iv);
+                combined.set(new Uint8Array(encryptedKeyBuffer), iv.length);
+
+                const base64EncryptedRoomKey = btoa(String.fromCharCode(...combined));
+
+                encryptedKeysPayload.push({
+                    device_id: device.device_id,
+                    encrypted_room_key: base64EncryptedRoomKey
+                });
+            } catch (err) {
+                console.error(`Skipping broken device payload for device ${device.device_id}:`, err);
+            }
+        }
+
+        const result = await fetch('/api/rooms/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: roomType,
+                name: roomName,
+                participants: participantUserIds,
+                encrypted_keys: encryptedKeysPayload
+            })
+        });
+
+        if (result.ok) {
+            const parsedUrl = new URL(result.headers.get("HX-Redirect"), window.location.origin);
+            const newRoomId = parsedUrl.pathname.split("/").pop();
+            await cryptoDB.set(`room_key_${newRoomId}`, roomKey);
+            
+            htmx.ajax('GET', parsedUrl.pathname, { target: 'body' });
         }
     }
 };
 
-// Handle initial page load (Matches Go's initial raw template execution on "/")
+
+class EncryptedMessage extends HTMLElement {
+    async connectedCallback() {
+        const encryptedContent = this.getAttribute('content');
+        const nonceBase64 = this.getAttribute('nonce');
+        const roomId = this.getAttribute('room-id');
+
+        if (!encryptedContent || !nonceBase64 || !roomId) {
+            this.renderError("malformed message frame");
+            return;
+        }
+
+        try {
+            const roomKey = await cryptoDB.get(`room_key_${roomId}`);
+            if (!roomKey) {
+                this.renderError("message encrypted (Key missing)");
+                return;
+            }
+
+            const encryptedBytes = Uint8Array.from(atob(encryptedContent), c => c.charCodeAt(0));
+            const nonceBytes = Uint8Array.from(atob(nonceBase64), c => c.charCodeAt(0));
+
+            const decryptedBuffer = await window.crypto.subtle.decrypt(
+                {
+                    name: "AES-GCM",
+                    iv: nonceBytes
+                },
+                roomKey,
+                encryptedBytes
+            );
+
+            const plainText = new TextDecoder().decode(decryptedBuffer);
+
+            this.textContent = plainText;
+        } catch (err) {
+            console.error("decryption failure:", err);
+            this.renderError("decryption failed (Corrupted data)");
+        }
+    }
+
+    renderError(msg) {
+        this.innerHTML = `<span style="color: var(--error-color, #ff4444); font-style: italic; font-size: 0.9em;">${msg}</span>`;
+    }
+}
+
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => window.CryptoEngine.verifyAndRegisterIdentity());
 } else {
     window.CryptoEngine.verifyAndRegisterIdentity();
 }
 
-// Intercept HTMX mutations smoothly
 document.body.addEventListener('htmx:afterOnLoad', () => {
     window.CryptoEngine.verifyAndRegisterIdentity();
 });
