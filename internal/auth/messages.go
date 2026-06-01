@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -138,7 +139,7 @@ func (h *AuthHandler) HandleCreateRoom(w http.ResponseWriter, r *http.Request) *
 	defer tx.Rollback(ctx)
 
 	var roomID uuid.UUID
-	err = tx.QueryRow(ctx, "INSERT INTO rooms (type, name) VALUES ($1, $2) RETURNING id", payload.Type, payload.Name).Scan(&roomID)
+	err = tx.QueryRow(ctx, "INSERT INTO rooms (type, name, created_by) VALUES ($1, $2, $3) RETURNING id", payload.Type, payload.Name, user.ID).Scan(&roomID)
 	if err != nil {
 		return web.NewError(http.StatusInternalServerError, "database", err, nil)
 	}
@@ -165,7 +166,7 @@ func (h *AuthHandler) HandleCreateRoom(w http.ResponseWriter, r *http.Request) *
 		return web.NewError(http.StatusInternalServerError, "database_tx", err, nil)
 	}
 
-	w.Header().Set("HX-Redirect", "/chat/"+roomID.String())
+	w.Header().Set("HX-Redirect", "/chats/"+roomID.String())
 	w.WriteHeader(http.StatusCreated)
 	return nil
 }
@@ -206,6 +207,7 @@ func (h *AuthHandler) HandleFetchRoomKey(w http.ResponseWriter, r *http.Request)
 		&resp.SenderPublicKey,
 	)
 	if err != nil {
+		slog.Error("fuuuh", "err", err)
 		return web.NewError(http.StatusForbidden, "forbidden", nil, nil)
 
 	}

@@ -20,9 +20,11 @@ const RegisterPath = (path, page) => {
 
 let activePath = "";
 let activePage = null;
+let swapped = false;
 
 const htmxWrapper = () => {
-    if (activePage && typeof activePage.enter === 'function') {
+    if (!swapped && activePage && typeof activePage.enter === 'function') {
+        swapped = true;
         activePage.enter();
     }
 };
@@ -70,6 +72,7 @@ const SwitchPath = () => {
     if (page) {
         activePath = matchedPath;
         activePage = page;
+        swapped = false;
         document.addEventListener("htmx:afterSwap", htmxWrapper);
     } else {
         selectedPage = "";

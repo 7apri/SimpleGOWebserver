@@ -194,6 +194,8 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("POST /api/rooms", rw.handlerHtml(rw.authHandler.HandleCreateRoom, cryptoApiStack...))
 
 	mux.Handle("GET /api/crypto/room-key/{roomID}", rw.handlerHtml(rw.authHandler.HandleFetchRoomKey, cryptoApiStack...))
+	mux.Handle("POST /api/dm/init/{targetUserID}", rw.handlerHtml(rw.HandleInitDM, cryptoApiStack...))
+	mux.Handle("POST /api/rooms/{roomID}/keys", rw.handlerHtml(rw.HandleUploadRoomKeys, cryptoApiStack...))
 	mux.Handle("POST /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleSendMessage, cryptoApiStack...))
 	mux.Handle("GET /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleFetchMessages, cryptoApiStack...))
 

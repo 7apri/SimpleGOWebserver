@@ -4,6 +4,7 @@ CREATE TABLE rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type room_type NOT NULL DEFAULT 'dm',
     name TEXT DEFAULT NULL,
+    created_by UUID REFERENCES users(id) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

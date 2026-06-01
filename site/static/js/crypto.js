@@ -106,69 +106,84 @@ window.CryptoEngine = {
             console.error("network error while registering crypto identity:", err);
         }
     },
-    async createEncryptedRoom(roomType, roomName, participantUserIds) {
-        const roomKey = await window.crypto.subtle.generateKey(
-            { name: "AES-GCM", length: 256 },
-            true,
-            ["encrypt", "decrypt"]
-        );
-
+    async generateKeyPayloadForUsers(roomKey, userIds) {
         const keyResponse = await fetch('/api/crypto/fetch-keys', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_ids: participantUserIds })
+            body: JSON.stringify({ user_ids: userIds })
         });
         const targetDevices = await keyResponse.json();
-
+        console.log(targetDevices)
         const ourKeyPair = await cryptoDB.get('identity_keypair');
-        if (!ourKeyPair) throw new Error("Our device identity is missing");
-
-        const encryptedKeysPayload = [];
-
         const rawRoomKeyBytes = await window.crypto.subtle.exportKey("raw", roomKey);
+        const encryptedKeysPayload = [];
 
         for (const device of targetDevices) {
             try {
                 const devicePublicBytes = Uint8Array.from(atob(device.public_key), c => c.charCodeAt(0));
                 const devicePublicKey = await window.crypto.subtle.importKey(
-                    "raw",
-                    devicePublicBytes,
-                    { name: "ECDH", namedCurve: "P-256" },
-                    true,
-                    []
+                    "raw", devicePublicBytes, { name: "ECDH", namedCurve: "P-256" }, true, []
                 );
-
                 const sharedSecretKey = await window.crypto.subtle.deriveKey(
-                    { name: "ECDH", public: devicePublicKey },
-                    ourKeyPair.privateKey,
-                    { name: "AES-GCM", length: 256 },
-                    true,
-                    ["encrypt"]
+                    { name: "ECDH", public: devicePublicKey }, ourKeyPair.privateKey, { name: "AES-GCM", length: 256 }, true, ["encrypt"]
                 );
-
                 const iv = window.crypto.getRandomValues(new Uint8Array(12)); 
                 const encryptedKeyBuffer = await window.crypto.subtle.encrypt(
-                    { name: "AES-GCM", iv: iv },
-                    sharedSecretKey,
-                    rawRoomKeyBytes
+                    { name: "AES-GCM", iv: iv }, sharedSecretKey, rawRoomKeyBytes
                 );
-
                 const combined = new Uint8Array(iv.length + encryptedKeyBuffer.byteLength);
                 combined.set(iv);
                 combined.set(new Uint8Array(encryptedKeyBuffer), iv.length);
-
-                const base64EncryptedRoomKey = btoa(String.fromCharCode(...combined));
-
+                
                 encryptedKeysPayload.push({
                     device_id: device.device_id,
-                    encrypted_room_key: base64EncryptedRoomKey
+                    encrypted_room_key: btoa(String.fromCharCode(...combined))
                 });
-            } catch (err) {
-                console.error(`skipping broken device payload for device ${device.device_id}:`, err);
-            }
+            } catch (err) { }
         }
+        return encryptedKeysPayload;
+    },
+    async startDirectMessage(targetUserId) {
+        try {
+            const initRes = await fetch(`/api/dm/init/${targetUserId}`, { method: 'POST' });
+            const { room_id, is_new } = await initRes.json();
 
-        const result = await fetch('/api/rooms/create', {
+            if (is_new) {
+                const roomKey = await window.crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
+                );
+                
+                const encryptedKeysPayload = await this.generateKeyPayloadForUsers(roomKey, [targetUserId]);
+
+                await fetch(`/api/rooms/${room_id}/keys`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ encrypted_keys: encryptedKeysPayload })
+                });
+
+                await cryptoDB.set(`room_key_${room_id}`, roomKey);
+
+            } else {
+                await this.ensureRoomKeyCached(room_id); 
+            }
+
+            htmx.ajax('GET', `/chats/${room_id}`, { target: 'body' });
+
+        } catch (err) {
+            console.error("Failed to initialize DM:", err);
+            alert("Failed to establish secure connection.");
+        }
+    },
+   async createEncryptedRoom(roomType, roomName, participantUserIds) {
+    const roomKey = await window.crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+
+        const encryptedKeysPayload = await this.generateKeyPayloadForUsers(roomKey, participantUserIds);
+
+        const result = await fetch('/api/rooms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -274,7 +289,7 @@ class EncryptedMessage extends HTMLElement {
         this.innerHTML = `<span style="color: var(--error-color, #ff4444); font-style: italic; font-size: 0.9em;">${msg}</span>`;
     }
 }
-
+customElements.define('encrypted-message', EncryptedMessage);
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => window.CryptoEngine.verifyAndRegisterIdentity());
