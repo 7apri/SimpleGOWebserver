@@ -661,7 +661,7 @@ button.reverse-colors,
     background-color: transparent;
     display: inline-flex; align-items: center;
     gap: var(--s-sm);
-    flex: 1;
+    width: 6ch;
 }
 .post-interaction-btn[aria-checked="true"]{
     --fill-color: var(--on-surface)
