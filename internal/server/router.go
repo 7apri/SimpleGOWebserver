@@ -44,11 +44,14 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("GET /{username}", rw.handlerHtml(rw.HandleProfile, baseStack...))
 	mux.Handle("POST /{username}/follow", rw.handlerHtml(rw.HandleFollow, protectedStack...))
 
+	mux.Handle("GET /chats", rw.handlerHtml(rw.HandleListChats, protectedStack...))
+
 	mux.Handle("GET  /posts", rw.handlerHtml(rw.HandleGetFeed, baseStack...))
 	mux.Handle("POST /posts", rw.handlerHtml(rw.HandleCreatePost, baseStack...))
 
 	mux.Handle("POST /posts/{postID}/repost", rw.handlerHtml(rw.HandleRepostPost, protectedStack...))
 	mux.Handle("POST /posts/{postID}/like", rw.handlerHtml(rw.HandleLikePost, protectedStack...))
+	mux.Handle("DELETE /posts/{postID}", rw.handlerHtml(rw.HandleDeletePost, protectedStack...))
 
 	mux.Handle("GET /explore", web.Chain(rw.serveHtmx("main", "explore"), baseStack...))
 

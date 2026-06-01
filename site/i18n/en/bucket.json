@@ -22,6 +22,7 @@
         "phrase:continue_with"   : "Continue with",
         "phrase:back_home"       : "take me home",
         
+        "phrase:delete_post" : "delete post",
         "phrase:joined_at" : "joined at",
         "phrase:follow"    : "follow",
         "phrase:unfollow"  : "unfollow",

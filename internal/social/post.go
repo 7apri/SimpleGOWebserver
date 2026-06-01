@@ -103,8 +103,24 @@ func (s *SocialWrapper) CreatePost(ctx context.Context, p CreatePostParams) (Pos
 	}, nil
 }
 
+var (
+	ErrPostNotFound = errors.New("post_not_found")
+	ErrDatabase     = errors.New("database")
+)
+
 func (s *SocialWrapper) DeletePost(ctx context.Context, postID, userID uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, "DELETE FROM posts WHERE id=$1 AND user_id=$2", postID, userID)
+	const q = `
+        UPDATE posts 
+        SET deleted_at = NOW() 
+        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`
+	res, err := s.pool.Exec(ctx, q, postID, userID)
+	if err != nil {
+		return ErrDatabase
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrPostNotFound
+	}
 	return err
 }
 

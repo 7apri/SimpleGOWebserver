@@ -84,8 +84,16 @@ func (rw *RouteWrapper) HandleDeletePost(w http.ResponseWriter, r *http.Request)
 
 	err = rw.socialWrapper.DeletePost(ctx, postID, user.ID)
 	if err != nil {
-		return web.NewError(http.StatusUnauthorized, "unauthorized", err, nil)
+		switch err {
+		case social.ErrDatabase:
+			return web.NewError(http.StatusInternalServerError, "", err, nil)
+		case social.ErrPostNotFound:
+			return web.NewError(http.StatusNotFound, "", err, nil)
+		default:
+			return web.NewError(http.StatusUnauthorized, "unauthorized", err, nil)
+		}
 	}
+
 	return nil
 }
 

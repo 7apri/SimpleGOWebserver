@@ -5,7 +5,7 @@ name : user-profile
 ---
 <header id="user-profile-header" class="user-profile-header" data-status="{{ .Status }}" data-profile-id="{{ .Profile.ID }}">
     <a id="back-btn" class="crs-pointer grd pli-c">
-        <svg class="icon" aria-hidden="true">
+        <svg class="icon" aria-hidden="true">;
             <use href="[[ asset "/static/assets/iconBundle.svg" ]]#arrow-left"></use>
         </svg>
     </a>
@@ -22,8 +22,14 @@ name : user-profile
             {{ end }}
         </div>
         <div class="flx gap-md pos-rel">
-            <div class="anchored-thingy bg-surface-container fil-x bdr-rad-sm">
-                
+            <div id="user-profile-more" class="anchored-thingy bg-surface-container fil-x bdr-rad-sm p-md hide" style="--icon-size:18px">
+                <a class="fil-x flx ali-c j-spcBetween bg-none"
+                >
+                    [[capitalize (tr "direct_message") ]]
+                    <svg class="icon" aria-hidden="true">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#send"></use>
+                    </svg>
+                </a>
             </div>
             <button id="user-profile-more-btn" class="grd pli-c bg-surface-container p-sm bdr-rad-circle bdr-low">
                 <svg class="icon" aria-hidden="true">

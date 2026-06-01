@@ -30,6 +30,7 @@
         "navigation/text:posts" : "příspěvky",
         "navigation/text:replies" : "odpovědi",
 
+        "phrase:delete_post" : "smazat příspěvek",
         "phrase:joined_at" : "připojili se v",
         "phrase:follow"    : "sledovat",
         "phrase:unfollow"  : "přestat sledovat",

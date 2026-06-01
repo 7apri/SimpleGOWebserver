@@ -2,7 +2,7 @@
 name : post
 kind : htmx 
 ---
-<article class="post-card"[[ if and .Data .Data.Attributes ]] [[ .Data.Attributes ]][[ end ]]>
+<article class="post-card"[[ if and .Data .Data.Attributes ]] [[ .Data.Attributes ]][[ end ]] id="post-{{ .ID }}">
     <div class="flx gap-md">
         {{ if .Author.AvatarURL }}
         <img class="pfp" src="{{ .Author.AvatarURL }}" alt="{{ .Author.DisplayName }}"/>
@@ -19,11 +19,15 @@ kind : htmx
                 <relative-time class="txt-muted" datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time>
             </div>
             {{ if .IsOwn }}
-                <a href="/posts/{{ .ID }}/delete" >
-                     <svg class="icon" aria-hidden="true">
+                <button hx-delete="/posts/{{.ID}}" 
+                        hx-target="#post-{{.ID}}" 
+                        hx-swap="delete"
+                        class="bg-none flx ali-c gap-md txt-sm">
+                    [[capitalize (tr "phrase:delete_post") ]]
+                    <svg class="icon" aria-hidden="true">
                         <use href="[[ asset "/static/assets/iconBundle.svg" ]]#cross"></use>
                     </svg>
-                </a>
+                </button>
             {{ end }}
         </header>
         <section class="fil-x">
