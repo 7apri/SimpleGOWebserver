@@ -242,6 +242,7 @@ func (rw *RouteWrapper) HandleSendMessage(w http.ResponseWriter, r *http.Request
 
 type MessageRow struct {
 	ID               uuid.UUID
+	SenderID         uuid.UUID
 	SenderUsername   string
 	ContentEncrypted string
 	Nonce            string

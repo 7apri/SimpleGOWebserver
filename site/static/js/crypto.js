@@ -113,7 +113,6 @@ window.CryptoEngine = {
             body: JSON.stringify({ user_ids: userIds })
         });
         const targetDevices = await keyResponse.json();
-        console.log(targetDevices)
         const ourKeyPair = await cryptoDB.get('identity_keypair');
         const rawRoomKeyBytes = await window.crypto.subtle.exportKey("raw", roomKey);
         const encryptedKeysPayload = [];
@@ -244,6 +243,36 @@ window.CryptoEngine = {
         await cryptoDB.set(`room_key_${roomId}`, roomCryptoKey);
         return true;
     }
+};
+window.CryptoEngine.sendMessage = async function(roomId, plainText) {
+    const roomKey = await cryptoDB.get(`room_key_${roomId}`);
+    if (!roomKey) throw new Error("Room key not found. Cannot encrypt message.");
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plainText);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    const encryptedBuffer = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        roomKey,
+        data
+    );
+
+    const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+
+    const formData = new FormData();
+    formData.append("content_encrypted", encryptedBase64);
+    formData.append("nonce", ivBase64);
+
+    return htmx.ajax('POST', `/api/rooms/${roomId}/messages`, {
+        values: {
+            content_encrypted: encryptedBase64,
+            nonce: ivBase64
+        },
+        target: '#chat-messages',
+        swap: 'beforeend'
+    });
 };
 
 class EncryptedMessage extends HTMLElement {

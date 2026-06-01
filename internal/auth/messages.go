@@ -88,11 +88,11 @@ func (h *AuthHandler) HandleFetchParticipantKeys(w http.ResponseWriter, r *http.
 	}
 	defer rows.Close()
 
-	var devices []DevicePublicKeyInfo
+	devices := make([]DevicePublicKeyInfo, 0)
 	for rows.Next() {
 		var d DevicePublicKeyInfo
 		if err := rows.Scan(&d.DeviceID, &d.UserID, &d.PublicKey); err == nil {
-			devices = append(devices)
+			devices = append(devices, d)
 		}
 	}
 

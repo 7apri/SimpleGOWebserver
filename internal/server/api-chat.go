@@ -3,10 +3,13 @@ package server
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/auth"
+	"github.com/7apri/SimpleGOWebserver/internal/social"
 	"github.com/7apri/SimpleGOWebserver/internal/templates"
 	"github.com/7apri/SimpleGOWebserver/internal/web"
 	"github.com/bytedance/sonic"
@@ -15,9 +18,17 @@ import (
 )
 
 func (rw *RouteWrapper) HandleListChats(w http.ResponseWriter, r *http.Request) *web.WebError {
+	var (
+		profile *social.UserProfile
+		meta    string
+	)
 	user, ok := auth.GetUser(r.Context())
-	if !ok {
-		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
+	if ok {
+		meta += user.Username
+		profile, _ = rw.socialWrapper.GetProfileByUsername(r.Context(), user.Username)
+	}
+	if profile != nil {
+		meta = strconv.FormatInt(profile.UpdatedAt.Unix(), 16)
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
@@ -28,7 +39,11 @@ func (rw *RouteWrapper) HandleListChats(w http.ResponseWriter, r *http.Request) 
 		return web.NewError(http.StatusInternalServerError, "", err, nil)
 	}
 
-	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-list"}, rooms)
+	return rw.templateMgr.WriteTemplateHtmx(w, r,
+		templates.TemplateKey{Kind: "page", Name: "main"},
+		templates.TemplateKey{Kind: "htmx", Name: "chat-list"},
+		profile, rooms, templates.PageMeta{}, meta,
+	)
 }
 
 type InitDMResponse struct {
@@ -144,4 +159,78 @@ func (rw *RouteWrapper) HandleUploadRoomKeys(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusOK)
 	return nil
+}
+
+func (rw *RouteWrapper) fetchInitialMessages(ctx context.Context, roomID uuid.UUID, userID uuid.UUID) []MessageRow {
+	const q = `
+        SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at, m.sender_id
+        FROM (
+            SELECT id, sender_id, content_encrypted, nonce, room_id, created_at 
+            FROM messages 
+            WHERE room_id = $1 
+            ORDER BY created_at DESC 
+            LIMIT 20
+        ) m
+        JOIN users u ON m.sender_id = u.id
+        WHERE EXISTS (
+            SELECT 1 FROM room_participants 
+            WHERE room_id = $1 AND user_id = $2
+        )
+        ORDER BY m.created_at ASC`
+
+	rows, err := rw.database.Pool.Query(ctx, q, roomID, userID)
+	if err != nil {
+		log.Printf("Error fetching initial messages: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var messages []MessageRow
+	for rows.Next() {
+		var m MessageRow
+		err := rows.Scan(&m.ID, &m.SenderUsername, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt, &m.SenderID)
+		if err == nil {
+			messages = append(messages, m)
+		}
+	}
+	return messages
+}
+
+func (rw *RouteWrapper) HandleChat(w http.ResponseWriter, r *http.Request) *web.WebError {
+	user, _ := auth.GetUser(r.Context())
+	profile, _ := rw.socialWrapper.GetProfileByUsername(r.Context(), user.Username)
+	roomID, err := uuid.Parse(r.PathValue("chatID"))
+	if err != nil {
+		return web.NewError(http.StatusBadRequest, "invalid room ID format", err, nil)
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
+	defer cancel()
+
+	var roomName string
+	const q = `
+        SELECT r.name 
+        FROM rooms r
+        JOIN room_participants rp ON r.id = rp.room_id
+        WHERE r.id = $1 AND rp.user_id = $2`
+
+	err = rw.database.Pool.QueryRow(ctx, q, roomID, user.ID).Scan(&roomName)
+	if err != nil {
+		return web.NewError(http.StatusNotFound, "Room not found or unauthorized", nil, nil)
+	}
+
+	messages := rw.fetchInitialMessages(ctx, roomID, user.ID)
+
+	data := map[string]interface{}{
+		"RoomID":        roomID,
+		"RoomName":      roomName,
+		"Messages":      messages,
+		"CurrentUserID": user.ID,
+	}
+
+	return rw.templateMgr.WriteTemplateHtmx(w, r,
+		templates.TemplateKey{Kind: "page", Name: "main"},
+		templates.TemplateKey{Kind: "htmx", Name: "chat"},
+		profile, data, templates.PageMeta{},
+	)
 }

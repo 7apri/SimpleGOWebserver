@@ -2,4 +2,11 @@
 kind : htmx
 name : chat-list
 ---
-{{ . }}
+<div class="py-md">
+{{ range $chat := .Data }}
+<a 
+    hx-get="/chats/{{ $chat.ID }}" hx-push-url="true" hx-target="#main"
+    class="bg-surface-container p-md flx ali-c crs-pointer">
+{{ $chat.Name }}</a> 
+{{ end }}
+</div>
