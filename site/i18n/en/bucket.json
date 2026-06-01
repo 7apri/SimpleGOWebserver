@@ -22,6 +22,15 @@
         "phrase:continue_with"   : "Continue with",
         "phrase:back_home"       : "take me home",
         
+        "phrase:joined_at" : "joined at",
+        "phrase:follow"    : "follow",
+        "phrase:unfollow"  : "unfollow",
+        "phrase:followers"  : "followers",
+        "phrase:following"  : "following",
+
+        "navigation/text:posts" : "posts",
+        "navigation/text:replies" : "replies",
+
         "title:err/404"  : "Page Not Found",
         "title:main" : "Welcome to Panels",
         

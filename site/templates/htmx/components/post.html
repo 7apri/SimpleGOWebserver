@@ -13,9 +13,18 @@ kind : htmx
         {{ end }}
     </div>
     <div class="flx col fil-x">
-        <header>
-            <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
-            <relative-time class="txt-muted" datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time>
+        <header class="flx j-spcBetween">
+            <div>
+                <a class="fw-bold" href="/{{ .Author.Username }}">{{ .Author.DisplayName }}</a>
+                <relative-time class="txt-muted" datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}"></relative-time>
+            </div>
+            {{ if .IsOwn }}
+                <a href="/posts/{{ .ID }}/delete" >
+                     <svg class="icon" aria-hidden="true">
+                        <use href="[[ asset "/static/assets/iconBundle.svg" ]]#cross"></use>
+                    </svg>
+                </a>
+            {{ end }}
         </header>
         <section class="fil-x">
             <p>{{ .Content }}</p>

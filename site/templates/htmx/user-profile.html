@@ -21,27 +21,32 @@ name : user-profile
             <div class="pfp grd pli-c bdr-low bg-surface-container txt-2xl">{{capitalize (firstChar .Profile.DisplayName) }}</div>
             {{ end }}
         </div>
-        <button class="grd pli-c bg-surface-container p-sm bdr-rad-circle">
-            <svg class="icon" aria-hidden="true">
-                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
-            </svg>
-        </button>
-        {{ if ne .Status "guest" }}
-            {{ if eq .Status "self" }}
-            <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
-            {{ else }}
-            <button
-            class="user-profile-follow-btn"
-            {{ if eq .Status "not_following" }}
-            not-following
-            {{ end }}
-            hx-post="/{{ .Profile.Username }}/follow" 
-            hx-target="this"
-            hx-swap="outerHTML">
-                    {{ if eq .Status "following" }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
+        <div class="flx gap-md pos-rel">
+            <div class="anchored-thingy bg-surface-container fil-x bdr-rad-sm">
+                
+            </div>
+            <button id="user-profile-more-btn" class="grd pli-c bg-surface-container p-sm bdr-rad-circle bdr-low">
+                <svg class="icon" aria-hidden="true">
+                    <use href="[[ asset "/static/assets/iconBundle.svg" ]]#more"></use>
+                </svg>
             </button>
+            {{ if ne .Status "guest" }}
+                {{ if eq .Status "self" }}
+                <button class="px-md py-sm">[[ tr "phrase:edit" ]]</button>
+                {{ else }}
+                <button
+                class="user-profile-follow-btn"
+                {{ if eq .Status "not_following" }}
+                not-following
+                {{ end }}
+                hx-post="/{{ .Profile.Username }}/follow" 
+                hx-target="this"
+                hx-swap="outerHTML">
+                        {{ if eq .Status "following" }}[[capitalize (tr "phrase:unfollow") ]]{{ else }}[[capitalize (tr "phrase:follow") ]]{{ end }}
+                </button>
+                {{ end }}
             {{ end }}
-        {{ end }}
+        </div>
     </div>
     <p class="txt-xl fw-bold">{{ .Profile.DisplayName }}</p>
     <p class="txt-muted">@{{ .Profile.Username }}</p>
@@ -64,7 +69,7 @@ name : user-profile
             [[ range (slice 
             (  dict 
                 "Text" "navigation/text:posts"
-                "Get"  "/{{ .Profile.Username }}"
+                "Get"  "/{{ .Profile.Username }}/posts"
             ) (dict 
                 "Text" "navigation/text:replies" 
                 "Get"  "/{{ .Profile.Username }}/replies"

@@ -27,6 +27,15 @@
         "phrase:sign_up"  : "registrovat se",
         "phrase:sign_out" : "odhlásit se",
 
+        "navigation/text:posts" : "příspěvky",
+        "navigation/text:replies" : "odpovědi",
+
+        "phrase:joined_at" : "připojili se v",
+        "phrase:follow"    : "sledovat",
+        "phrase:unfollow"  : "přestat sledovat",
+        "phrase:followers"  : "sledujících",
+        "phrase:following"  : "sleduje",
+
         "phrase:username_try" : "Zkuste:",
         
         "lbl:login_identifier" : "uživatelské jméno nebo email",

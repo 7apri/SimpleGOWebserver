@@ -74,6 +74,21 @@ func (rw *RouteWrapper) HandleCreatePost(w http.ResponseWriter, r *http.Request)
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "post"}, post)
 }
 
+func (rw *RouteWrapper) HandleDeletePost(w http.ResponseWriter, r *http.Request) *web.WebError {
+	postID, err := uuid.Parse(r.PathValue("postID"))
+	if err != nil {
+		return web.NewError(http.StatusInternalServerError, "internal", err, nil)
+	}
+	ctx := r.Context()
+	user, _ := auth.GetUser(ctx)
+
+	err = rw.socialWrapper.DeletePost(ctx, postID, user.ID)
+	if err != nil {
+		return web.NewError(http.StatusUnauthorized, "unauthorized", err, nil)
+	}
+	return nil
+}
+
 func (rw *RouteWrapper) HandleGetFeed(w http.ResponseWriter, r *http.Request) *web.WebError {
 	const limit = 20
 	ctx := r.Context()

@@ -608,7 +608,7 @@ h6 { font-size: var(--text-sm)  ; font-weight: 800; text-transform: uppercase; o
 }
 .user-profile-follow-btn{
     padding:  var(--s-sm) var(--s-md);
-    width: 15ch;
+    min-width: 16ch;
 }
 button.reverse-colors,
 .user-profile-follow-btn[not-following]{

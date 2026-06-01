@@ -10,6 +10,6 @@ not-following
 hx-post="/{{ .Username }}/follow" 
 hx-target="this" 
 hx-swap="outerHTML">
-        {{ if .IsFollowed }}[[ tr "phrase:unfollow" ]]{{ else }}[[ tr "phrase:follow" ]]{{ end }}
+        {{ if .IsFollowed }}[[capitalize (tr "phrase:unfollow") ]]{{ else }}[[capitalize (tr "phrase:follow") ]]{{ end }}
 </button>
 <span class="txt-normal fw-bold" id="user-profile-count-followers" hx-swap-oob="true">{{ .FollowerCount }}</span>

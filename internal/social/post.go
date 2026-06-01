@@ -37,6 +37,7 @@ type Post struct {
 	Author       PostAuthor
 	IsLiked      bool
 	IsReposted   bool
+	IsOwn        bool
 }
 
 var ErrPostCreate = errors.New("failed_post_create")
@@ -98,7 +99,13 @@ func (s *SocialWrapper) CreatePost(ctx context.Context, p CreatePostParams) (Pos
 		MediaURLs: p.MediaURLs,
 		Author:    p.Author,
 		CreatedAt: createdAt,
+		IsOwn:     true,
 	}, nil
+}
+
+func (s *SocialWrapper) DeletePost(ctx context.Context, postID, userID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, "DELETE FROM posts WHERE id=$1 AND user_id=$2", postID, userID)
+	return err
 }
 
 func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UUID, cursor uuid.UUID, limit int) ([]Post, error) {
@@ -161,6 +168,9 @@ func (s *SocialWrapper) GetGlobalFeed(ctx context.Context, currentUserID uuid.UU
 		)
 		if err != nil {
 			return nil, err
+		}
+		if p.Author.ID == currentUserID {
+			p.IsOwn = true
 		}
 		posts = append(posts, p)
 
