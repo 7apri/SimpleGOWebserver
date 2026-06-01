@@ -1,15 +1,14 @@
 CREATE TABLE refresh_sessions (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    device_id UUID REFERENCES user_devices(device_id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     remember_me BOOLEAN NOT NULL DEFAULT FALSE,
     token_hash CHAR(64) NOT NULL,
-    device_name TEXT,
-    user_agent  TEXT,
     ip_address  INET,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX idx_sessions_user_device ON refresh_sessions (user_id, ip_address, device_name);
+CREATE INDEX idx_sessions_device ON refresh_sessions (user_id, device_id);
 
 CREATE TYPE challenge_kind AS ENUM ('verify', 'reset', 'lock');
 

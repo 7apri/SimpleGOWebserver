@@ -239,6 +239,19 @@ func (h *AuthHandler) issueAccessToken(w http.ResponseWriter, user *UserPrint, o
 	return claims, nil
 }
 
+func restoreNilUUID(id uuid.UUID) interface{} {
+	if id == uuid.Nil {
+		return nil
+	}
+	return id
+}
+
+func (h *AuthHandler) deviceNeedsPublicKey(ctx context.Context, deviceID uuid.UUID) bool {
+	var pk string
+	err := h.db.Pool.QueryRow(ctx, `SELECT public_key FROM user_devices WHERE device_id = $1`, deviceID).Scan(&pk)
+	return err != nil || pk == "PENDING"
+}
+
 func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *UserPrint, options TokenOptions) (*UserClaims, error) {
 	if options.RotateCSRF {
 		setCSRFCookie(w)
@@ -249,61 +262,85 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, user *
 		return nil, err
 	}
 
+	var deviceID uuid.UUID
+	deviceCookie, err := r.Cookie("device_id")
+	if err == nil {
+		deviceID, _ = uuid.Parse(deviceCookie.Value)
+	}
+
 	refresh, err := GenerateRandomString(32)
 	if err != nil {
 		return nil, err
 	}
-
 	refreshHash := HashString(refresh)
 	ip := web.GetClientIP(r)
-	rawUA := r.UserAgent()
-	ua := useragent.Parse(rawUA)
-	deviceName := ua.Name + " on " + ua.OS
 
-	if options.SendEmail {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-			var usrDetail email.UserDetail
-			const q = `
-			SELECT email, username, settings->>'lang' FROM users 
-			WHERE id = $1 
-			AND NOT EXISTS (
-				SELECT 1 FROM refresh_sessions
-				WHERE user_id = $1 AND ip_address = $2 AND device_name = $3
-			)`
+	tx, err := h.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
 
-			err := h.db.Pool.QueryRow(ctx, q, user.ID, ip, deviceName).Scan(
-				&usrDetail.Email,
-				&usrDetail.Username,
-				&usrDetail.Lang,
-			)
+	if deviceID != uuid.Nil {
+		ua := useragent.Parse(r.UserAgent())
+		deviceName := ua.Name + " on " + ua.OS
 
-			if err == nil {
-				h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
-					Device:     deviceName,
-					IP:         ip,
-					Time:       time.Now().String(),
-					SecureLink: "not implemented yet",
-				}, usrDetail)
-			}
-		}()
+		const upsertDeviceQuery = `
+            INSERT INTO user_devices (device_id, user_id, public_key, device_name)
+            VALUES ($1, $2, 'PENDING', $3)
+            ON CONFLICT (device_id) DO UPDATE SET last_seen = NOW()
+            RETURNING public_key, (user_devices.created_at = user_devices.last_seen) AS is_new_device`
+
+		var (
+			publicKey   string
+			isNewDevice bool
+		)
+
+		err = h.db.Pool.QueryRow(ctx, upsertDeviceQuery, deviceID, user.ID, deviceName).Scan(&publicKey, &isNewDevice)
+		if err != nil {
+			return nil, fmt.Errorf("failed to upsert device: %w", err)
+		}
+
+		if publicKey == "PENDING" {
+			w.Header().Set("HX-Trigger", "register-crypto-identity")
+		}
+
+		if isNewDevice && options.SendEmail {
+			go func(userID uuid.UUID, dName, clientIP string) {
+				emailCtx, cancelEmail := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancelEmail()
+
+				var usrDetail email.UserDetail
+				const userQuery = `SELECT email, username, settings->>'lang' FROM users WHERE id = $1`
+
+				if err := h.db.Pool.QueryRow(emailCtx, userQuery, userID).Scan(&usrDetail.Email, &usrDetail.Username, &usrDetail.Lang); err == nil {
+					h.EmailManager.SendNewLoginEmail(&email.NewLoginInfo{
+						Device:     dName,
+						IP:         clientIP,
+						Time:       time.Now().Format(time.RFC3339),
+						SecureLink: "not implemented yet",
+					}, usrDetail)
+				}
+			}(user.ID, deviceName, ip)
+		}
 	}
 
-	ctx, cancelCtx := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancelCtx()
+	const insertSessionQuery = `
+        INSERT INTO refresh_sessions 
+        (user_id, token_hash, expires_at, ip_address, remember_me, device_id) 
+        VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err = h.db.Pool.Exec(ctx,
-		`INSERT INTO refresh_sessions 
-        (user_id, token_hash, expires_at, ip_address, user_agent, device_name, remember_me) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, rawUA, deviceName, options.Remember)
+	_, err = h.db.Pool.Exec(ctx, insertSessionQuery,
+		user.ID, refreshHash, time.Now().Add(30*24*time.Hour), ip, options.Remember,
+		restoreNilUUID(deviceID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to save refresh session: %w", err)
+	}
 
-	const (
-		refreshDuration = 30 * 24 * time.Hour
-	)
-
+	const refreshDuration = 30 * 24 * time.Hour
 	var (
 		maxAge = 0
 		expiry = time.Time{}
