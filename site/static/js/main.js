@@ -56,3 +56,11 @@ RegisterPath("/", {
     enter: enterHome,
     exit: () => console.log("exit home")
 })
+
+const enterChat = () =>{
+    document.getElementById("msg-input")?.addEventListener("input", postInputResize)
+};
+RegisterPath("/chats/*", {
+    enter: enterChat,
+    exit: () => console.log("exit chat")
+})

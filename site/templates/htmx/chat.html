@@ -2,26 +2,32 @@
 kind : htmx
 name : chat
 ---
-<div class="chat-wrapper">
+<div class="flx col j-spcBetween py-lg fil-y">
     <div id="chat-messages" 
          hx-get="/api/rooms/{{.Data.RoomID}}/messages" 
          hx-trigger="every 1s"
          hx-swap="beforeend"
          data-since="{{ timeNow }}"
          hx-on:htmx:config-request="event.detail.parameters['since'] = this.getAttribute('data-since')"
-         class="flx col gap-md">
+         class="flx col gap-lg">
          {{ range $message := .Data.Messages }}
-         <encrypted-message 
-             room-id="{{$message.RoomID}}" 
-             content="{{$message.ContentEncrypted}}" 
-             nonce="{{$message.Nonce}}"
-             {{ if eq $.Data.CurrentUserID $message.SenderID  }}class="txt-right"{{ end }}
-             >
-         </encrypted-message>
+         <div class="message-container{{ if eq $.Data.CurrentUserID $message.SenderID  }} sender{{ end }}">
+             <encrypted-message 
+                 room-id="{{$message.RoomID}}" 
+                 content="{{$message.ContentEncrypted}}" 
+                 nonce="{{$message.Nonce}}"
+                 >
+             </encrypted-message>
+         </div>
          {{ end }}
     </div>
-    <form onsubmit="event.preventDefault(); window.CryptoEngine.sendMessage('{{.Data.RoomID}}', document.getElementById('msg-input').value); document.getElementById('msg-input').value='';">
-        <textarea id="msg-input" name="content" required placeholder="Type a message..."></textarea>
-        <button type="submit">Send</button>
+    <form class="flx ali-c j-spcBetween gap-md mt-lg"
+    onsubmit="event.preventDefault(); window.CryptoEngine.sendMessage('{{.Data.RoomID}}', document.getElementById('msg-input').value); document.getElementById('msg-input').value='';">
+        <textarea id="msg-input" class="chat-input bg-surface-container fil-x" name="content" required placeholder="[[capitalize (tr "phrase:type_a_message") ]]"></textarea>
+        <button class="p-md bg-surface-container" type="submit">
+            <svg class="icon" aria-hidden="true">
+                <use href="[[ asset "/static/assets/iconBundle.svg" ]]#send"></use>
+            </svg>
+        </button>
     </form>
 </div>

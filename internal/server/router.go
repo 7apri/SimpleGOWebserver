@@ -197,8 +197,11 @@ func (rw *RouteWrapper) Routes() *http.ServeMux {
 	mux.Handle("GET /api/crypto/room-key/{roomID}", rw.handlerHtml(rw.authHandler.HandleFetchRoomKey, cryptoApiStack...))
 	mux.Handle("POST /api/dm/init/{targetUserID}", rw.handlerHtml(rw.HandleInitDM, cryptoApiStack...))
 	mux.Handle("POST /api/rooms/{roomID}/keys", rw.handlerHtml(rw.HandleUploadRoomKeys, cryptoApiStack...))
-	mux.Handle("POST /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleSendMessage, cryptoApiStack...))
-	mux.Handle("GET /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleFetchMessages, cryptoApiStack...))
+
+	messageRateLimit := rw.rateLimited("messages:", rate.Limit(2), 5)
+	messagesApiStack := append(baseStack, messageRateLimit, rw.authHandler.MiddlewareBlock)
+	mux.Handle("GET /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleFetchMessages, messagesApiStack...))
+	mux.Handle("POST /api/rooms/{roomID}/messages", rw.handlerHtml(rw.HandleSendMessage, messagesApiStack...))
 
 	mux.Handle("GET /api/ws", web.MakeHandler(rw.websocketHub.HandleWS, rw.i18Mgr, nil))
 	return mux

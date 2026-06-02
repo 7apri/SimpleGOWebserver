@@ -270,7 +270,7 @@ func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Reque
 
 	if since != "" {
 		q = `
-            SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
+            SELECT m.id, u.username, m.sender_id, m.content_encrypted, m.nonce, m.room_id, m.created_at
             FROM messages m
             JOIN users u ON m.sender_id = u.id
             JOIN room_participants rp ON m.room_id = rp.room_id AND rp.user_id = $3
@@ -283,7 +283,7 @@ func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Reque
 		}
 		q = `
             WITH msg_chunk AS (
-                SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
+                SELECT m.id, u.username, m.sender_id, m.content_encrypted, m.nonce, m.room_id, m.created_at
                 FROM messages m
                 JOIN users u ON m.sender_id = u.id
                 JOIN room_participants rp ON m.room_id = rp.room_id AND rp.user_id = $3
@@ -304,7 +304,7 @@ func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Reque
 	messages := make([]MessageRow, 0, 20)
 	for rows.Next() {
 		var m MessageRow
-		if err := rows.Scan(&m.ID, &m.SenderUsername, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.SenderUsername, &m.SenderID, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt); err != nil {
 			return web.NewError(http.StatusInternalServerError, "failed to parse message history", err, nil)
 		}
 		messages = append(messages, m)
@@ -331,7 +331,7 @@ func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Reque
 
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message-list"}, map[string]interface{}{
 		"Messages":  messages,
-		"UserId":    user.ID,
+		"UserID":    user.ID,
 		"IsPolling": isPolling,
 	})
 }

@@ -168,8 +168,10 @@ window.CryptoEngine = {
                 await this.ensureRoomKeyCached(room_id); 
             }
 
-            htmx.ajax('GET', `/chats/${room_id}`, { target: 'body' });
-
+            htmx.ajax('GET', `/chats/${room_id}`, { 
+                target: '#main',
+                'push-url': true 
+            });
         } catch (err) {
             console.error("Failed to initialize DM:", err);
             alert("Failed to establish secure connection.");

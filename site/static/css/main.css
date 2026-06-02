@@ -633,12 +633,15 @@ button.reverse-colors,
   width: 50%;
   background-color: var(--primary);
 }
+.chat-input,
 .post-input{
     min-height: var(--pfp-size);
     padding: var(--s-sm);
-    background: none;
     resize: none;
     border: none;
+}
+.post-input{
+    background: none;
     width: 100%;
 }
 .post-input:empty::before {
@@ -690,7 +693,27 @@ button.reverse-colors,
     width: 100%;
     height: 100%;
 }
-
 .chat-wrapper{
     padding: var(--s-md) 0;
+    display: flex;
+    flex-direction: column;
+
+    height: 100%;
+}
+.message-container{
+    width: 100%;
+    display: flex;
+}
+.message-container.sender{
+    justify-content: end;
+}
+.message-container.sender encrypted-message{ 
+    border-bottom: 1px solid var(--primary);
+}
+
+encrypted-message{
+    background-color: var(--surface-container);
+    padding: var(--s-sm) var(--s-md);
+    max-width: 100%;
+    overflow-wrap: break-word;
 }

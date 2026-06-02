@@ -3,10 +3,11 @@ kind : htmx
 name : chat-message-list
 ---
 {{ range $message := .Messages }}
+<div class="message-container{{ if eq $.UserID  $message.SenderID }} sender{{ end }}">
     <encrypted-message 
         room-id="{{$message.RoomID}}"
         content="{{$message.ContentEncrypted}}" 
-        nonce="{{$message.Nonce}}"
-        {{ if eq $.UserId $message.SenderID  }}class="txt-right"{{ end }}>
+        nonce="{{$message.Nonce}}">
     </encrypted-message>
+</div>
 {{ end }}
