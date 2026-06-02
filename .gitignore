@@ -36,5 +36,7 @@ cmd/*
 #Go exec
 main
 
+docker/database/data
+
 logs
 *.nothis*
