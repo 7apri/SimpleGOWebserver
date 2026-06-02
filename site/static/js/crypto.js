@@ -55,34 +55,33 @@ window.CryptoEngine = {
         document.cookie = `device_id=${deviceId}; path=/; max-age=31536000; SameSite=Lax; Secure`;
         return deviceId;
     },
-
     async verifyAndRegisterIdentity() {
         if (this.isRegistering) return;
-        
-        const deviceId = await this.initDeviceCookie();
-        
-        let keyPair = await cryptoDB.get('identity_keypair'); 
-        
-        if (!keyPair) {
-            this.isRegistering = true;
-            try {
+        this.isRegistering = true;
+
+        try {
+            const deviceId = await this.initDeviceCookie();
+            let keyPair = await cryptoDB.get('identity_keypair'); 
+            
+            // Phase 1: Ensure keys exist locally
+            if (!keyPair) {
                 console.log("generating new cryptographic device identity...");
                 keyPair = await window.crypto.subtle.generateKey(
                     { name: "ECDH", namedCurve: "P-256" },
                     true,
                     ["deriveKey", "deriveBits"]
                 );
-                
                 await cryptoDB.set('identity_keypair', keyPair);
-                await this.uploadPublicKey(deviceId, keyPair.publicKey);
-            } catch (err) {
-                console.error("Crypto generation failed:", err);
-            } finally {
-                this.isRegistering = false;
             }
+
+            await this.uploadPublicKey(deviceId, keyPair.publicKey);
+
+        } catch (err) {
+            console.error("Crypto verification/generation failed:", err);
+        } finally {
+            this.isRegistering = false;
         }
     },
-
     async uploadPublicKey(deviceId, publicKeyObj) {
         const exportedPublic = await window.crypto.subtle.exportKey("raw", publicKeyObj);
         const base64PublicKey = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
@@ -97,13 +96,17 @@ window.CryptoEngine = {
                 })
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("SERVER REJECTED KEY UPLOAD:", response.status, errorText);
+                return;
+            }
+
             if (response.ok) {
                 console.log("cryptographic identity securely locked to server session.");
-            } else if (response.status === 401 || response.status === 403) {
-                await cryptoDB.set('identity_keypair', null);
             }
         } catch (err) {
-            console.error("network error while registering crypto identity:", err);
+            console.error("network error:", err);
         }
     },
     async generateKeyPayloadForUsers(roomKey, userIds) {
@@ -287,6 +290,8 @@ class EncryptedMessage extends HTMLElement {
         }
 
         try {
+            const nvm = await window.CryptoEngine.ensureRoomKeyCached(roomId);
+            console.log(nvm);
             const roomKey = await cryptoDB.get(`room_key_${roomId}`);
             if (!roomKey) {
                 this.renderError("message encrypted (Key missing)");

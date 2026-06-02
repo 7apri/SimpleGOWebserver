@@ -125,6 +125,11 @@ func (rw *RouteWrapper) HandleUploadRoomKeys(w http.ResponseWriter, r *http.Requ
 		return web.NewError(http.StatusBadRequest, "invalid room ID format", err, nil)
 	}
 
+	cookie, err := r.Cookie("device_id")
+	if err != nil {
+		return web.NewError(http.StatusBadRequest, "no device id cookie", err, nil)
+	}
+
 	var payload UploadKeysPayload
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&payload); err != nil {
 		return web.NewError(http.StatusBadRequest, "malformed payload", err, nil)
@@ -140,12 +145,12 @@ func (rw *RouteWrapper) HandleUploadRoomKeys(w http.ResponseWriter, r *http.Requ
 
 	batch := &pgx.Batch{}
 	const insertKey = `
-        INSERT INTO room_keys (room_id, device_id, key_version, encrypted_room_key)
-        VALUES ($1, $2, 1, $3)
-        ON CONFLICT (room_id, device_id) DO NOTHING`
+    INSERT INTO room_keys (room_id, device_id, key_sender_device_id, key_version, encrypted_room_key)
+    VALUES ($1, $2, $3, 1, $4)
+    ON CONFLICT (room_id, device_id, key_version) DO NOTHING`
 
 	for _, k := range payload.EncryptedKeys {
-		batch.Queue(insertKey, roomID, k.DeviceID, k.EncryptedRoomKey)
+		batch.Queue(insertKey, roomID, k.DeviceID, cookie.Value, k.EncryptedRoomKey)
 	}
 
 	br := rw.database.Pool.SendBatch(ctx, batch)

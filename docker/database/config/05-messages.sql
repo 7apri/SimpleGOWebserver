@@ -19,6 +19,7 @@ CREATE TABLE room_participants (
 CREATE TABLE room_keys (
     room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
     device_id UUID REFERENCES user_devices(device_id) ON DELETE CASCADE,
+    key_sender_device_id UUID REFERENCES user_devices(device_id) ON DELETE CASCADE,
     key_version INT NOT NULL DEFAULT 1,
     encrypted_room_key TEXT NOT NULL,
     PRIMARY KEY (room_id, device_id, key_version)

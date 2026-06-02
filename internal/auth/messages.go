@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -22,23 +21,32 @@ func (h *AuthHandler) HandleRegisterCryptoIdentity(w http.ResponseWriter, r *htt
 		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
 	}
 
+	deviceCookie, err := r.Cookie("device_id")
+	if err != nil {
+		return web.NewError(http.StatusUnauthorized, "missing device cookie", err, nil)
+	}
+
+	devID, err := uuid.Parse(deviceCookie.Value)
+	if err != nil {
+		return web.NewError(http.StatusBadRequest, "invalid cookie format", err, nil)
+	}
+
 	var payload RegisterCryptoPayload
 	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&payload); err != nil {
 		return web.NewError(http.StatusBadRequest, "decode", err, nil)
 	}
 
-	devID, err := uuid.Parse(payload.DeviceID)
-	if err != nil || payload.PublicKey == "" {
-		return web.NewError(http.StatusBadRequest, "invalid", err, nil)
+	if payload.PublicKey == "" {
+		return web.NewError(http.StatusBadRequest, "missing key", nil, nil)
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*2)
 	defer cancel()
 
 	const q = `
-		UPDATE user_devices 
-		SET public_key = $1, last_seen = NOW()
-		WHERE device_id = $2 AND user_id = $3`
+        UPDATE user_devices 
+        SET public_key = $1, last_seen = NOW()
+        WHERE device_id = $2 AND user_id = $3`
 
 	res, err := h.db.Pool.Exec(ctx, q, payload.PublicKey, devID, user.ID)
 	if err != nil {
@@ -181,8 +189,8 @@ func (h *AuthHandler) HandleFetchRoomKey(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
 	}
-	roomID := r.PathValue("roomID")
 
+	roomID := r.PathValue("roomID")
 	deviceCookie, err := r.Cookie("device_id")
 	if err != nil {
 		return web.NewError(http.StatusUnauthorized, "unauthorized", nil, nil)
@@ -192,14 +200,13 @@ func (h *AuthHandler) HandleFetchRoomKey(w http.ResponseWriter, r *http.Request)
 	defer cancel()
 
 	const q = `
-		SELECT rk.encrypted_room_key, creator_device.public_key
-		FROM room_keys rk
-		JOIN rooms r ON rk.room_id = r.id
-		JOIN user_devices creator_device ON r.created_by = creator_device.user_id 
-		WHERE rk.room_id = $1 
-		  AND rk.device_id = $2 
-		  AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
-		LIMIT 1`
+        SELECT rk.encrypted_room_key, sender_dev.public_key
+        FROM room_keys rk
+        JOIN user_devices sender_dev ON rk.key_sender_device_id = sender_dev.device_id
+        WHERE rk.room_id = $1 
+          AND rk.device_id = $2 
+          AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
+        LIMIT 1`
 
 	var resp RoomKeyResponse
 	err = h.db.Pool.QueryRow(ctx, q, roomID, deviceCookie.Value, user.ID).Scan(
@@ -207,9 +214,7 @@ func (h *AuthHandler) HandleFetchRoomKey(w http.ResponseWriter, r *http.Request)
 		&resp.SenderPublicKey,
 	)
 	if err != nil {
-		slog.Error("fuuuh", "err", err)
-		return web.NewError(http.StatusForbidden, "forbidden", nil, nil)
-
+		return web.NewError(http.StatusNotFound, "key not found", err, nil)
 	}
 
 	return web.SendJSON(w, http.StatusOK, resp)
