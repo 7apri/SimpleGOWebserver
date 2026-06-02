@@ -63,7 +63,6 @@ window.CryptoEngine = {
             const deviceId = await this.initDeviceCookie();
             let keyPair = await cryptoDB.get('identity_keypair'); 
             
-            // Phase 1: Ensure keys exist locally
             if (!keyPair) {
                 console.log("generating new cryptographic device identity...");
                 keyPair = await window.crypto.subtle.generateKey(
@@ -290,8 +289,6 @@ class EncryptedMessage extends HTMLElement {
         }
 
         try {
-            const nvm = await window.CryptoEngine.ensureRoomKeyCached(roomId);
-            console.log(nvm);
             const roomKey = await cryptoDB.get(`room_key_${roomId}`);
             if (!roomKey) {
                 this.renderError("message encrypted (Key missing)");
@@ -331,6 +328,13 @@ if (document.readyState === 'loading') {
     window.CryptoEngine.verifyAndRegisterIdentity();
 }
 
-document.body.addEventListener('htmx:afterOnLoad', () => {
-    window.CryptoEngine.verifyAndRegisterIdentity();
+document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+    const target = evt.detail.elt;
+    if (target && target.id === 'chat-messages') {
+        const latestTimestamp = evt.detail.xhr.getResponseHeader('X-Latest-Timestamp');
+        
+        if (latestTimestamp) {
+            target.setAttribute('data-since', latestTimestamp);
+        }
+    }
 });

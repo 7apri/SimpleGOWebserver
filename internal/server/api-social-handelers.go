@@ -227,17 +227,19 @@ func (rw *RouteWrapper) HandleSendMessage(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return web.NewError(http.StatusForbidden, "forbidden", nil, nil)
 	}
+	/*
+	   	data := map[string]interface{}{
+	   		"ID":               msgID,
+	   		"SenderUsername":   user.Username,
+	   		"CreatedAt":        createdAt,
+	   		"ContentEncrypted": contentEncrypted,
+	   		"Nonce":            nonce,
+	   		"RoomID":           roomID,
+	   	}
 
-	data := map[string]interface{}{
-		"ID":               msgID,
-		"SenderUsername":   user.Username,
-		"CreatedAt":        createdAt,
-		"ContentEncrypted": contentEncrypted,
-		"Nonce":            nonce,
-		"RoomID":           roomID,
-	}
-
-	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message"}, data)
+	   return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message"}, data)
+	*/
+	return nil
 }
 
 type MessageRow struct {
@@ -271,52 +273,65 @@ func (rw *RouteWrapper) HandleFetchMessages(w http.ResponseWriter, r *http.Reque
             SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
             FROM messages m
             JOIN users u ON m.sender_id = u.id
+            JOIN room_participants rp ON m.room_id = rp.room_id AND rp.user_id = $3
             WHERE m.room_id = $1 AND m.created_at > $2
-              AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
             ORDER BY m.created_at ASC`
 		args = []interface{}{roomID, since, user.ID}
 	} else {
 		if cursor == "" {
-			cursor = time.Now().Format(time.RFC3339)
+			cursor = time.Now().Format(time.RFC3339Nano)
 		}
 		q = `
-            SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
-            FROM messages m
-            JOIN users u ON m.sender_id = u.id
-            WHERE m.room_id = $1 AND m.created_at < $2
-              AND EXISTS (SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $3)
-            ORDER BY m.created_at DESC
-            LIMIT 20`
+            WITH msg_chunk AS (
+                SELECT m.id, u.username, m.content_encrypted, m.nonce, m.room_id, m.created_at
+                FROM messages m
+                JOIN users u ON m.sender_id = u.id
+                JOIN room_participants rp ON m.room_id = rp.room_id AND rp.user_id = $3
+                WHERE m.room_id = $1 AND m.created_at < $2
+                ORDER BY m.created_at DESC
+                LIMIT 20
+            )
+            SELECT * FROM msg_chunk ORDER BY created_at ASC`
 		args = []interface{}{roomID, cursor, user.ID}
 	}
 
 	rows, err := rw.database.Pool.Query(ctx, q, args...)
 	if err != nil {
-		return web.NewError(http.StatusInternalServerError, "database error", nil, nil)
+		return web.NewError(http.StatusInternalServerError, "database error", err, nil)
 	}
 	defer rows.Close()
 
-	var messages []MessageRow
+	messages := make([]MessageRow, 0, 20)
 	for rows.Next() {
 		var m MessageRow
-		if err := rows.Scan(&m.ID, &m.SenderUsername, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt); err == nil {
-			messages = append(messages, m)
+		if err := rows.Scan(&m.ID, &m.SenderUsername, &m.ContentEncrypted, &m.Nonce, &m.RoomID, &m.CreatedAt); err != nil {
+			return web.NewError(http.StatusInternalServerError, "failed to parse message history", err, nil)
 		}
+		messages = append(messages, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return web.NewError(http.StatusInternalServerError, "cursor stream breakage", err, nil)
 	}
 
 	isPolling := since != ""
 
-	if isPolling && len(messages) > 0 {
-		_, _ = rw.database.Pool.Exec(ctx,
-			"UPDATE room_participants SET last_read_at = NOW() WHERE room_id = $1 AND user_id = $2",
-			roomID, user.ID)
+	if isPolling {
+		if len(messages) > 0 {
+			_, _ = rw.database.Pool.Exec(ctx,
+				"UPDATE room_participants SET last_read_at = NOW() WHERE room_id = $1 AND user_id = $2",
+				roomID, user.ID)
 
-		latest := messages[len(messages)-1].CreatedAt
-		w.Header().Set("X-Latest-Timestamp", latest.Format(time.RFC3339))
+			latest := messages[len(messages)-1].CreatedAt.Add(time.Microsecond)
+			w.Header().Set("X-Latest-Timestamp", latest.Format(time.RFC3339Nano))
+		} else {
+			w.Header().Set("X-Latest-Timestamp", since)
+		}
 	}
 
 	return rw.templateMgr.WriteTemplateWeb(w, r, templates.TemplateKey{Kind: "htmx", Name: "chat-message-list"}, map[string]interface{}{
 		"Messages":  messages,
+		"UserId":    user.ID,
 		"IsPolling": isPolling,
 	})
 }

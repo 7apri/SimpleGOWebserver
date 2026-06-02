@@ -233,9 +233,14 @@ func (rw *RouteWrapper) HandleChat(w http.ResponseWriter, r *http.Request) *web.
 		"CurrentUserID": user.ID,
 	}
 
+	var meta string
+	if len(messages) > 0 {
+		meta = strconv.FormatInt(messages[len(messages)-1].CreatedAt.UnixNano(), 10)
+	}
+
 	return rw.templateMgr.WriteTemplateHtmx(w, r,
 		templates.TemplateKey{Kind: "page", Name: "main"},
 		templates.TemplateKey{Kind: "htmx", Name: "chat"},
-		profile, data, templates.PageMeta{},
+		profile, data, templates.PageMeta{}, meta,
 	)
 }

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/7apri/SimpleGOWebserver/internal/consts"
 	"github.com/7apri/SimpleGOWebserver/internal/i18n"
@@ -143,6 +144,9 @@ func (mgr *TemplateManager) funcMapBase() template.FuncMap {
 				return matches[1]
 			}
 			return ""
+		},
+		"timeNow": func() string {
+			return time.Now().Format(time.RFC3339)
 		},
 	}
 }

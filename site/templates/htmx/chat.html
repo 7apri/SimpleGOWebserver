@@ -4,22 +4,22 @@ name : chat
 ---
 <div class="chat-wrapper">
     <div id="chat-messages" 
-         hx-get="/api/rooms/{{.Data.RoomID}}/messages?since=" 
-         hx-trigger="every 20s" 
+         hx-get="/api/rooms/{{.Data.RoomID}}/messages" 
+         hx-trigger="every 1s"
          hx-swap="beforeend"
-         hx-indicator=".loading-spinner">
-        
+         data-since="{{ timeNow }}"
+         hx-on:htmx:config-request="event.detail.parameters['since'] = this.getAttribute('data-since')"
+         class="flx col gap-md">
+         {{ range $message := .Data.Messages }}
+         <encrypted-message 
+             room-id="{{$message.RoomID}}" 
+             content="{{$message.ContentEncrypted}}" 
+             nonce="{{$message.Nonce}}"
+             {{ if eq $.Data.CurrentUserID $message.SenderID  }}class="txt-right"{{ end }}
+             >
+         </encrypted-message>
+         {{ end }}
     </div>
-
-    {{ range $message := .Data.Messages }}
-    <encrypted-message 
-        room-id="{{$message.RoomID}}" 
-        content="{{$message.ContentEncrypted}}" 
-        nonce="{{$message.Nonce}}">
-        Decrypting...
-    </encrypted-message>
-    {{ end }}
-
     <form onsubmit="event.preventDefault(); window.CryptoEngine.sendMessage('{{.Data.RoomID}}', document.getElementById('msg-input').value); document.getElementById('msg-input').value='';">
         <textarea id="msg-input" name="content" required placeholder="Type a message..."></textarea>
         <button type="submit">Send</button>

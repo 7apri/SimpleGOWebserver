@@ -1,0 +1,12 @@
+---
+kind : htmx
+name : chat-message-list
+---
+{{ range $message := .Messages }}
+    <encrypted-message 
+        room-id="{{$message.RoomID}}"
+        content="{{$message.ContentEncrypted}}" 
+        nonce="{{$message.Nonce}}"
+        {{ if eq $.UserId $message.SenderID  }}class="txt-right"{{ end }}>
+    </encrypted-message>
+{{ end }}
